@@ -3,6 +3,7 @@ package br.com.hadryan.duo.finance.transaction;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -39,20 +40,25 @@ public class RecurrenceScheduler {
                 return;
             }
 
-            Transaction child = new Transaction();
-            child.setCouple(parent.getCouple());
-            child.setUser(parent.getUser());
-            child.setCategory(parent.getCategory());
-            child.setType(parent.getType());
-            child.setAmount(parent.getAmount());
-            child.setDescription(parent.getDescription());
-            child.setDate(nextDate);
-            child.setRecurring(false);          // filho não gera novos filhos
-            child.setParentTransaction(parent);
+            Transaction child = getTransaction(parent, nextDate);
 
             repository.save(child);
             log.debug("Filho criado: parent={} date={}", parent.getId(), nextDate);
         });
+    }
+
+    private static @NonNull Transaction getTransaction(Transaction parent, LocalDate nextDate) {
+        Transaction child = new Transaction();
+        child.setCouple(parent.getCouple());
+        child.setUser(parent.getUser());
+        child.setCategory(parent.getCategory());
+        child.setType(parent.getType());
+        child.setAmount(parent.getAmount());
+        child.setDescription(parent.getDescription());
+        child.setDate(nextDate);
+        child.setRecurring(false);          // filho não gera novos filhos
+        child.setParentTransaction(parent);
+        return child;
     }
 
     private LocalDate resolveNextDate(Transaction parent, LocalDate today) {
