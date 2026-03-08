@@ -4,3 +4,19 @@ spring:
   threads:
     virtual:
       enabled: true
+
+# ──────────────────────────────────────────────
+#  App
+# ──────────────────────────────────────────────
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  invite-expiration-hours: 72
+
+# ──────────────────────────────────────────────
+#  SpringDoc / Swagger
+# ──────────────────────────────────────────────
+springdoc:
+  swagger-ui:
+    path: /docs
+  api-docs:
+    path: /v3/api-docs

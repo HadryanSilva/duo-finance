@@ -5,7 +5,42 @@ spring:
     password: postgres
     driver-class-name: org.postgresql.Driver
   jpa:
-    open-in-view: false
     hibernate:
       ddl-auto: create-drop
-    show-sql: true
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  # OAuth2
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope:
+              - openid
+              - profile
+              - email
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+
+  # E-mail (configurar no profile de prod)
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USER:}
+    password: ${MAIL_PASS:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+
+jwt:
+  secret: "b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad"
+
+logging:
+  level:
+    br.com.duofinance: DEBUG
+    org.springframework.security: DEBUG

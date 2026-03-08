@@ -2,7 +2,9 @@ package br.com.hadryan.duo.finance.user;
 
 import br.com.hadryan.duo.finance.couple.Couple;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -46,5 +48,16 @@ public class User {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    protected User() {}
+
+    public User(String firstName, String lastName, String email, String provider, String providerId, String avatarUrl) {
+        this.firstName  = firstName;
+        this.lastName  = lastName;
+        this.email      = email;
+        this.provider   = provider;
+        this.providerId = providerId;
+        this.avatarUrl  = avatarUrl;
+    }
 
 }
