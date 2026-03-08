@@ -6,7 +6,7 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: create
     open-in-view: false
     properties:
       hibernate:
@@ -42,5 +42,5 @@ jwt:
 
 logging:
   level:
-    br.com.duofinance: DEBUG
+    br.com.hadryan.duo.finance: DEBUG
     org.springframework.security: DEBUG

@@ -11,4 +11,6 @@ public interface CoupleRepository extends JpaRepository<Couple, UUID> {
 
     Optional<Couple> findByInviteToken(String inviteToken);
 
+
+
 }

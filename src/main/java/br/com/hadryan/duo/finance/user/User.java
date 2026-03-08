@@ -30,7 +30,7 @@ public class User {
 
     private String password;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "couple_id")
     private Couple couple;
 
@@ -58,6 +58,11 @@ public class User {
         this.provider   = provider;
         this.providerId = providerId;
         this.avatarUrl  = avatarUrl;
+    }
+
+    /** Conveniência para exibição — não persistido. */
+    public String getFullName() {
+        return firstName + " " + lastName;
     }
 
 }

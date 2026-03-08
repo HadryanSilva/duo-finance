@@ -20,7 +20,7 @@ import java.util.UUID;
 
 @RequiredArgsConstructor
 @Component
-public class  JwtAuthFilter extends OncePerRequestFilter {
+public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserRepository userRepository;
@@ -37,9 +37,10 @@ public class  JwtAuthFilter extends OncePerRequestFilter {
         if (token != null && jwtService.isValid(token)) {
             UUID userId = jwtService.extractUserId(token);
 
-            // Só autentica se ainda não há autenticação no contexto
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
-                userRepository.findById(userId).ifPresent(user -> authenticate(user, request));
+                // JOIN FETCH garante que couple está carregada sem precisar de transação ativa
+                userRepository.findByIdWithCouple(userId)
+                        .ifPresent(user -> authenticate(user, request));
             }
         }
 
@@ -58,7 +59,7 @@ public class  JwtAuthFilter extends OncePerRequestFilter {
         var auth = new UsernamePasswordAuthenticationToken(
                 user,
                 null,
-                List.of()   // authorities — expandir com roles futuramente
+                List.of()
         );
         auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
         SecurityContextHolder.getContext().setAuthentication(auth);
