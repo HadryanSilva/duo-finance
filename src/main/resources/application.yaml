@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: duo-finance
+  threads:
+    virtual:
+      enabled: true
