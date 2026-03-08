@@ -21,6 +21,8 @@ public class Couple {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    private String name;
+
     @Column(name = "invite_token", length = 64)
     private String inviteToken;
 
@@ -36,4 +38,9 @@ public class Couple {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+    protected Couple() {}
+
+    public Couple(String name) {
+        this.name = name;
+    }
 }
