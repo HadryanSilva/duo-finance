@@ -3,6 +3,7 @@ package br.com.hadryan.duo.finance.auth;
 import br.com.hadryan.duo.finance.auth.dto.AuthDtos;
 import br.com.hadryan.duo.finance.auth.jwt.JwtService;
 import br.com.hadryan.duo.finance.user.User;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,10 +18,7 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
     private final JwtService jwtService;
 
-    /**
-     * POST /auth/refresh
-     * Troca um refresh token válido por um novo par access + refresh (rotação).
-     */
+    @Operation(summary = "Troca um refresh token válido por um novo par access + refresh (rotação).")
     @PostMapping("/refresh")
     public ResponseEntity<AuthDtos.TokenResponse> refresh(
             @Valid @RequestBody AuthDtos.RefreshRequest request
@@ -33,20 +31,14 @@ public class AuthController {
         return ResponseEntity.ok(buildTokenResponse(newAccessToken, newRefresh.getToken(), user));
     }
 
-    /**
-     * POST /auth/logout
-     * Revoga todos os refresh tokens do usuário autenticado.
-     */
+    @Operation(summary = "Revoga todos os refresh tokens do usuário autenticado, efetivamente desconectando-o de todas as sessões.")
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@AuthenticationPrincipal User user) {
         refreshTokenService.revokeAllForUser(user.getId());
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * GET /auth/me
-     * Retorna os dados do usuário autenticado pelo JWT atual.
-     */
+    @Operation(summary = "Retorna os dados do usuário autenticado pelo JWT atual.")
     @GetMapping("/me")
     public ResponseEntity<AuthDtos.UserInfo> me(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(toUserInfo(user));
