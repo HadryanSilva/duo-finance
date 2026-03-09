@@ -6,18 +6,20 @@ import br.com.hadryan.duo.finance.auth.oauth.OAuth2SuccessHandler;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.savedrequest.NullRequestCache;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.security.web.savedrequest.NullRequestCache;
-import org.springframework.security.web.AuthenticationEntryPoint;
-import org.springframework.http.HttpStatus;
 
 import java.util.List;
 
@@ -43,6 +45,11 @@ public class SecurityConfig {
     }
 
     @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder(12);
+    }
+
+    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -53,10 +60,14 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
 
+                .requestCache(cache -> cache.requestCache(new NullRequestCache()))
+
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/oauth2/**",
                                 "/login/**",
+                                "/api/auth/register",
+                                "/api/auth/login",
                                 "/auth/refresh",
                                 "/auth/logout",
                                 "/v3/api-docs/**",
@@ -72,6 +83,8 @@ public class SecurityConfig {
                         .successHandler(oAuth2SuccessHandler)
                 )
 
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(bearerTokenEntryPoint()))
+
                 // JWT filter roda antes — se o token for válido, autentica sem precisar de sessão
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
 
@@ -83,12 +96,10 @@ public class SecurityConfig {
         return (request, response, authException) -> {
             String authHeader = request.getHeader("Authorization");
             if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                // Requisição JWT sem autenticação válida → 401
                 response.setStatus(HttpStatus.UNAUTHORIZED.value());
                 response.setContentType("application/json");
                 response.getWriter().write("{\"error\": \"Unauthorized\"}");
             } else {
-                // Requisição de browser sem token → redireciona para OAuth2
                 new org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint("/oauth2/authorization/google")
                         .commence(request, response, authException);
             }
