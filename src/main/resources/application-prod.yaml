@@ -46,3 +46,12 @@ jwt:
   secret: ${JWT_SECRET}             # mínimo 256 bits — gere com: openssl rand -hex 32
   access-token-expiration-ms: 900000        # 15 minutos
   refresh-token-expiration-ms: 604800000    # 7 dias
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
