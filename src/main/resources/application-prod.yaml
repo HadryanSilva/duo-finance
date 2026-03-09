@@ -1,9 +1,14 @@
 spring:
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}
+    username: ${PGUSER}
+    password: ${PGPASSWORD}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      max-lifetime: 600000        # 10 min (menor que timeout do Railway ~15min)
+      keepalive-time: 60000       # ping a cada 1 min para manter conexão viva
+      connection-timeout: 20000
+      idle-timeout: 300000
   jpa:
     hibernate:
       ddl-auto: validate          # Flyway cuida do schema — nunca usar create/update em prod
@@ -48,3 +53,19 @@ jwt:
   secret: ${JWT_SECRET}             # mínimo 256 bits — gere com: openssl rand -hex 32
   access-token-expiration-ms: 900000        # 15 minutos
   refresh-token-expiration-ms: 604800000    # 7 dias
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+  health:
+    mail:
+      enabled: false
+
+server:
+  forward-headers-strategy: framework
+
