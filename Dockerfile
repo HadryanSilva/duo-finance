@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 1 — Build nativo com GraalVM
 # ─────────────────────────────────────────────────────────────────────────────
-FROM ghcr.io/graalvm/native-image-community:24 AS builder
+FROM ghcr.io/graalvm/native-image-community:25 AS builder
 
 WORKDIR /app
 
