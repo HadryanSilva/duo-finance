@@ -66,3 +66,6 @@ management:
     mail:
       enabled: false
 
+server:
+  forward-headers-strategy: framework
+
