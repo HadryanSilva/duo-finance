@@ -1,52 +1,38 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Stage 1 — Build nativo com GraalVM
+# Stage 1 — Build JAR com Microsoft OpenJDK 25
 # ─────────────────────────────────────────────────────────────────────────────
-FROM ghcr.io/graalvm/native-image-community:25 AS builder
+FROM mcr.microsoft.com/openjdk/jdk:25-ubuntu-24.04 AS builder
 
 WORKDIR /app
 
-# Copia wrapper e arquivos de configuração do Gradle primeiro (melhor cache)
 COPY gradlew .
 COPY gradle/ gradle/
 COPY build.gradle .
 COPY settings.gradle .
 
-# Garante que o wrapper seja executável
 RUN chmod +x gradlew
 
-# Baixa dependências sem compilar (cache layer)
-RUN ./gradlew dependencies --no-daemon -q
+# Baixa dependências (cache layer separado)
+RUN ./gradlew dependencies --no-daemon -q 2>/dev/null || true
 
-# Copia o código-fonte
 COPY src/ src/
 
-# Compila o binário nativo
-# -Pnative ativa o plugin GraalVM Native Build Tools
-RUN ./gradlew nativeCompile --no-daemon -Pnative \
-    -x test \
-    --info
+RUN ./gradlew bootJar --no-daemon -x test
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Stage 2 — Imagem final mínima (sem JVM)
+# Stage 2 — Imagem final
 # ─────────────────────────────────────────────────────────────────────────────
-FROM debian:bookworm-slim
+FROM mcr.microsoft.com/openjdk/jdk:25-ubuntu-24.04
 
 WORKDIR /app
 
-# Dependências mínimas para o binário nativo em runtime
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+RUN useradd -r -s /bin/false appuser
 
-# Copia apenas o binário compilado do stage anterior
-COPY --from=builder /app/build/native/nativeCompile/duo-finance .
+COPY --from=builder /app/build/libs/*.jar app.jar
 
-# Usuário não-root por segurança
-RUN useradd -r -s /bin/false appuser && chown appuser:appuser duo-finance
+RUN chown appuser:appuser app.jar
 USER appuser
 
 EXPOSE 8080
 
-# Ativa o profile de produção e aponta para o binário
-ENTRYPOINT ["./duo-finance", \
-    "--spring.profiles.active=prod"]
+ENTRYPOINT ["java", "-jar", "app.jar", "--spring.profiles.active=prod"]
