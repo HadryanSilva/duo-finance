@@ -22,19 +22,22 @@ public class CoupleService {
     private final JavaMailSender mailSender;
     private final long inviteExpirationHours;
     private final String frontendUrl;
+    private final String mailFrom;
 
     public CoupleService(
             CoupleRepository coupleRepository,
             UserRepository userRepository,
             JavaMailSender mailSender,
             @Value("${app.invite-expiration-hours}") long inviteExpirationHours,
-            @Value("${app.frontend-url}") String frontendUrl
+            @Value("${app.frontend-url}") String frontendUrl,
+            @Value("${spring.mail.username}") String mailFrom
     ) {
         this.coupleRepository      = coupleRepository;
         this.userRepository        = userRepository;
         this.mailSender            = mailSender;
         this.inviteExpirationHours = inviteExpirationHours;
         this.frontendUrl           = frontendUrl;
+        this.mailFrom              = mailFrom;
     }
 
     // ── Criar conta do casal ──────────────────────────────────────────────────
@@ -158,6 +161,7 @@ public class CoupleService {
         String inviteUrl = frontendUrl + "/invite/" + token;
 
         SimpleMailMessage mail = new SimpleMailMessage();
+        mail.setFrom(mailFrom);
         mail.setTo(to);
         mail.setSubject("💑 " + sender.getFirstName() + " te convidou para o DuoFinance!");
         mail.setText("""
