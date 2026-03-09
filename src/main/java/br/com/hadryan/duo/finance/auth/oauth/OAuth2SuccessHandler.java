@@ -5,23 +5,17 @@ import br.com.hadryan.duo.finance.auth.jwt.JwtService;
 import br.com.hadryan.duo.finance.user.User;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.jspecify.annotations.NonNull;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 
-/**
- * Chamado pelo Spring Security após o OAuth2 login ser concluído com sucesso.
- * Emite o JWT próprio e redireciona o frontend com os tokens na query string.
- *
- * Em produção, prefira enviar os tokens via HttpOnly cookie ao invés de query param.
- */
 @Component
-public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
+public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
@@ -39,20 +33,23 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
     @Override
     public void onAuthenticationSuccess(
-            @NonNull HttpServletRequest request,
-            @NonNull HttpServletResponse response,
+            HttpServletRequest request,
+            HttpServletResponse response,
             Authentication authentication
     ) throws IOException {
 
         AuthenticatedOAuth2User oAuth2User = (AuthenticatedOAuth2User) authentication.getPrincipal();
-        assert oAuth2User != null;
         User user = oAuth2User.getUser();
 
         String accessToken  = jwtService.generateAccessToken(user);
         String refreshToken = refreshTokenService.create(user).getToken();
 
-        // Redireciona para o frontend com os tokens
-        // O frontend lê os params, armazena os tokens e limpa a URL
+        // Invalida sessão OAuth2 — não é mais necessária
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+
         String redirectUrl = UriComponentsBuilder
                 .fromUriString(frontendUrl + "/auth/callback")
                 .queryParam("access_token",  accessToken)
@@ -60,7 +57,9 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 .build()
                 .toUriString();
 
-        getRedirectStrategy().sendRedirect(request, response, redirectUrl);
+        // Seta o header Location explicitamente e usa 302
+        response.setStatus(HttpServletResponse.SC_FOUND);
+        response.setHeader("Location", redirectUrl);
+        response.getWriter().flush();
     }
-
 }

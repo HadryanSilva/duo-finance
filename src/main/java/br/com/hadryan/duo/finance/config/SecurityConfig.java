@@ -15,6 +15,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.security.web.savedrequest.NullRequestCache;
 
 import java.util.List;
 
@@ -42,22 +43,20 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
-                // Desabilita CSRF — API stateless com JWT não precisa
                 .csrf(AbstractHttpConfigurer::disable)
-
-                // CORS configurado abaixo
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                // Sem sessões no servidor — 100% stateless
+                // IF_REQUIRED: cria sessão apenas quando o OAuth2 precisar (fluxo de login).
+                // As rotas de API são stateless via JWT — a sessão não é usada nelas.
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                        session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
 
-                // Regras de autorização
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/oauth2/**",
                                 "/login/**",
                                 "/auth/refresh",
+                                "/auth/logout",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
@@ -65,14 +64,13 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
 
-                // Configura o fluxo OAuth2
                 .oauth2Login(oauth -> oauth
                         .userInfoEndpoint(userInfo ->
                                 userInfo.oidcUserService(oAuth2UserService))
                         .successHandler(oAuth2SuccessHandler)
                 )
 
-                // Injeta o filtro JWT antes do filtro padrão de autenticação
+                // JWT filter roda antes — se o token for válido, autentica sem precisar de sessão
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
 
                 .build();
@@ -90,5 +88,4 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", config);
         return source;
     }
-
 }
