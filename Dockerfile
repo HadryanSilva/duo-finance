@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 1 — Build JAR com Microsoft OpenJDK 25
 # ─────────────────────────────────────────────────────────────────────────────
-FROM mcr.microsoft.com/openjdk/jdk:25-ubuntu-24.04 AS builder
+FROM eclipse-temurin:25-jdk-alpine AS builder
 
 WORKDIR /app
 
@@ -22,7 +22,7 @@ RUN ./gradlew bootJar --no-daemon -x test
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 2 — Imagem final
 # ─────────────────────────────────────────────────────────────────────────────
-FROM mcr.microsoft.com/openjdk/jdk:25-ubuntu-24.04
+FROM eclipse-temurin:25-jdk-alpine
 
 WORKDIR /app
 
