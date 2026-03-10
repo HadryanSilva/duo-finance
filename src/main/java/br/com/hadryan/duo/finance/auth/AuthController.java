@@ -17,6 +17,7 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
     private final JwtService jwtService;
     private final AuthService authService;
+    private final PasswordResetService  passwordResetService;
 
     /**
      * POST /api/auth/register
@@ -61,6 +62,30 @@ public class AuthController {
     @PostMapping("/auth/logout")
     public ResponseEntity<Void> logout(@AuthenticationPrincipal User user) {
         refreshTokenService.revokeAllForUser(user.getId());
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * POST /api/auth/forgot-password
+     * Envia e-mail com link de redefinição. Sempre retorna 204 (sem enumerar e-mails).
+     */
+    @PostMapping("/api/auth/forgot-password")
+    public ResponseEntity<Void> forgotPassword(
+            @Valid @RequestBody AuthDtos.ForgotPasswordRequest request
+    ) {
+        passwordResetService.requestReset(request.email());
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * POST /api/auth/reset-password
+     * Valida o token e define a nova senha.
+     */
+    @PostMapping("/api/auth/reset-password")
+    public ResponseEntity<Void> resetPassword(
+            @Valid @RequestBody AuthDtos.ResetPasswordRequest request
+    ) {
+        passwordResetService.resetPassword(request.token(), request.newPassword());
         return ResponseEntity.noContent().build();
     }
 
