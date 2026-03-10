@@ -25,7 +25,6 @@ public class TransactionDtos {
             RecurrenceRule recurrenceRule,
             LocalDate recurrenceEndDate
     ) {
-        // Validação de negócio no compact constructor
         public CreateTransactionRequest {
             if (recurring && recurrenceRule == null) {
                 throw new IllegalArgumentException(
@@ -73,6 +72,7 @@ public class TransactionDtos {
             TransactionType type,
             UUID userId,
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            String description          // RF27 — busca textual por descrição
     ) {}
 }
