@@ -82,3 +82,9 @@ logging:
     root: INFO
     br.com.hadryan.duo.finance: INFO
     org.springframework.security: WARN
+
+# ── Server ─────────────────────────────────────────────────────────────────────
+# Garante que o Spring usa o Host/Proto corretos vindos do nginx
+# para montar a redirect_uri do OAuth2
+server:
+  forward-headers-strategy: framework
