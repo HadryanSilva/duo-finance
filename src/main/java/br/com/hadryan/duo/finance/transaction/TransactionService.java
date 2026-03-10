@@ -5,13 +5,17 @@ import br.com.hadryan.duo.finance.shared.exception.BusinessException;
 import br.com.hadryan.duo.finance.shared.exception.ResourceNotFoundException;
 import br.com.hadryan.duo.finance.transaction.dto.TransactionDtos;
 import br.com.hadryan.duo.finance.user.User;
+import jakarta.persistence.criteria.Predicate;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -33,7 +37,7 @@ public class TransactionService {
         tx.setCouple(couple);
         tx.setUser(currentUser);
         tx.setCategory(request.category());
-        tx.setType(request.category().getType());   // derivado do enum — nunca inconsistente
+        tx.setType(request.category().getType());
         tx.setAmount(request.amount());
         tx.setDescription(request.description());
         tx.setDate(request.date());
@@ -44,7 +48,11 @@ public class TransactionService {
         return toResponse(repository.save(tx));
     }
 
-    // ── Listar (paginado + filtros) ───────────────────────────────────────────
+    // ── Listar (paginado + filtros dinâmicos via Specification) ───────────────
+    //
+    // Usa JpaSpecificationExecutor para construir os predicados em Java.
+    // Apenas os filtros não-nulos viram cláusulas WHERE — nenhum parâmetro
+    // nulo chega ao PostgreSQL, eliminando o erro "could not determine data type".
 
     @Transactional
     public Page<TransactionDtos.TransactionResponse> findAll(
@@ -54,15 +62,46 @@ public class TransactionService {
     ) {
         Couple couple = requireCouple(currentUser);
 
-        return repository.findAllWithFilters(
-                couple.getId(),
-                filter.category(),
-                filter.type(),
-                filter.userId(),
-                filter.startDate(),
-                filter.endDate(),
-                pageable
-        ).map(this::toResponse);
+        String description = (filter.description() != null && !filter.description().isBlank())
+                ? filter.description().trim()
+                : null;
+
+        Specification<Transaction> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // Sempre obrigatório — isolamento por casal
+            predicates.add(cb.equal(root.get("couple").get("id"), couple.getId()));
+
+            // Soft delete
+            predicates.add(cb.isNull(root.get("deletedAt")));
+
+            // Filtros opcionais — só adicionados ao SQL se não forem null
+            if (filter.category() != null) {
+                predicates.add(cb.equal(root.get("category"), filter.category()));
+            }
+            if (filter.type() != null) {
+                predicates.add(cb.equal(root.get("type"), filter.type()));
+            }
+            if (filter.userId() != null) {
+                predicates.add(cb.equal(root.get("user").get("id"), filter.userId()));
+            }
+            if (filter.startDate() != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("date"), filter.startDate()));
+            }
+            if (filter.endDate() != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("date"), filter.endDate()));
+            }
+            if (description != null) {
+                predicates.add(cb.like(
+                        cb.lower(root.get("description")),
+                        "%" + description.toLowerCase() + "%"
+                ));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        return repository.findAll(spec, pageable).map(this::toResponse);
     }
 
     // ── Buscar por ID ─────────────────────────────────────────────────────────

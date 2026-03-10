@@ -42,7 +42,7 @@ public class TransactionController {
 
     /**
      * GET /api/transactions
-     * Query params opcionais: category, type, userId, startDate, endDate, page, size, sort
+     * Query params opcionais: category, type, userId, startDate, endDate, description, page, size, sort
      */
     @GetMapping
     public ResponseEntity<Page<TransactionDtos.TransactionResponse>> findAll(
@@ -51,11 +51,12 @@ public class TransactionController {
             @RequestParam(required = false) UUID userId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) String description,
             @PageableDefault(size = 20, sort = "date", direction = Sort.Direction.DESC) Pageable pageable,
             @AuthenticationPrincipal User currentUser
     ) {
         TransactionDtos.TransactionFilter filter =
-                new TransactionDtos.TransactionFilter(category, type, userId, startDate, endDate);
+                new TransactionDtos.TransactionFilter(category, type, userId, startDate, endDate, description);
 
         return ResponseEntity.ok(service.findAll(filter, currentUser, pageable));
     }
