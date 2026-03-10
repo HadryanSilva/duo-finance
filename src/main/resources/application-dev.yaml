@@ -47,9 +47,9 @@ jwt:
   refresh-token-expiration-ms: 604800000
 
 cloudinary:
-  cloud-name: djixabj3e
-  api-key: 583829154345176
-  api-secret: yZeEv5HlIbYM9w-TNZLvmcS8jF0
+  cloud-name: ${CLOUDINARY_NAME}
+  api-key: ${CLOUDINARY_API_KEY}
+  api-secret: ${CLOUDINARY_API_SECRET}
 
 logging:
   level:
