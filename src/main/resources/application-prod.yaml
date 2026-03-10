@@ -54,6 +54,11 @@ jwt:
   access-token-expiration-ms: 900000        # 15 minutos
   refresh-token-expiration-ms: 604800000    # 7 dias
 
+cloudinary:
+  cloud-name: ${CLOUDINARY_NAME}
+  api-key: ${CLOUDINARY_API_KEY}
+  api-secret: ${CLOUDINARY_API_SECRET}
+
 management:
   endpoints:
     web:
