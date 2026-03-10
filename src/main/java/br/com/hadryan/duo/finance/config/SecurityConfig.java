@@ -38,10 +38,10 @@ public class SecurityConfig {
             OAuth2SuccessHandler oAuth2SuccessHandler,
             @Value("${app.frontend-url}") String frontendUrl
     ) {
-        this.jwtAuthFilter      = jwtAuthFilter;
-        this.oAuth2UserService  = oAuth2UserService;
+        this.jwtAuthFilter        = jwtAuthFilter;
+        this.oAuth2UserService    = oAuth2UserService;
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
-        this.frontendUrl        = frontendUrl;
+        this.frontendUrl          = frontendUrl;
     }
 
     @Bean
@@ -50,13 +50,12 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http) {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                // IF_REQUIRED: cria sessão apenas quando o OAuth2 precisar (fluxo de login).
-                // As rotas de API são stateless via JWT — a sessão não é usada nelas.
+                // Sessão apenas para o fluxo OAuth2 — API é stateless via JWT
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
 
@@ -65,7 +64,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/oauth2/**",
-                                "/login/**",
+                                "/login/oauth2/**",
                                 "/api/auth/register",
                                 "/api/auth/login",
                                 "/auth/refresh",
@@ -86,9 +85,10 @@ public class SecurityConfig {
                         .successHandler(oAuth2SuccessHandler)
                 )
 
+                // Retorna 401 JSON para requisições de API sem token.
+                // NÃO redireciona para o Google — o frontend controla o início do fluxo OAuth2.
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(bearerTokenEntryPoint()))
 
-                // JWT filter roda antes — se o token for válido, autentica sem precisar de sessão
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
 
                 .build();
@@ -97,15 +97,9 @@ public class SecurityConfig {
     @Bean
     public AuthenticationEntryPoint bearerTokenEntryPoint() {
         return (request, response, authException) -> {
-            String authHeader = request.getHeader("Authorization");
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                response.setStatus(HttpStatus.UNAUTHORIZED.value());
-                response.setContentType("application/json");
-                response.getWriter().write("{\"error\": \"Unauthorized\"}");
-            } else {
-                new org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint("/oauth2/authorization/google")
-                        .commence(request, response, authException);
-            }
+            response.setStatus(HttpStatus.UNAUTHORIZED.value());
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"error\": \"Unauthorized\"}");
         };
     }
 
