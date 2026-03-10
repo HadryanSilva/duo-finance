@@ -4,9 +4,11 @@ import br.com.hadryan.duo.finance.auth.dto.AuthDtos;
 import br.com.hadryan.duo.finance.user.dto.UserDtos;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RequiredArgsConstructor
 @RestController
@@ -26,15 +28,27 @@ public class UserController {
 
     /**
      * PATCH /api/users/me
-     * Atualiza nome e/ou avatar do usuário autenticado.
+     * Edita firstName e lastName do usuário autenticado.
      */
     @PatchMapping("/me")
-    public ResponseEntity<AuthDtos.UserInfo> updateMe(
-            @AuthenticationPrincipal User user,
-            @Valid @RequestBody UserDtos.UpdateProfileRequest request
+    public ResponseEntity<AuthDtos.UserInfo> updateProfile(
+            @Valid @RequestBody UserDtos.UpdateProfileRequest request,
+            @AuthenticationPrincipal User currentUser
     ) {
-        User updated = userService.updateProfile(user, request);
-        return ResponseEntity.ok(toUserInfo(updated));
+        return ResponseEntity.ok(userService.updateProfile(request, currentUser));
+    }
+
+    /**
+     * POST /api/users/me/avatar
+     * Recebe o arquivo de imagem, faz upload no Cloudinary e salva a URL.
+     * Usa multipart/form-data com o campo "file".
+     */
+    @PostMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<UserDtos.UploadAvatarResponse> uploadAvatar(
+            @RequestPart("file") MultipartFile file,
+            @AuthenticationPrincipal User currentUser
+    ) {
+        return ResponseEntity.ok(userService.uploadAvatar(file, currentUser));
     }
 
     private AuthDtos.UserInfo toUserInfo(User user) {

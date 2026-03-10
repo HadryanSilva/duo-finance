@@ -41,6 +41,7 @@ dependencies {
 	implementation 'org.mapstruct:mapstruct:1.6.3'
 	implementation 'io.jsonwebtoken:jjwt-impl:0.12.6'
 	implementation 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+	implementation 'com.cloudinary:cloudinary-http5:2.3.2'
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'
 	annotationProcessor 'org.projectlombok:lombok'
