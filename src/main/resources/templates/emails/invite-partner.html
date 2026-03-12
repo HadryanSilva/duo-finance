@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Convite DuoFinance</title>
+    <style>
+        /* Reset */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background-color: #f8f7f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1c1b19; }
+
+        /* Layout */
+        .wrapper   { width: 100%; padding: 40px 16px; background-color: #f8f7f5; }
+        .container { max-width: 520px; margin: 0 auto; }
+
+        /* Card */
+        .card { background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04); }
+
+        /* Header */
+        .header { background-color: #1c1b19; padding: 36px 40px; text-align: center; }
+        .logo-mark { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; background: rgba(255,255,255,.12); border-radius: 12px; margin-bottom: 14px; }
+        .logo-mark span { font-size: 20px; }
+        .header h1 { font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: -0.3px; }
+        .header p  { font-size: 13px; color: rgba(255,255,255,.5); margin-top: 4px; letter-spacing: .5px; text-transform: uppercase; }
+
+        /* Body */
+        .body { padding: 40px 40px 32px; }
+
+        .greeting { font-size: 15px; color: #5c5955; margin-bottom: 24px; line-height: 1.6; }
+        .greeting strong { color: #1c1b19; }
+
+        /* Invite box */
+        .invite-box { background: #f8f7f5; border: 1px solid #e8e6e3; border-radius: 14px; padding: 24px; margin-bottom: 28px; text-align: center; }
+        .avatar-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 16px; }
+        .avatar { width: 48px; height: 48px; border-radius: 50%; background: #e8e6e3; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; color: #5c5955; border: 3px solid #ffffff; box-shadow: 0 0 0 1px #e8e6e3; overflow: hidden; }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .plus-icon { width: 28px; height: 28px; border-radius: 50%; background: #ffffff; border: 2px dashed #c8c5c0; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; color: #a8a49c; }
+        .invite-box h2 { font-size: 16px; font-weight: 700; color: #1c1b19; margin-bottom: 6px; }
+        .invite-box p  { font-size: 13px; color: #8c8884; line-height: 1.5; }
+
+        /* CTA */
+        .cta-wrap { text-align: center; margin-bottom: 28px; }
+        .cta-btn {
+            display: inline-block;
+            background: #1c1b19;
+            color: #ffffff !important;
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 600;
+            padding: 14px 36px;
+            border-radius: 12px;
+            letter-spacing: -0.1px;
+        }
+
+        /* Expiry */
+        .expiry { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: #a8a49c; margin-bottom: 28px; }
+        .expiry-dot { width: 6px; height: 6px; border-radius: 50%; background: #f59e0b; flex-shrink: 0; }
+
+        /* Fallback link */
+        .link-fallback { background: #f8f7f5; border-radius: 10px; padding: 14px 16px; margin-bottom: 28px; }
+        .link-fallback p  { font-size: 12px; color: #a8a49c; margin-bottom: 6px; }
+        .link-fallback a  { font-size: 12px; color: #5c5955; word-break: break-all; text-decoration: none; }
+
+        /* Divider */
+        .divider { border: none; border-top: 1px solid #f0eeec; margin: 0 0 24px; }
+
+        /* Disclaimer */
+        .disclaimer { font-size: 12px; color: #a8a49c; line-height: 1.6; }
+
+        /* Footer */
+        .footer { padding: 20px 40px 28px; text-align: center; }
+        .footer p { font-size: 12px; color: #c8c5c0; }
+        .footer a { color: #a8a49c; text-decoration: none; }
+
+        @media (max-width: 600px) {
+            .body, .footer { padding-left: 24px; padding-right: 24px; }
+            .header { padding: 28px 24px; }
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <div class="container">
+
+        <!-- Card -->
+        <div class="card">
+
+            <!-- Header -->
+            <div class="header">
+                <div class="logo-mark"><span>♥</span></div>
+                <h1>DuoFinance</h1>
+                <p>Finanças a dois</p>
+            </div>
+
+            <!-- Body -->
+            <div class="body">
+
+                <p class="greeting">
+                    Olá! <strong th:text="${senderName}">João</strong> te convidou para gerenciar as
+                    finanças juntos no <strong>DuoFinance</strong>.
+                </p>
+
+                <!-- Invite box -->
+                <div class="invite-box">
+                    <div class="avatar-row">
+                        <!-- Avatar do remetente -->
+                        <div class="avatar">
+                            <img th:if="${senderAvatar}" th:src="${senderAvatar}" th:alt="${senderFirstName}" />
+                            <span th:unless="${senderAvatar}" th:text="${#strings.toUpperCase(#strings.substring(senderFirstName, 0, 1))}">J</span>
+                        </div>
+                        <div class="plus-icon">+</div>
+                        <!-- Avatar placeholder do convidado -->
+                        <div class="avatar" style="border: 2px dashed #c8c5c0; background: #f8f7f5;">
+                            <span style="font-size:14px;">?</span>
+                        </div>
+                    </div>
+                    <h2 th:text="${coupleName}">Nossa Conta</h2>
+                    <p>Conta de casal · 1 parceiro aguardando</p>
+                </div>
+
+                <!-- CTA -->
+                <div class="cta-wrap">
+                    <a th:href="${inviteUrl}" class="cta-btn">Aceitar convite</a>
+                </div>
+
+                <!-- Expiry notice -->
+                <div class="expiry">
+                    <span class="expiry-dot"></span>
+                    <span>Este convite expira em <strong th:text="${expiresAt}">72 horas</strong></span>
+                </div>
+
+                <!-- Fallback URL -->
+                <div class="link-fallback">
+                    <p>Se o botão não funcionar, copie e cole este link no navegador:</p>
+                    <a th:href="${inviteUrl}" th:text="${inviteUrl}">https://duofinance.dev.br/invite/...</a>
+                </div>
+
+                <hr class="divider" />
+
+                <p class="disclaimer">
+                    Se você não esperava este convite ou não conhece
+                    <strong th:text="${senderName}">João Silva</strong>, pode ignorar este e-mail com segurança.
+                    Nenhuma ação é necessária.
+                </p>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer">
+                <p>© 2025 DuoFinance · <a href="https://duofinance.dev.br">duofinance.dev.br</a></p>
+            </div>
+
+        </div>
+    </div>
+</div>
+</body>
+</html>
