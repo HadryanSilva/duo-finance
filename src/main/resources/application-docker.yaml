@@ -38,7 +38,7 @@ spring:
               - openid
               - profile
               - email
-            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            redirect-uri: "https://duofinance.dev.br/login/oauth2/code/{registrationId}"
 
   # E-mail
   mail:
