@@ -5,36 +5,51 @@ import br.com.hadryan.duo.finance.shared.exception.BusinessException;
 import br.com.hadryan.duo.finance.shared.exception.ResourceNotFoundException;
 import br.com.hadryan.duo.finance.user.User;
 import br.com.hadryan.duo.finance.user.UserRepository;
+import jakarta.mail.internet.MimeMessage;
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
+
 import java.util.UUID;
 
+@Slf4j
 @Service
 public class CoupleService {
-    private final CoupleRepository coupleRepository;
-    private final UserRepository userRepository;
-    private final JavaMailSender mailSender;
-    private final long inviteExpirationHours;
-    private final String frontendUrl;
-    private final String mailFrom;
+
+    private final CoupleRepository  coupleRepository;
+    private final UserRepository    userRepository;
+    private final JavaMailSender    mailSender;
+    private final TemplateEngine    templateEngine;
+    private final long              inviteExpirationHours;
+    private final String            frontendUrl;
+    private final String            mailFrom;
+
+    private static final DateTimeFormatter EXPIRES_FMT =
+            DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm", Locale.forLanguageTag("pt-BR"));
 
     public CoupleService(
             CoupleRepository coupleRepository,
             UserRepository userRepository,
             JavaMailSender mailSender,
+            TemplateEngine templateEngine,
             @Value("${app.invite-expiration-hours}") long inviteExpirationHours,
-            @Value("${app.frontend-url}") String frontendUrl,
-            @Value("${spring.mail.username}") String mailFrom
+            @Value("${app.frontend-url}")            String frontendUrl,
+            @Value("${spring.mail.username}")        String mailFrom
     ) {
         this.coupleRepository      = coupleRepository;
         this.userRepository        = userRepository;
         this.mailSender            = mailSender;
+        this.templateEngine        = templateEngine;
         this.inviteExpirationHours = inviteExpirationHours;
         this.frontendUrl           = frontendUrl;
         this.mailFrom              = mailFrom;
@@ -48,7 +63,9 @@ public class CoupleService {
             throw new BusinessException("Você já pertence a uma conta de casal.");
         }
 
-        Couple couple = coupleRepository.save(new Couple(request.name()));
+        Couple couple = new Couple();
+        couple.setName(request.name());
+        coupleRepository.save(couple);
 
         currentUser.setCouple(couple);
         userRepository.save(currentUser);
@@ -56,23 +73,22 @@ public class CoupleService {
         return toResponse(couple, List.of(currentUser));
     }
 
-    // ── Consultar conta do casal ──────────────────────────────────────────────
+    // ── Buscar casal do usuário ───────────────────────────────────────────────
 
     @Transactional
     public CoupleDtos.CoupleResponse findMine(User currentUser) {
-        Couple couple = requireCouple(currentUser);
+        Couple couple  = requireCouple(currentUser);
         List<User> members = userRepository.findByCoupleId(couple.getId());
         return toResponse(couple, members);
     }
 
-    // ── Atualizar nome da conta ───────────────────────────────────────────────
+    // ── Atualizar nome do casal ───────────────────────────────────────────────
 
     @Transactional
     public CoupleDtos.CoupleResponse update(CoupleDtos.UpdateCoupleRequest request, User currentUser) {
         Couple couple = requireCouple(currentUser);
         couple.setName(request.name());
         coupleRepository.save(couple);
-
         List<User> members = userRepository.findByCoupleId(couple.getId());
         return toResponse(couple, members);
     }
@@ -83,37 +99,28 @@ public class CoupleService {
     public CoupleDtos.InviteResponse invite(CoupleDtos.InvitePartnerRequest request, User currentUser) {
         Couple couple = requireCouple(currentUser);
 
-        // Impede mais de 2 membros
-        long memberCount = userRepository.countByCoupleId(couple.getId());
-        if (memberCount >= 2) {
-            throw new BusinessException("A conta já possui dois parceiros vinculados.");
+        List<User> members = userRepository.findByCoupleId(couple.getId());
+        if (members.size() >= 2) {
+            throw new BusinessException("Esta conta já possui dois parceiros.");
         }
 
-        // Impede convidar a si mesmo
-        if (currentUser.getEmail().equalsIgnoreCase(request.partnerEmail())) {
-            throw new BusinessException("Você não pode convidar a si mesmo.");
+        boolean alreadyMember = members.stream()
+                .anyMatch(u -> u.getEmail().equalsIgnoreCase(request.partnerEmail()));
+        if (alreadyMember) {
+            throw new BusinessException("Este e-mail já é membro desta conta.");
         }
 
-        // Impede convidar alguém que já tem casal
-        userRepository.findByEmail(request.partnerEmail()).ifPresent(user -> {
-            if (user.getCouple() != null) {
-                throw new BusinessException("Este usuário já pertence a uma conta de casal.");
-            }
-        });
-
-        // Gera token e salva
-        String token          = UUID.randomUUID().toString().replace("-", "");
+        String token   = UUID.randomUUID().toString();
         LocalDateTime expires = LocalDateTime.now().plusHours(inviteExpirationHours);
 
         couple.setInviteToken(token);
         couple.setInviteExpiresAt(expires);
         coupleRepository.save(couple);
 
-        // Envia e-mail
         sendInviteEmail(request.partnerEmail(), currentUser, couple, token, expires);
 
         return new CoupleDtos.InviteResponse(
-                "Convite enviado com sucesso para " + request.partnerEmail(),
+                "Convite enviado para " + request.partnerEmail(),
                 request.partnerEmail(),
                 expires
         );
@@ -134,7 +141,6 @@ public class CoupleService {
             throw new BusinessException("Este convite expirou. Peça ao seu parceiro que envie um novo.");
         }
 
-        // Vincula o parceiro e invalida o token
         currentUser.setCouple(couple);
         userRepository.save(currentUser);
 
@@ -143,7 +149,10 @@ public class CoupleService {
         coupleRepository.save(couple);
 
         List<User> members = userRepository.findByCoupleId(couple.getId());
-        return new CoupleDtos.JoinCoupleResponse("Você foi vinculado à conta com sucesso!", toResponse(couple, members));
+        return new CoupleDtos.JoinCoupleResponse(
+                "Você foi vinculado à conta com sucesso!",
+                toResponse(couple, members)
+        );
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -158,31 +167,32 @@ public class CoupleService {
 
     private void sendInviteEmail(String to, User sender, Couple couple,
                                  String token, LocalDateTime expires) {
-        String inviteUrl = frontendUrl + "/invite/" + token;
+        String inviteUrl  = frontendUrl + "/invite/" + token;
+        String senderName = sender.getFirstName() + " " + sender.getLastName();
 
-        SimpleMailMessage mail = new SimpleMailMessage();
-        mail.setFrom(mailFrom);
-        mail.setTo(to);
-        mail.setSubject("💑 " + sender.getFirstName() + " te convidou para o DuoFinance!");
-        mail.setText("""
-                Olá!
-                
-                %s %s te convidou para gerenciar as finanças juntos no DuoFinance.
-                
-                Acesse o link abaixo para aceitar o convite:
-                %s
-                
-                O convite expira em: %s
-                
-                Se você não esperava este convite, pode ignorar este e-mail.
-                """.formatted(
-                sender.getFirstName(),
-                sender.getLastName(),
-                inviteUrl,
-                expires.toString().replace("T", " às ")
-        ));
+        // Monta contexto Thymeleaf
+        Context ctx = new Context(Locale.forLanguageTag("pt-BR"));
+        ctx.setVariable("senderName",      senderName);
+        ctx.setVariable("senderFirstName", sender.getFirstName());
+        ctx.setVariable("senderAvatar",    sender.getAvatarUrl());   // pode ser null — template trata
+        ctx.setVariable("coupleName",      couple.getName());
+        ctx.setVariable("inviteUrl",       inviteUrl);
+        ctx.setVariable("expiresAt",       expires.format(EXPIRES_FMT));
 
-        mailSender.send(mail);
+        String html = templateEngine.process("emails/invite-partner", ctx);
+
+        try {
+            MimeMessage mime = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mime, true, "UTF-8");
+            helper.setFrom(mailFrom);
+            helper.setTo(to);
+            helper.setSubject(sender.getFirstName() + " te convidou para o DuoFinance 💑");
+            helper.setText(html, true); // true = isHtml
+            mailSender.send(mime);
+        } catch (Exception e) {
+            log.error("Falha ao enviar e-mail de convite para {}: {}", to, e.getMessage(), e);
+            throw new BusinessException("Não foi possível enviar o e-mail de convite. Tente novamente.");
+        }
     }
 
     private CoupleDtos.CoupleResponse toResponse(Couple couple, List<User> members) {
