@@ -5,9 +5,13 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
     hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
       connection-timeout: 20000
-      idle-timeout: 300000
-      max-lifetime: 600000
+      idle-timeout: 120000
+      max-lifetime: 180000
+      keepalive-time: 60000
+      connection-test-query: SELECT 1
 
   jpa:
     hibernate:
@@ -40,8 +44,8 @@ spring:
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
-    username: ${MAIL_USER}
-    password: ${MAIL_PASS}
+    username: ${MAIL_USER:}
+    password: ${MAIL_PASS:}
     properties:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
@@ -52,7 +56,7 @@ spring:
 
 # ── JWT ────────────────────────────────────────────────────────────────────────
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad}
   access-token-expiration-ms: 900000
   refresh-token-expiration-ms: 604800000
 
@@ -85,6 +89,6 @@ logging:
 
 # ── Server ─────────────────────────────────────────────────────────────────────
 # Garante que o Spring usa o Host/Proto corretos vindos do nginx
-# para montar a redirect_uri do OAuth2
+# para montar a redirect_uri do OAuth2 (http://localhost/login/oauth2/code/google)
 server:
   forward-headers-strategy: framework
