@@ -41,6 +41,20 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
             """)
     List<Transaction> findActiveRecurringParents(@Param("today") LocalDate today);
 
+
+    // ── Última data gerada para um pai — ancoragem do backfill ────────────
+
+    /**
+     * Retorna a data do filho mais recente de um pai.
+     * Usada pelo backfill para saber de onde retomar sem reprocessar o que já existe.
+     */
+    @Query("""
+            SELECT MAX(t.date) FROM transactions t
+            WHERE t.parentTransaction.id = :parentId
+              AND t.deletedAt            IS NULL
+            """)
+    Optional<LocalDate> findLastChildDate(@Param("parentId") UUID parentId);
+
     // ── Idempotência do scheduler ─────────────────────────────────────────────
     @Query("""
             SELECT COUNT(t) > 0 FROM transactions t
