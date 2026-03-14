@@ -24,8 +24,7 @@ public class LoggingAspect {
         try {
             Object result  = pjp.proceed();
             long   elapsed = System.currentTimeMillis() - start;
-            log.info("Request finalizado | método={} | retorno={} | tempo={}ms",
-                    method, result, elapsed);
+            log.info("Request finalizado | método={} | tempo={}ms", method, elapsed);
             return result;
         } catch (Throwable ex) {
             long elapsed = System.currentTimeMillis() - start;
