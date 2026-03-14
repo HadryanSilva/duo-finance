@@ -14,15 +14,12 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 public class AuthController {
 
-    private final RefreshTokenService refreshTokenService;
-    private final JwtService jwtService;
-    private final AuthService authService;
+    private final RefreshTokenService   refreshTokenService;
+    private final JwtService            jwtService;
+    private final AuthService           authService;
     private final PasswordResetService  passwordResetService;
 
-    /**
-     * POST /api/auth/register
-     * Cadastro com email e senha — retorna tokens imediatamente.
-     */
+    /** POST /api/auth/register */
     @PostMapping("/api/auth/register")
     public ResponseEntity<AuthDtos.TokenResponse> register(
             @Valid @RequestBody AuthDtos.RegisterRequest request
@@ -30,10 +27,7 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
     }
 
-    /**
-     * POST /api/auth/login
-     * Login com email e senha.
-     */
+    /** POST /api/auth/login */
     @PostMapping("/api/auth/login")
     public ResponseEntity<AuthDtos.TokenResponse> login(
             @Valid @RequestBody AuthDtos.LoginRequest request
@@ -41,29 +35,26 @@ public class AuthController {
         return ResponseEntity.ok(authService.login(request));
     }
 
-    /**
-     * POST /auth/refresh
-     * Troca um refresh token válido por um novo par access + refresh (rotação).
-     */
+    /** POST /auth/refresh */
     @PostMapping("/auth/refresh")
     public ResponseEntity<AuthDtos.TokenResponse> refresh(
             @Valid @RequestBody AuthDtos.RefreshRequest request
     ) {
-        RefreshToken newRefresh = refreshTokenService.rotate(request.refreshToken());
-        User user = newRefresh.getUser();
-        String newAccessToken = jwtService.generateAccessToken(user);
-        return ResponseEntity.ok(buildTokenResponse(newAccessToken, newRefresh.getToken(), user));
+        RefreshToken newRefresh  = refreshTokenService.rotate(request.refreshToken());
+        User         user        = newRefresh.getUser();
+        String       accessToken = jwtService.generateAccessToken(user);
+        return ResponseEntity.ok(buildTokenResponse(accessToken, newRefresh.getToken(), user));
     }
 
-    /**
-     * POST /auth/logout
-     * Revoga todos os refresh tokens do usuário autenticado.
-     */
+    /** POST /auth/logout */
     @PostMapping("/auth/logout")
     public ResponseEntity<Void> logout(@AuthenticationPrincipal User user) {
+        if (user == null) return ResponseEntity.status(401).build();
         refreshTokenService.revokeAllForUser(user.getId());
         return ResponseEntity.noContent().build();
     }
+
+    // ── RF26 — Redefinição de senha ───────────────────────────────────────────
 
     /**
      * POST /api/auth/forgot-password

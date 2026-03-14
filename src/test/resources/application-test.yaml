@@ -1,0 +1,52 @@
+spring:
+  # Spring Boot 4 não permite override de beans por padrão.
+  # Necessário para que os mocks do TestConfig sobrescrevam
+  # CloudinaryConfig e JavaMailSender sem lançar BeanDefinitionOverrideException.
+  main:
+    allow-bean-definition-overriding: true
+
+  flyway:
+    enabled: true
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: test-client-id
+            client-secret: test-client-secret
+
+  mail:
+    host: localhost
+    port: 3025
+    username: test@duofinance.dev.br
+    password: test
+
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+
+jwt:
+  secret: test-secret-key-for-integration-tests-must-be-32chars!!
+  access-token-expiration-ms: 3600000
+  refresh-token-expiration-ms: 86400000
+
+app:
+  frontend-url: http://localhost:5173
+  invite-expiration-hours: 72
+
+cloudinary:
+  cloud-name: test
+  api-key: test
+  api-secret: test
+
+management:
+  health:
+    mail:
+      enabled: false
+
+logging:
+  level:
+    root: WARN
+    br.com.hadryan.duo.finance: INFO
