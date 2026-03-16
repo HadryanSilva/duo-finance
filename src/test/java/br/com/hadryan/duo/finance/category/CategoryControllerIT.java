@@ -1,4 +1,4 @@
-package br.com.hadryan.duo.finance.transaction;
+package br.com.hadryan.duo.finance.category;
 
 import br.com.hadryan.duo.finance.BaseIntegrationTest;
 import org.junit.jupiter.api.Test;
@@ -18,7 +18,7 @@ class CategoryControllerIT extends BaseIntegrationTest {
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$.length()").value(16)); // total de categorias no enum
+                .andExpect(jsonPath("$.length()").value(18)); // 12 despesas + 6 receitas
     }
 
     @Test
@@ -29,6 +29,7 @@ class CategoryControllerIT extends BaseIntegrationTest {
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(12))
                 .andExpect(jsonPath("$[0].type").value("EXPENSE"));
     }
 
@@ -40,6 +41,7 @@ class CategoryControllerIT extends BaseIntegrationTest {
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(6))
                 .andExpect(jsonPath("$[0].type").value("INCOME"));
     }
 
