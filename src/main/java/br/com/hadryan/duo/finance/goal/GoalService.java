@@ -3,6 +3,7 @@ package br.com.hadryan.duo.finance.goal;
 import br.com.hadryan.duo.finance.couple.Couple;
 import br.com.hadryan.duo.finance.goal.dto.GoalDtos;
 import br.com.hadryan.duo.finance.report.ReportRepository;
+import br.com.hadryan.duo.finance.report.dto.CategorySumProjection;
 import br.com.hadryan.duo.finance.shared.exception.BusinessException;
 import br.com.hadryan.duo.finance.shared.exception.ResourceNotFoundException;
 import br.com.hadryan.duo.finance.transaction.enums.TransactionCategory;
@@ -43,7 +44,13 @@ public class GoalService {
         goal.setCategory(request.category());
         goal.setMonthlyLimit(request.monthlyLimit());
 
-        return toResponse(goalRepository.save(goal));
+        Goal saved = goalRepository.save(goal);
+
+        // Verifica imediatamente se já há gastos no mês que disparam alerta.
+        // Cobre o caso de criar a meta quando transações já existem no período.
+        checkAndPublishAlerts(couple.getId(), saved.getCategory());
+
+        return toResponse(saved);
     }
 
     // ── RF35: Atualizar meta ──────────────────────────────────────────────────
@@ -54,8 +61,12 @@ public class GoalService {
         Goal goal = requireGoal(id, couple.getId());
 
         goal.setMonthlyLimit(request.monthlyLimit());
+        Goal saved = goalRepository.save(goal);
 
-        return toResponse(goalRepository.save(goal));
+        // Reavalia alertas após mudança de limite — novo limite pode estar já ultrapassado
+        checkAndPublishAlerts(couple.getId(), saved.getCategory());
+
+        return toResponse(saved);
     }
 
     // ── RF35: Excluir meta ────────────────────────────────────────────────────
@@ -105,7 +116,8 @@ public class GoalService {
     // ── RF37: Verificar alertas após nova transação ───────────────────────────
 
     /**
-     * Chamado pelo TransactionService após criar/editar uma transação EXPENSE.
+     * Chamado pelo TransactionService após criar/editar uma transação EXPENSE,
+     * e internamente após criar ou atualizar uma meta.
      * Publica GoalAlertEvent se a meta atingiu 80% ou 100%.
      */
     @Transactional(readOnly = true)
@@ -128,20 +140,11 @@ public class GoalService {
 
     private GoalDtos.GoalProgressResponse buildProgress(Goal goal, UUID coupleId,
                                                         LocalDate start, LocalDate end) {
-        // Reutiliza ReportRepository.sumByType — já existente no projeto
-        BigDecimal spent = reportRepository.sumByType(
-                coupleId,
-                TransactionType.EXPENSE,
-                start,
-                end
-        );
-
-        // Filtra apenas a categoria da meta via sumByCategory
-        // sumByCategory retorna lista; buscamos a categoria específica
-        BigDecimal spentInCategory = reportRepository.sumByCategory(coupleId, TransactionType.EXPENSE, start, end)
+        BigDecimal spentInCategory = reportRepository
+                .sumByCategory(coupleId, TransactionType.EXPENSE, start, end)
                 .stream()
                 .filter(p -> p.category() == goal.getCategory())
-                .map(p -> p.total())
+                .map(CategorySumProjection::total)
                 .findFirst()
                 .orElse(BigDecimal.ZERO);
 
@@ -153,8 +156,8 @@ public class GoalService {
                 .doubleValue();
 
         GoalDtos.AlertLevel alertLevel = GoalDtos.AlertLevel.NONE;
-        if (percentage >= 100.0)      alertLevel = GoalDtos.AlertLevel.EXCEEDED;
-        else if (percentage >= 80.0)  alertLevel = GoalDtos.AlertLevel.WARNING;
+        if (percentage >= 100.0)     alertLevel = GoalDtos.AlertLevel.EXCEEDED;
+        else if (percentage >= 80.0) alertLevel = GoalDtos.AlertLevel.WARNING;
 
         return new GoalDtos.GoalProgressResponse(
                 goal.getId(),
