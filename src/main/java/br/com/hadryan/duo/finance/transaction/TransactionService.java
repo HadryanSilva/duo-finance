@@ -1,9 +1,11 @@
 package br.com.hadryan.duo.finance.transaction;
 
 import br.com.hadryan.duo.finance.couple.Couple;
+import br.com.hadryan.duo.finance.goal.GoalService;
 import br.com.hadryan.duo.finance.shared.exception.BusinessException;
 import br.com.hadryan.duo.finance.shared.exception.ResourceNotFoundException;
 import br.com.hadryan.duo.finance.transaction.dto.TransactionDtos;
+import br.com.hadryan.duo.finance.transaction.enums.TransactionType;
 import br.com.hadryan.duo.finance.user.User;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.transaction.Transactional;
@@ -23,6 +25,7 @@ import java.util.UUID;
 public class TransactionService {
 
     private final TransactionRepository repository;
+    private final GoalService goalService;
 
     // ── Criar ─────────────────────────────────────────────────────────────────
 
@@ -45,7 +48,14 @@ public class TransactionService {
         tx.setRecurrenceRule(request.recurrenceRule());
         tx.setRecurrenceEndDate(request.recurrenceEndDate());
 
-        return toResponse(repository.save(tx));
+        TransactionDtos.TransactionResponse response = toResponse(repository.save(tx));
+
+        // RF37 — verifica metas após salvar despesa
+        if (tx.getType() == TransactionType.EXPENSE) {
+            goalService.checkAndPublishAlerts(couple.getId(), tx.getCategory());
+        }
+
+        return response;
     }
 
     // ── Listar (paginado + filtros dinâmicos via Specification) ───────────────
@@ -129,7 +139,14 @@ public class TransactionService {
         tx.setDescription(request.description());
         tx.setDate(request.date());
 
-        return toResponse(repository.save(tx));
+        var updatedTransaction = repository.save(tx);
+
+        // RF37 — verifica metas após atualizar para despesa
+        if (tx.getType() == TransactionType.EXPENSE) {
+            goalService.checkAndPublishAlerts(tx.getCouple().getId(), tx.getCategory());
+        }
+
+        return toResponse(updatedTransaction);
     }
 
     // ── Excluir (soft delete) ─────────────────────────────────────────────────
