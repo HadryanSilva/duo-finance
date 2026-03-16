@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-BR">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Alerta de Meta — DuoFinance</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f4f0;font-family:'Helvetica Neue',Arial,sans-serif;">
+
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4f0;padding:40px 16px;">
+    <tr>
+        <td align="center">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+
+                <!-- Header -->
+                <tr>
+                    <td style="background:#1a1a1a;border-radius:16px 16px 0 0;padding:28px 32px;text-align:center;">
+                        <p style="margin:0;color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">
+                            ♥ DuoFinance
+                        </p>
+                    </td>
+                </tr>
+
+                <!-- Body -->
+                <tr>
+                    <td style="background:#ffffff;padding:32px;">
+
+                        <p style="text-align:center;font-size:40px;margin:0 0 16px;">
+                            <span th:text="${exceeded} ? '🚨' : '⚠️'">⚠️</span>
+                        </p>
+
+                        <h1 th:if="${exceeded}"
+                            style="margin:0 0 8px;font-size:20px;font-weight:700;color:#1a1a1a;text-align:center;">
+                            Meta ultrapassada!
+                        </h1>
+                        <h1 th:unless="${exceeded}"
+                            style="margin:0 0 8px;font-size:20px;font-weight:700;color:#1a1a1a;text-align:center;">
+                            Meta quase no limite
+                        </h1>
+
+                        <p style="margin:0 0 8px;font-size:14px;color:#6b7280;text-align:center;">
+                            Olá, <span th:text="${firstName}">Fulano</span>!
+                        </p>
+                        <p style="margin:0 0 28px;font-size:14px;color:#6b7280;text-align:center;">
+                            A categoria <strong th:text="${categoryLabel}">Alimentação</strong>
+                            <span th:if="${exceeded}"> ultrapassou o limite mensal definido.</span>
+                            <span th:unless="${exceeded}">
+                  está em <strong th:text="${percentage + '%'}">85%</strong> do limite mensal.
+                </span>
+                        </p>
+
+                        <!-- Barra de progresso -->
+                        <div style="background:#f3f4f6;border-radius:100px;height:12px;overflow:hidden;margin-bottom:8px;">
+                            <div th:style="'width:' + (${#numbers.formatDecimal(percentage,1,'POINT',0,'COMMA')} > 100 ? 100 : ${#numbers.formatDecimal(percentage,1,'POINT',0,'COMMA')}) + '%;height:100%;border-radius:100px;background:' + (${exceeded} ? '#ef4444' : '#f59e0b') + ';'">&nbsp;</div>
+                        </div>
+                        <p style="margin:0 0 28px;font-size:12px;color:#9ca3af;text-align:right;">
+                            <span th:text="${percentage + '%'}">85%</span> utilizado
+                        </p>
+
+                        <!-- Detalhes -->
+                        <table width="100%" cellpadding="0" cellspacing="0"
+                               style="background:#f9fafb;border-radius:12px;padding:16px;margin-bottom:28px;">
+                            <tr>
+                                <td style="padding:6px 0;">
+                                    <span style="font-size:13px;color:#6b7280;">Gasto no mês</span>
+                                </td>
+                                <td align="right" style="padding:6px 0;">
+                                    <strong style="font-size:13px;color:#1a1a1a;"
+                                            th:text="'R$ ' + ${#numbers.formatDecimal(spent,1,'POINT',2,'COMMA')}">R$ 1.250,00</strong>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding:6px 0;border-top:1px solid #e5e7eb;">
+                                    <span style="font-size:13px;color:#6b7280;">Limite mensal</span>
+                                </td>
+                                <td align="right" style="padding:6px 0;border-top:1px solid #e5e7eb;">
+                                    <strong style="font-size:13px;color:#1a1a1a;"
+                                            th:text="'R$ ' + ${#numbers.formatDecimal(limit,1,'POINT',2,'COMMA')}">R$ 1.500,00</strong>
+                                </td>
+                            </tr>
+                            <tr th:unless="${exceeded}">
+                                <td style="padding:6px 0;border-top:1px solid #e5e7eb;">
+                                    <span style="font-size:13px;color:#6b7280;">Saldo restante</span>
+                                </td>
+                                <td align="right" style="padding:6px 0;border-top:1px solid #e5e7eb;">
+                                    <strong style="font-size:13px;color:#16a34a;"
+                                            th:text="'R$ ' + ${#numbers.formatDecimal(remaining,1,'POINT',2,'COMMA')}">R$ 250,00</strong>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <!-- CTA -->
+                        <div style="text-align:center;">
+                            <a href="https://duofinance.dev.br/dashboard"
+                               style="display:inline-block;background:#1a1a1a;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:12px;font-size:14px;font-weight:600;">
+                                Ver no Dashboard
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                    <td style="padding:20px 32px;text-align:center;">
+                        <p style="margin:0;font-size:12px;color:#9ca3af;">
+                            Você recebe este e-mail por fazer parte de um casal no DuoFinance.<br/>
+                            Gerencie suas metas em
+                            <a href="https://duofinance.dev.br" style="color:#6b7280;">duofinance.dev.br</a>.
+                        </p>
+                    </td>
+                </tr>
+
+            </table>
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>
