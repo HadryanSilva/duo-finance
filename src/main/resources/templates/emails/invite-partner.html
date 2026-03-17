@@ -18,8 +18,8 @@
 
         /* Header */
         .header { background-color: #1c1b19; padding: 36px 40px; text-align: center; }
-        .logo-mark { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; background: rgba(255,255,255,.12); border-radius: 12px; margin-bottom: 14px; }
-        .logo-mark span { font-size: 20px; }
+        .logo-mark { display: inline-block; width: 44px; height: 44px; background: rgba(255,255,255,.12); border-radius: 12px; text-align: center; line-height: 44px; margin-bottom: 14px; }
+        .logo-mark span { font-size: 20px; line-height: 44px; }
         .header h1 { font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: -0.3px; }
         .header p  { font-size: 13px; color: rgba(255,255,255,.5); margin-top: 4px; letter-spacing: .5px; text-transform: uppercase; }
 
@@ -29,12 +29,87 @@
         .greeting { font-size: 15px; color: #5c5955; margin-bottom: 24px; line-height: 1.6; }
         .greeting strong { color: #1c1b19; }
 
-        /* Invite box */
-        .invite-box { background: #f8f7f5; border: 1px solid #e8e6e3; border-radius: 14px; padding: 24px; margin-bottom: 28px; text-align: center; }
-        .avatar-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 16px; }
-        .avatar { width: 48px; height: 48px; border-radius: 50%; background: #e8e6e3; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; color: #5c5955; border: 3px solid #ffffff; box-shadow: 0 0 0 1px #e8e6e3; overflow: hidden; }
-        .avatar img { width: 100%; height: 100%; object-fit: cover; }
-        .plus-icon { width: 28px; height: 28px; border-radius: 50%; background: #ffffff; border: 2px dashed #c8c5c0; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; color: #a8a49c; }
+        /* ── Invite box ── */
+        .invite-box {
+            background: #f8f7f5;
+            border: 1px solid #e8e6e3;
+            border-radius: 14px;
+            padding: 28px 24px 24px;
+            margin-bottom: 28px;
+            text-align: center;
+        }
+
+        /* Avatar row — usa table para máxima compatibilidade com clientes de e-mail */
+        .avatar-row-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 18px;
+        }
+        .avatar-row-table td {
+            vertical-align: middle;
+            text-align: center;
+            padding: 0;
+        }
+        .avatar-cell { width: 64px; }
+        .connector-cell { width: 40px; }
+
+        /* Avatar base — tamanho fixo, sem variações */
+        .avatar {
+            display: inline-block;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background-color: #e8e6e3;
+            border: 3px solid #ffffff;
+            outline: 1px solid #e0deda;
+            overflow: hidden;
+            vertical-align: middle;
+            font-size: 22px;
+            font-weight: 700;
+            color: #5c5955;
+            line-height: 50px; /* 56 - 2*3 border */
+            text-align: center;
+        }
+
+        /* Avatar de foto: img ocupa 100% e fica redondo */
+        .avatar img {
+            display: block;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        /* Avatar placeholder do destinatário */
+        .avatar-placeholder {
+            display: inline-block;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background-color: #f0eeec;
+            border: 3px dashed #c8c5c0;
+            vertical-align: middle;
+            font-size: 22px;
+            color: #c8c5c0;
+            line-height: 50px;
+            text-align: center;
+        }
+
+        /* Conector entre avatares */
+        .connector {
+            display: inline-block;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: #ffffff;
+            border: 2px dashed #d4d1cc;
+            line-height: 28px;
+            text-align: center;
+            font-size: 18px;
+            color: #a8a49c;
+            vertical-align: middle;
+        }
+
         .invite-box h2 { font-size: 16px; font-weight: 700; color: #1c1b19; margin-bottom: 6px; }
         .invite-box p  { font-size: 13px; color: #8c8884; line-height: 1.5; }
 
@@ -53,8 +128,8 @@
         }
 
         /* Expiry */
-        .expiry { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: #a8a49c; margin-bottom: 28px; }
-        .expiry-dot { width: 6px; height: 6px; border-radius: 50%; background: #f59e0b; flex-shrink: 0; }
+        .expiry { text-align: center; font-size: 12px; color: #a8a49c; margin-bottom: 28px; }
+        .expiry-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #f59e0b; vertical-align: middle; margin-right: 5px; }
 
         /* Fallback link */
         .link-fallback { background: #f8f7f5; border-radius: 10px; padding: 14px 16px; margin-bottom: 28px; }
@@ -82,7 +157,6 @@
 <div class="wrapper">
     <div class="container">
 
-        <!-- Card -->
         <div class="card">
 
             <!-- Header -->
@@ -96,26 +170,51 @@
             <div class="body">
 
                 <p class="greeting">
-                    Olá! <strong th:text="${senderName}">João</strong> te convidou para gerenciar as
+                    Olá! <strong th:text="${senderName}">João Silva</strong> te convidou para gerenciar as
                     finanças juntos no <strong>DuoFinance</strong>.
                 </p>
 
                 <!-- Invite box -->
                 <div class="invite-box">
-                    <div class="avatar-row">
-                        <!-- Avatar do remetente -->
-                        <div class="avatar">
-                            <img th:if="${senderAvatar}" th:src="${senderAvatar}" th:alt="${senderFirstName}" />
-                            <span th:unless="${senderAvatar}" th:text="${#strings.toUpperCase(#strings.substring(senderFirstName, 0, 1))}">J</span>
-                        </div>
-                        <div class="plus-icon">+</div>
-                        <!-- Avatar placeholder do convidado -->
-                        <div class="avatar" style="border: 2px dashed #c8c5c0; background: #f8f7f5;">
-                            <span style="font-size:14px;">?</span>
-                        </div>
-                    </div>
+
+                    <!--
+                        Layout dos avatares via table para garantir alinhamento
+                        centralizado e tamanho uniforme em todos os clientes de e-mail
+                        (Gmail, Outlook, Apple Mail, etc.)
+                    -->
+                    <table class="avatar-row-table" role="presentation">
+                        <tr>
+                            <!-- Avatar do remetente — elemento único -->
+                            <td class="avatar-cell">
+                                <table role="presentation" style="margin:0 auto;">
+                                    <tr>
+                                        <td style="width:56px;height:56px;border-radius:50%;overflow:hidden;background-color:#e8e6e3;border:3px solid #ffffff;outline:1px solid #e0deda;text-align:center;vertical-align:middle;font-size:22px;font-weight:700;color:#5c5955;line-height:50px;">
+                                            <img th:if="${senderAvatar}"
+                                                 th:src="${senderAvatar}"
+                                                 th:alt="${senderFirstName}"
+                                                 width="56" height="56"
+                                                 style="display:block;width:56px;height:56px;border-radius:50%;object-fit:cover;" />
+                                            <span th:unless="${senderAvatar}"
+                                                  th:text="${#strings.toUpperCase(#strings.substring(senderFirstName, 0, 1))}"></span>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+
+                            <!-- Conector -->
+                            <td class="connector-cell">
+                                <span class="connector">+</span>
+                            </td>
+
+                            <!-- Avatar placeholder do destinatário (ainda não tem conta) -->
+                            <td class="avatar-cell">
+                                <div class="avatar-placeholder">?</div>
+                            </td>
+                        </tr>
+                    </table>
+
                     <h2 th:text="${coupleName}">Nossa Conta</h2>
-                    <p>Conta de casal · 1 parceiro aguardando</p>
+                    <p>Conta de casal · aguardando seu aceite</p>
                 </div>
 
                 <!-- CTA -->
@@ -126,7 +225,7 @@
                 <!-- Expiry notice -->
                 <div class="expiry">
                     <span class="expiry-dot"></span>
-                    <span>Este convite expira em <strong th:text="${expiresAt}">72 horas</strong></span>
+                    Este convite expira em <strong th:text="${expiresAt}">72 horas</strong>
                 </div>
 
                 <!-- Fallback URL -->
