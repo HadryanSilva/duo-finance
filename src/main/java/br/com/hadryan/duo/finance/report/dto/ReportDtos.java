@@ -38,7 +38,7 @@ public class ReportDtos {
             double percentage
     ) {}
 
-    // ── Monthly Comparison ────────────────────────────────────────────────────
+    // ── Monthly Comparison (6 meses — dashboard) ──────────────────────────────
 
     public record MonthlyComparisonResponse(
             List<MonthSummary> months
@@ -51,6 +51,17 @@ public class ReportDtos {
             BigDecimal totalIncome,
             BigDecimal totalExpense,
             BigDecimal balance
+    ) {}
+
+    // ── RF38: Balance History (12 meses) ──────────────────────────────────────
+
+    public record BalanceHistoryResponse(
+            List<MonthSummary> months,
+            BigDecimal totalIncomeInPeriod,
+            BigDecimal totalExpenseInPeriod,
+            BigDecimal netBalanceInPeriod,
+            BigDecimal bestMonthBalance,
+            BigDecimal worstMonthBalance
     ) {}
 
     // ── RF39: Partner Comparison ──────────────────────────────────────────────
