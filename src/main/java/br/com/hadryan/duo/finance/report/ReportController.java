@@ -48,12 +48,24 @@ public class ReportController {
         return ResponseEntity.ok(reportService.byCategory(range[0], range[1], type, currentUser));
     }
 
-    /** GET /api/reports/monthly-comparison */
+    /** GET /api/reports/monthly-comparison — 6 meses (usado no dashboard) */
     @GetMapping("/monthly-comparison")
     public ResponseEntity<ReportDtos.MonthlyComparisonResponse> monthlyComparison(
             @AuthenticationPrincipal User currentUser
     ) {
         return ResponseEntity.ok(reportService.monthlyComparison(currentUser));
+    }
+
+    /**
+     * GET /api/reports/balance-history
+     * RF38 — Histórico de saldo mês a mês dos últimos 12 meses.
+     * Inclui totalizadores do período (melhor mês, pior mês, saldo líquido).
+     */
+    @GetMapping("/balance-history")
+    public ResponseEntity<ReportDtos.BalanceHistoryResponse> balanceHistory(
+            @AuthenticationPrincipal User currentUser
+    ) {
+        return ResponseEntity.ok(reportService.balanceHistory(currentUser));
     }
 
     /** GET /api/reports/export/csv */
@@ -73,11 +85,7 @@ public class ReportController {
                 .body(("\uFEFF" + csv).getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
-    /**
-     * GET /api/reports/partner-comparison
-     * RF39 — Comparativo entre parceiros: receitas, despesas e top categorias de cada um.
-     * Parâmetros opcionais: startDate, endDate (padrão: mês atual)
-     */
+    /** GET /api/reports/partner-comparison — RF39 */
     @GetMapping("/partner-comparison")
     public ResponseEntity<ReportDtos.PartnerComparisonResponse> partnerComparison(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -87,8 +95,6 @@ public class ReportController {
         LocalDate[] range = resolveRange(startDate, endDate);
         return ResponseEntity.ok(reportService.partnerComparison(range[0], range[1], currentUser));
     }
-
-    // ── Helper ────────────────────────────────────────────────────────────────
 
     private LocalDate[] resolveRange(LocalDate startDate, LocalDate endDate) {
         LocalDate today = LocalDate.now();

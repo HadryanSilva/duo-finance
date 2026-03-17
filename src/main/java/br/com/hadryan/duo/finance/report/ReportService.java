@@ -74,7 +74,7 @@ public class ReportService {
         return new ReportDtos.ByCategoryResponse(startDate, endDate, type, total, categories);
     }
 
-    // ── Monthly Comparison ────────────────────────────────────────────────────
+    // ── Monthly Comparison (6 meses — dashboard) ──────────────────────────────
 
     @Transactional(readOnly = true)
     public ReportDtos.MonthlyComparisonResponse monthlyComparison(User currentUser) {
@@ -83,36 +83,37 @@ public class ReportService {
         LocalDate endDate   = LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth());
         LocalDate startDate = LocalDate.now().minusMonths(5).withDayOfMonth(1);
 
-        List<MonthlySumProjection> projections =
-                reportRepository.sumByMonth(coupleId, startDate, endDate);
+        return new ReportDtos.MonthlyComparisonResponse(
+                buildMonthSummaries(coupleId, startDate, endDate)
+        );
+    }
 
-        Map<String, Map<TransactionType, BigDecimal>> index = projections.stream()
-                .collect(Collectors.groupingBy(
-                        p -> p.year() + "-" + p.month(),
-                        Collectors.toMap(MonthlySumProjection::type, MonthlySumProjection::total)
-                ));
+    // ── RF38: Balance History (12 meses) ──────────────────────────────────────
 
-        List<ReportDtos.MonthSummary> months = new ArrayList<>();
-        LocalDate cursor = startDate;
-        Locale ptBR = new Locale("pt", "BR");
+    @Transactional(readOnly = true)
+    public ReportDtos.BalanceHistoryResponse balanceHistory(User currentUser) {
+        UUID coupleId = requireCoupleId(currentUser);
 
-        while (!cursor.isAfter(endDate)) {
-            String key    = cursor.getYear() + "-" + cursor.getMonthValue();
-            Map<TransactionType, BigDecimal> byType = index.getOrDefault(key, Map.of());
+        LocalDate endDate   = LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth());
+        LocalDate startDate = LocalDate.now().minusMonths(11).withDayOfMonth(1);
 
-            BigDecimal income  = byType.getOrDefault(TransactionType.INCOME,  BigDecimal.ZERO);
-            BigDecimal expense = byType.getOrDefault(TransactionType.EXPENSE, BigDecimal.ZERO);
-            String label = cursor.getMonth().getDisplayName(TextStyle.SHORT, ptBR)
-                    + "/" + String.valueOf(cursor.getYear()).substring(2);
+        List<ReportDtos.MonthSummary> months = buildMonthSummaries(coupleId, startDate, endDate);
 
-            months.add(new ReportDtos.MonthSummary(
-                    cursor.getYear(), cursor.getMonthValue(), label,
-                    income, expense, income.subtract(expense)
-            ));
-            cursor = cursor.plusMonths(1);
-        }
+        BigDecimal totalIncome  = months.stream().map(ReportDtos.MonthSummary::totalIncome).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalExpense = months.stream().map(ReportDtos.MonthSummary::totalExpense).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal netBalance   = totalIncome.subtract(totalExpense);
 
-        return new ReportDtos.MonthlyComparisonResponse(months);
+        BigDecimal bestMonth  = months.stream().map(ReportDtos.MonthSummary::balance).max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
+        BigDecimal worstMonth = months.stream().map(ReportDtos.MonthSummary::balance).min(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
+
+        return new ReportDtos.BalanceHistoryResponse(
+                months,
+                totalIncome,
+                totalExpense,
+                netBalance,
+                bestMonth,
+                worstMonth
+        );
     }
 
     // ── CSV Export ────────────────────────────────────────────────────────────
@@ -145,31 +146,58 @@ public class ReportService {
             LocalDate startDate, LocalDate endDate, User currentUser
     ) {
         UUID coupleId = requireCoupleId(currentUser);
-
         List<User> members = userRepository.findByCoupleId(coupleId);
 
         if (members.size() < 2) {
             throw new BusinessException("O comparativo entre parceiros requer dois membros na conta.");
         }
 
-        User p1 = members.get(0);
-        User p2 = members.get(1);
-
         return new ReportDtos.PartnerComparisonResponse(
                 startDate,
                 endDate,
-                buildPartnerSummary(p1, coupleId, startDate, endDate),
-                buildPartnerSummary(p2, coupleId, startDate, endDate)
+                buildPartnerSummary(members.get(0), coupleId, startDate, endDate),
+                buildPartnerSummary(members.get(1), coupleId, startDate, endDate)
         );
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    private List<ReportDtos.MonthSummary> buildMonthSummaries(UUID coupleId, LocalDate startDate, LocalDate endDate) {
+        List<MonthlySumProjection> projections = reportRepository.sumByMonth(coupleId, startDate, endDate);
+
+        Map<String, Map<TransactionType, BigDecimal>> index = projections.stream()
+                .collect(Collectors.groupingBy(
+                        p -> p.year() + "-" + p.month(),
+                        Collectors.toMap(MonthlySumProjection::type, MonthlySumProjection::total)
+                ));
+
+        List<ReportDtos.MonthSummary> months = new ArrayList<>();
+        LocalDate cursor = startDate;
+        Locale ptBR = new Locale("pt", "BR");
+
+        while (!cursor.isAfter(endDate)) {
+            String key = cursor.getYear() + "-" + cursor.getMonthValue();
+            Map<TransactionType, BigDecimal> byType = index.getOrDefault(key, Map.of());
+
+            BigDecimal income  = byType.getOrDefault(TransactionType.INCOME,  BigDecimal.ZERO);
+            BigDecimal expense = byType.getOrDefault(TransactionType.EXPENSE, BigDecimal.ZERO);
+            String label = cursor.getMonth().getDisplayName(TextStyle.SHORT, ptBR)
+                    + "/" + String.valueOf(cursor.getYear()).substring(2);
+
+            months.add(new ReportDtos.MonthSummary(
+                    cursor.getYear(), cursor.getMonthValue(), label,
+                    income, expense, income.subtract(expense)
+            ));
+            cursor = cursor.plusMonths(1);
+        }
+
+        return months;
+    }
+
     private ReportDtos.PartnerSummary buildPartnerSummary(
             User user, UUID coupleId, LocalDate startDate, LocalDate endDate
     ) {
         UUID userId = user.getId();
-
         BigDecimal income  = reportRepository.sumByTypeAndUser(coupleId, userId, TransactionType.INCOME,  startDate, endDate);
         BigDecimal expense = reportRepository.sumByTypeAndUser(coupleId, userId, TransactionType.EXPENSE, startDate, endDate);
 
@@ -188,23 +216,15 @@ public class ReportService {
                             .multiply(BigDecimal.valueOf(100))
                             .doubleValue();
                     return new ReportDtos.CategoryBreakdown(
-                            p.category(),
-                            p.category().getLabel(),
-                            p.total(),
+                            p.category(), p.category().getLabel(), p.total(),
                             Math.round(pct * 100.0) / 100.0
                     );
                 })
                 .toList();
 
         return new ReportDtos.PartnerSummary(
-                userId,
-                user.getFirstName(),
-                user.getLastName(),
-                user.getAvatarUrl(),
-                income,
-                expense,
-                income.subtract(expense),
-                topCategories
+                userId, user.getFirstName(), user.getLastName(), user.getAvatarUrl(),
+                income, expense, income.subtract(expense), topCategories
         );
     }
 
