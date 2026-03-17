@@ -7,6 +7,7 @@ import br.com.hadryan.duo.finance.shared.exception.BusinessException;
 import br.com.hadryan.duo.finance.transaction.Transaction;
 import br.com.hadryan.duo.finance.transaction.enums.TransactionType;
 import br.com.hadryan.duo.finance.user.User;
+import br.com.hadryan.duo.finance.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,7 +23,8 @@ import java.util.stream.Collectors;
 @Service
 public class ReportService {
 
-    private final ReportRepository repository;
+    private final ReportRepository reportRepository;
+    private final UserRepository   userRepository;
 
     // ── Summary ───────────────────────────────────────────────────────────────
 
@@ -30,10 +32,10 @@ public class ReportService {
     public ReportDtos.SummaryResponse summary(LocalDate startDate, LocalDate endDate, User currentUser) {
         UUID coupleId = requireCoupleId(currentUser);
 
-        BigDecimal totalIncome  = repository.sumByType(coupleId, TransactionType.INCOME,  startDate, endDate);
-        BigDecimal totalExpense = repository.sumByType(coupleId, TransactionType.EXPENSE, startDate, endDate);
+        BigDecimal totalIncome  = reportRepository.sumByType(coupleId, TransactionType.INCOME,  startDate, endDate);
+        BigDecimal totalExpense = reportRepository.sumByType(coupleId, TransactionType.EXPENSE, startDate, endDate);
         BigDecimal balance      = totalIncome.subtract(totalExpense);
-        long count              = repository.countInPeriod(coupleId, startDate, endDate);
+        long count              = reportRepository.countInPeriod(coupleId, startDate, endDate);
 
         return new ReportDtos.SummaryResponse(startDate, endDate, totalIncome, totalExpense, balance, count);
     }
@@ -48,7 +50,7 @@ public class ReportService {
         UUID coupleId = requireCoupleId(currentUser);
 
         List<CategorySumProjection> projections =
-                repository.sumByCategory(coupleId, type, startDate, endDate);
+                reportRepository.sumByCategory(coupleId, type, startDate, endDate);
 
         BigDecimal total = projections.stream()
                 .map(CategorySumProjection::total)
@@ -64,7 +66,7 @@ public class ReportService {
                             p.category(),
                             p.category().getLabel(),
                             p.total(),
-                            Math.round(pct * 100.0) / 100.0   // 2 casas decimais
+                            Math.round(pct * 100.0) / 100.0
                     );
                 })
                 .toList();
@@ -78,24 +80,18 @@ public class ReportService {
     public ReportDtos.MonthlyComparisonResponse monthlyComparison(User currentUser) {
         UUID coupleId = requireCoupleId(currentUser);
 
-        // Últimos 6 meses completos + mês atual
         LocalDate endDate   = LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth());
         LocalDate startDate = LocalDate.now().minusMonths(5).withDayOfMonth(1);
 
         List<MonthlySumProjection> projections =
-                repository.sumByMonth(coupleId, startDate, endDate);
+                reportRepository.sumByMonth(coupleId, startDate, endDate);
 
-        // Indexa por "ano-mês" para lookup rápido
         Map<String, Map<TransactionType, BigDecimal>> index = projections.stream()
                 .collect(Collectors.groupingBy(
                         p -> p.year() + "-" + p.month(),
-                        Collectors.toMap(
-                                MonthlySumProjection::type,
-                                MonthlySumProjection::total
-                        )
+                        Collectors.toMap(MonthlySumProjection::type, MonthlySumProjection::total)
                 ));
 
-        // Gera a lista dos 6 meses garantindo todos os meses, mesmo os sem dados
         List<ReportDtos.MonthSummary> months = new ArrayList<>();
         LocalDate cursor = startDate;
         Locale ptBR = new Locale("pt", "BR");
@@ -106,19 +102,13 @@ public class ReportService {
 
             BigDecimal income  = byType.getOrDefault(TransactionType.INCOME,  BigDecimal.ZERO);
             BigDecimal expense = byType.getOrDefault(TransactionType.EXPENSE, BigDecimal.ZERO);
-
             String label = cursor.getMonth().getDisplayName(TextStyle.SHORT, ptBR)
                     + "/" + String.valueOf(cursor.getYear()).substring(2);
 
             months.add(new ReportDtos.MonthSummary(
-                    cursor.getYear(),
-                    cursor.getMonthValue(),
-                    label,
-                    income,
-                    expense,
-                    income.subtract(expense)
+                    cursor.getYear(), cursor.getMonthValue(), label,
+                    income, expense, income.subtract(expense)
             ));
-
             cursor = cursor.plusMonths(1);
         }
 
@@ -130,15 +120,11 @@ public class ReportService {
     @Transactional(readOnly = true)
     public String exportCsv(LocalDate startDate, LocalDate endDate, User currentUser) {
         UUID coupleId = requireCoupleId(currentUser);
-
-        List<Transaction> transactions = repository.findAllForExport(coupleId, startDate, endDate);
+        List<Transaction> transactions = reportRepository.findAllForExport(coupleId, startDate, endDate);
 
         StringBuilder csv = new StringBuilder();
-
-        // Cabeçalho
         csv.append("Data,Tipo,Categoria,Descrição,Valor,Lançado por\n");
 
-        // Linhas
         for (Transaction t : transactions) {
             csv.append(t.getDate()).append(",")
                     .append(t.getType()).append(",")
@@ -152,7 +138,75 @@ public class ReportService {
         return csv.toString();
     }
 
+    // ── RF39: Partner Comparison ──────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public ReportDtos.PartnerComparisonResponse partnerComparison(
+            LocalDate startDate, LocalDate endDate, User currentUser
+    ) {
+        UUID coupleId = requireCoupleId(currentUser);
+
+        List<User> members = userRepository.findByCoupleId(coupleId);
+
+        if (members.size() < 2) {
+            throw new BusinessException("O comparativo entre parceiros requer dois membros na conta.");
+        }
+
+        User p1 = members.get(0);
+        User p2 = members.get(1);
+
+        return new ReportDtos.PartnerComparisonResponse(
+                startDate,
+                endDate,
+                buildPartnerSummary(p1, coupleId, startDate, endDate),
+                buildPartnerSummary(p2, coupleId, startDate, endDate)
+        );
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private ReportDtos.PartnerSummary buildPartnerSummary(
+            User user, UUID coupleId, LocalDate startDate, LocalDate endDate
+    ) {
+        UUID userId = user.getId();
+
+        BigDecimal income  = reportRepository.sumByTypeAndUser(coupleId, userId, TransactionType.INCOME,  startDate, endDate);
+        BigDecimal expense = reportRepository.sumByTypeAndUser(coupleId, userId, TransactionType.EXPENSE, startDate, endDate);
+
+        List<CategorySumProjection> categoryProjections =
+                reportRepository.sumByCategoryAndUser(coupleId, userId, TransactionType.EXPENSE, startDate, endDate);
+
+        BigDecimal totalExpense = categoryProjections.stream()
+                .map(CategorySumProjection::total)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<ReportDtos.CategoryBreakdown> topCategories = categoryProjections.stream()
+                .limit(5)
+                .map(p -> {
+                    double pct = totalExpense.compareTo(BigDecimal.ZERO) == 0 ? 0.0
+                            : p.total().divide(totalExpense, 4, RoundingMode.HALF_UP)
+                            .multiply(BigDecimal.valueOf(100))
+                            .doubleValue();
+                    return new ReportDtos.CategoryBreakdown(
+                            p.category(),
+                            p.category().getLabel(),
+                            p.total(),
+                            Math.round(pct * 100.0) / 100.0
+                    );
+                })
+                .toList();
+
+        return new ReportDtos.PartnerSummary(
+                userId,
+                user.getFirstName(),
+                user.getLastName(),
+                user.getAvatarUrl(),
+                income,
+                expense,
+                income.subtract(expense),
+                topCategories
+        );
+    }
 
     private UUID requireCoupleId(User user) {
         if (user.getCouple() == null) {
@@ -161,7 +215,6 @@ public class ReportService {
         return user.getCouple().getId();
     }
 
-    /** Envolve o valor em aspas se contiver vírgula ou quebra de linha. */
     private String escapeCsv(String value) {
         if (value == null) return "";
         if (value.contains(",") || value.contains("\n") || value.contains("\"")) {

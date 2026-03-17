@@ -19,6 +19,7 @@ import java.util.UUID;
 public interface ReportRepository extends JpaRepository<Transaction, UUID> {
 
     // ── Summary: totais de receita e despesa no período ───────────────────────
+
     @Query("""
             SELECT COALESCE(SUM(t.amount), 0)
             FROM transactions t
@@ -29,7 +30,7 @@ public interface ReportRepository extends JpaRepository<Transaction, UUID> {
               AND t.deletedAt IS NULL
             """)
     BigDecimal sumByType(
-            @Param("coupleId") UUID coupleId,
+            @Param("coupleId")  UUID coupleId,
             @Param("type")      TransactionType type,
             @Param("startDate") LocalDate startDate,
             @Param("endDate")   LocalDate endDate
@@ -50,6 +51,7 @@ public interface ReportRepository extends JpaRepository<Transaction, UUID> {
     );
 
     // ── By Category: total agrupado por categoria ─────────────────────────────
+
     @Query("""
             SELECT new br.com.hadryan.duo.finance.report.dto.CategorySumProjection(
                 t.category,
@@ -71,7 +73,8 @@ public interface ReportRepository extends JpaRepository<Transaction, UUID> {
             @Param("endDate")   LocalDate endDate
     );
 
-    // ── Monthly Comparison: totais por mês e tipo nos últimos N meses ─────────
+    // ── Monthly Comparison ────────────────────────────────────────────────────
+
     @Query("""
             SELECT new br.com.hadryan.duo.finance.report.dto.MonthlySumProjection(
                 YEAR(t.date),
@@ -93,7 +96,8 @@ public interface ReportRepository extends JpaRepository<Transaction, UUID> {
             @Param("endDate")   LocalDate endDate
     );
 
-    // ── CSV: busca todas as transações do período com dados completos ──────────
+    // ── CSV Export ────────────────────────────────────────────────────────────
+
     @Query("""
             SELECT t FROM transactions t
             JOIN FETCH t.user
@@ -108,7 +112,47 @@ public interface ReportRepository extends JpaRepository<Transaction, UUID> {
             @Param("startDate") LocalDate startDate,
             @Param("endDate")   LocalDate endDate
     );
+
+    // ── RF39: Partner Comparison — totais por usuário ─────────────────────────
+
+    @Query("""
+            SELECT COALESCE(SUM(t.amount), 0)
+            FROM transactions t
+            WHERE t.couple.id = :coupleId
+              AND t.user.id   = :userId
+              AND t.type      = :type
+              AND t.date     >= :startDate
+              AND t.date     <= :endDate
+              AND t.deletedAt IS NULL
+            """)
+    BigDecimal sumByTypeAndUser(
+            @Param("coupleId")  UUID coupleId,
+            @Param("userId")    UUID userId,
+            @Param("type")      TransactionType type,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate")   LocalDate endDate
+    );
+
+    @Query("""
+            SELECT new br.com.hadryan.duo.finance.report.dto.CategorySumProjection(
+                t.category,
+                SUM(t.amount)
+            )
+            FROM transactions t
+            WHERE t.couple.id = :coupleId
+              AND t.user.id   = :userId
+              AND t.type      = :type
+              AND t.date     >= :startDate
+              AND t.date     <= :endDate
+              AND t.deletedAt IS NULL
+            GROUP BY t.category
+            ORDER BY SUM(t.amount) DESC
+            """)
+    List<CategorySumProjection> sumByCategoryAndUser(
+            @Param("coupleId")  UUID coupleId,
+            @Param("userId")    UUID userId,
+            @Param("type")      TransactionType type,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate")   LocalDate endDate
+    );
 }
-
-
-

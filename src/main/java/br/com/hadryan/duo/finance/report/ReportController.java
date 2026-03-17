@@ -25,10 +25,7 @@ public class ReportController {
         this.reportService = reportService;
     }
 
-    /**
-     * GET /api/reports/summary
-     * Parâmetros opcionais: startDate, endDate (padrão: mês atual)
-     */
+    /** GET /api/reports/summary */
     @GetMapping("/summary")
     public ResponseEntity<ReportDtos.SummaryResponse> summary(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -39,10 +36,7 @@ public class ReportController {
         return ResponseEntity.ok(reportService.summary(range[0], range[1], currentUser));
     }
 
-    /**
-     * GET /api/reports/by-category?type=EXPENSE
-     * type padrão: EXPENSE
-     */
+    /** GET /api/reports/by-category?type=EXPENSE */
     @GetMapping("/by-category")
     public ResponseEntity<ReportDtos.ByCategoryResponse> byCategory(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -54,10 +48,7 @@ public class ReportController {
         return ResponseEntity.ok(reportService.byCategory(range[0], range[1], type, currentUser));
     }
 
-    /**
-     * GET /api/reports/monthly-comparison
-     * Sempre retorna os últimos 6 meses — sem parâmetros de data.
-     */
+    /** GET /api/reports/monthly-comparison */
     @GetMapping("/monthly-comparison")
     public ResponseEntity<ReportDtos.MonthlyComparisonResponse> monthlyComparison(
             @AuthenticationPrincipal User currentUser
@@ -65,10 +56,7 @@ public class ReportController {
         return ResponseEntity.ok(reportService.monthlyComparison(currentUser));
     }
 
-    /**
-     * GET /api/reports/export/csv
-     * Retorna o arquivo CSV como download.
-     */
+    /** GET /api/reports/export/csv */
     @GetMapping("/export/csv")
     public ResponseEntity<byte[]> exportCsv(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -77,16 +65,30 @@ public class ReportController {
     ) {
         LocalDate[] range = resolveRange(startDate, endDate);
         String csv = reportService.exportCsv(range[0], range[1], currentUser);
-
         String filename = "duofinance_" + range[0] + "_" + range[1] + ".csv";
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
-                .body(("\uFEFF" + csv).getBytes(java.nio.charset.StandardCharsets.UTF_8)); // BOM para Excel
+                .body(("\uFEFF" + csv).getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
-    // ── Helper: resolve o intervalo de datas com fallback para o mês atual ────
+    /**
+     * GET /api/reports/partner-comparison
+     * RF39 — Comparativo entre parceiros: receitas, despesas e top categorias de cada um.
+     * Parâmetros opcionais: startDate, endDate (padrão: mês atual)
+     */
+    @GetMapping("/partner-comparison")
+    public ResponseEntity<ReportDtos.PartnerComparisonResponse> partnerComparison(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @AuthenticationPrincipal User currentUser
+    ) {
+        LocalDate[] range = resolveRange(startDate, endDate);
+        return ResponseEntity.ok(reportService.partnerComparison(range[0], range[1], currentUser));
+    }
+
+    // ── Helper ────────────────────────────────────────────────────────────────
 
     private LocalDate[] resolveRange(LocalDate startDate, LocalDate endDate) {
         LocalDate today = LocalDate.now();
@@ -95,5 +97,3 @@ public class ReportController {
         return new LocalDate[]{start, end};
     }
 }
-
-
