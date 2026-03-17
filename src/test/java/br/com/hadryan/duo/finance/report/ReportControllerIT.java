@@ -105,7 +105,6 @@ class ReportControllerIT extends BaseIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        // O último mês do array é o atual
         var months = objectMapper.readTree(body).get("months");
         var current = months.get(months.size() - 1);
 
@@ -139,8 +138,9 @@ class ReportControllerIT extends BaseIntegrationTest {
 
     private void criarTransacao(String token, TransactionCategory category,
                                 BigDecimal amount, String description) throws Exception {
+        // customCategoryId = null → categoria do sistema (enum)
         var request = new TransactionDtos.CreateTransactionRequest(
-                category, amount, description, LocalDate.now(), false, null, null
+                category, null, amount, description, LocalDate.now(), false, null, null
         );
         mockMvc.perform(post("/api/transactions")
                         .header("Authorization", bearer(token))

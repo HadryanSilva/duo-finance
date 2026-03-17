@@ -16,8 +16,13 @@ public class TransactionDtos {
 
     // ── Requests ──────────────────────────────────────────────────────────────
 
+    /**
+     * Cria uma transação.
+     * Exatamente um de category ou customCategoryId deve ser informado.
+     */
     public record CreateTransactionRequest(
-            @NotNull TransactionCategory category,
+            TransactionCategory category,       // null se customCategoryId preenchido
+            UUID customCategoryId,              // null se category preenchido
             @NotNull @Positive BigDecimal amount,
             @Size(max = 255) String description,
             @NotNull LocalDate date,
@@ -26,26 +31,41 @@ public class TransactionDtos {
             LocalDate recurrenceEndDate
     ) {
         public CreateTransactionRequest {
+            if (category == null && customCategoryId == null) {
+                throw new IllegalArgumentException("Informe category ou customCategoryId.");
+            }
+            if (category != null && customCategoryId != null) {
+                throw new IllegalArgumentException("Informe apenas category ou customCategoryId, não ambos.");
+            }
             if (recurring && recurrenceRule == null) {
-                throw new IllegalArgumentException(
-                        "recurrenceRule é obrigatório quando recurring = true");
+                throw new IllegalArgumentException("recurrenceRule é obrigatório quando recurring = true.");
             }
         }
     }
 
     public record UpdateTransactionRequest(
-            @NotNull TransactionCategory category,
+            TransactionCategory category,
+            UUID customCategoryId,
             @NotNull @Positive BigDecimal amount,
             @Size(max = 255) String description,
             @NotNull LocalDate date
-    ) {}
+    ) {
+        public UpdateTransactionRequest {
+            if (category == null && customCategoryId == null) {
+                throw new IllegalArgumentException("Informe category ou customCategoryId.");
+            }
+            if (category != null && customCategoryId != null) {
+                throw new IllegalArgumentException("Informe apenas category ou customCategoryId, não ambos.");
+            }
+        }
+    }
 
     /**
      * RF42 — Editar série recorrente com escolha de escopo.
-     * scope = SINGLE | THIS_AND_FUTURE
      */
     public record UpdateRecurringRequest(
-            @NotNull TransactionCategory category,
+            TransactionCategory category,
+            UUID customCategoryId,
             @NotNull @Positive BigDecimal amount,
             @Size(max = 255) String description,
             @NotNull LocalDate date,
@@ -54,18 +74,11 @@ public class TransactionDtos {
 
     /**
      * RF43 — Cancelar série recorrente com escolha de escopo.
-     * scope = SINGLE | THIS_AND_FUTURE | ALL
      */
     public record DeleteRecurringRequest(
             @NotNull RecurringScope scope
     ) {}
 
-    /**
-     * Escopo de operação em séries recorrentes.
-     * SINGLE          — apenas esta ocorrência
-     * THIS_AND_FUTURE — esta e todas as futuras
-     * ALL             — toda a série (pai + todos os filhos)
-     */
     public enum RecurringScope {
         SINGLE,
         THIS_AND_FUTURE,
@@ -76,8 +89,10 @@ public class TransactionDtos {
 
     public record TransactionResponse(
             UUID id,
-            TransactionCategory category,
-            String categoryLabel,
+            TransactionCategory category,       // null se categoria customizada
+            String categoryLabel,               // sempre preenchido
+            String categoryIcon,                // ícone resolvido
+            UUID customCategoryId,              // null se categoria do sistema
             TransactionType type,
             BigDecimal amount,
             String description,
@@ -101,6 +116,7 @@ public class TransactionDtos {
 
     public record TransactionFilter(
             TransactionCategory category,
+            UUID customCategoryId,
             TransactionType type,
             UUID userId,
             LocalDate startDate,
