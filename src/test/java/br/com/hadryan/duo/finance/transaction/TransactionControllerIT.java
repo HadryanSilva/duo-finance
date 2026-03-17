@@ -24,7 +24,6 @@ class TransactionControllerIT extends BaseIntegrationTest {
         tokenJoao  = registerAndGetToken("João", "Silva", "joao@test.com", "senha123");
         tokenMaria = registerAndGetToken("Maria", "Silva", "maria@test.com", "senha123");
 
-        // Cria casal e vincula os dois parceiros
         criarCouple(tokenJoao, "Casal Silva");
         String inviteToken = gerarInviteToken(tokenJoao, "maria@test.com");
         aceitarConvite(tokenMaria, inviteToken);
@@ -172,8 +171,9 @@ class TransactionControllerIT extends BaseIntegrationTest {
         String id = criarTransacaoEObterID(tokenJoao, TransactionCategory.FOOD,
                 new BigDecimal("100.00"), "Mercado");
 
+        // UpdateTransactionRequest agora tem customCategoryId como 2º parâmetro (null = categoria do sistema)
         var update = new TransactionDtos.UpdateTransactionRequest(
-                TransactionCategory.LEISURE, new BigDecimal("200.00"), "Cinema", LocalDate.now()
+                TransactionCategory.LEISURE, null, new BigDecimal("200.00"), "Cinema", LocalDate.now()
         );
 
         mockMvc.perform(put("/api/transactions/" + id)
@@ -188,7 +188,6 @@ class TransactionControllerIT extends BaseIntegrationTest {
 
     @Test
     void update_transacaoDeOutroCouple_deveRetornar404() throws Exception {
-        // Cria outro usuário sem casal
         String tokenOutro = registerAndGetToken("Outro", "User", "outro@test.com", "senha123");
         criarCouple(tokenOutro, "Casal Outro");
 
@@ -196,10 +195,9 @@ class TransactionControllerIT extends BaseIntegrationTest {
                 new BigDecimal("100.00"), "Transação do outro");
 
         var update = new TransactionDtos.UpdateTransactionRequest(
-                TransactionCategory.FOOD, new BigDecimal("50.00"), "Tentativa", LocalDate.now()
+                TransactionCategory.FOOD, null, new BigDecimal("50.00"), "Tentativa", LocalDate.now()
         );
 
-        // João tenta editar transação de outro casal — deve retornar 404
         mockMvc.perform(put("/api/transactions/" + id)
                         .header("Authorization", bearer(tokenJoao))
                         .contentType(APPLICATION_JSON)
@@ -218,7 +216,6 @@ class TransactionControllerIT extends BaseIntegrationTest {
                         .header("Authorization", bearer(tokenJoao)))
                 .andExpect(status().isNoContent());
 
-        // Após soft delete, não deve aparecer na listagem
         mockMvc.perform(get("/api/transactions")
                         .header("Authorization", bearer(tokenJoao)))
                 .andExpect(status().isOk())
@@ -234,12 +231,23 @@ class TransactionControllerIT extends BaseIntegrationTest {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    /**
+     * Constrói um CreateTransactionRequest com categoria do sistema (enum).
+     * customCategoryId = null indica categoria fixa.
+     */
     private TransactionDtos.CreateTransactionRequest buildRequest(
             TransactionCategory category, BigDecimal amount, String description,
             LocalDate date, boolean recurring, String recurrenceRule, LocalDate recurrenceEndDate) {
         return new TransactionDtos.CreateTransactionRequest(
-                category, amount, description, date, recurring,
-                recurrenceRule != null ? br.com.hadryan.duo.finance.transaction.enums.RecurrenceRule.valueOf(recurrenceRule) : null,
+                category,
+                null,   // customCategoryId — null = categoria do sistema
+                amount,
+                description,
+                date,
+                recurring,
+                recurrenceRule != null
+                        ? br.com.hadryan.duo.finance.transaction.enums.RecurrenceRule.valueOf(recurrenceRule)
+                        : null,
                 recurrenceEndDate
         );
     }

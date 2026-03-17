@@ -1,5 +1,6 @@
 package br.com.hadryan.duo.finance.transaction;
 
+import br.com.hadryan.duo.finance.category.CustomCategory;
 import br.com.hadryan.duo.finance.couple.Couple;
 import br.com.hadryan.duo.finance.transaction.enums.RecurrenceRule;
 import br.com.hadryan.duo.finance.transaction.enums.TransactionCategory;
@@ -37,9 +38,20 @@ public class Transaction {
     @JoinColumn(name = "user_id")
     private User user;
 
+    /**
+     * Categoria do sistema (enum). Nulo quando customCategory está preenchido.
+     * Exatamente um dos dois campos deve estar preenchido por transação.
+     */
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
+    @Column(length = 30)
     private TransactionCategory category;
+
+    /**
+     * Categoria personalizada do casal. Nulo quando category (enum) está preenchido.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "custom_category_id")
+    private CustomCategory customCategory;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
@@ -78,4 +90,19 @@ public class Transaction {
     private LocalDateTime deletedAt;
 
     protected Transaction() {}
+
+    // ── Helpers de conveniência ───────────────────────────────────────────────
+
+    /** Label resolvido independente da fonte da categoria. */
+    public String resolvedLabel() {
+        if (customCategory != null) return customCategory.getName();
+        if (category != null)       return category.getLabel();
+        return "Sem categoria";
+    }
+
+    /** Ícone resolvido. */
+    public String resolvedIcon() {
+        if (customCategory != null) return customCategory.getIcon();
+        return "pi pi-circle";
+    }
 }
