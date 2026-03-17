@@ -1,18 +1,27 @@
 package br.com.hadryan.duo.finance.config;
 
-import org.apache.catalina.filters.RateLimitFilter;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 
 /**
- * Registra o RateLimitFilter com precedência máxima, garantindo que
- * ele execute ANTES do Spring Security e bloqueie requisições abusivas
- * sem nem chegar ao processamento de autenticação.
+ * Registra o RateLimitFilter manualmente com precedência máxima.
+ *
+ * O filter NÃO tem @Component propositalmente — se tivesse, o Spring Boot
+ * o registraria automaticamente para todas as URLs E o FilterRegistrationBean
+ * o registraria novamente, causando duplo registro e falha no contexto.
+ *
+ * Ao instanciar aqui como @Bean, o Spring gerencia o ciclo de vida completo,
+ * incluindo o @Scheduled definido no filter.
  */
 @Configuration
-public class RateLimiterFilterConfig {
+public class RateLimitFilterConfig {
+
+    @Bean
+    public RateLimitFilter rateLimitFilter() {
+        return new RateLimitFilter();
+    }
 
     @Bean
     public FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration(

@@ -4,13 +4,11 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.lang.NonNull;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -23,16 +21,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Rate limiter in-memory por IP para endpoints de autenticação.
  *
- * Limites configurados:
+ * Limites:
  *   POST /api/auth/login           → 5 tentativas / 60 s
  *   POST /api/auth/register        → 3 tentativas / 300 s
  *   POST /api/auth/forgot-password → 3 tentativas / 300 s
  *
- * Responde 429 com header Retry-After (segundos até reset do bucket).
+ * NÃO é anotado com @Component — registrado exclusivamente via
+ * FilterRegistrationBean em RateLimitFilterConfig para evitar
+ * duplo registro automático pelo Spring Boot.
  */
 @Slf4j
-@Component
-public class RateLimiterFilter extends OncePerRequestFilter {
+public class RateLimitFilter extends OncePerRequestFilter {
 
     // ── Configuração dos endpoints protegidos ─────────────────────────────────
 
@@ -61,7 +60,6 @@ public class RateLimiterFilter extends OncePerRequestFilter {
             this.resetAt  = Instant.now().toEpochMilli() + this.windowMs;
         }
 
-        /** Tenta consumir uma requisição. Retorna false se o limite foi atingido. */
         boolean tryConsume(int max) {
             long now = Instant.now().toEpochMilli();
             if (now >= resetAt) {
@@ -71,12 +69,10 @@ public class RateLimiterFilter extends OncePerRequestFilter {
             return count.incrementAndGet() <= max;
         }
 
-        /** Segundos até o reset do bucket. */
         long retryAfterSeconds() {
             return Math.max(1, (resetAt - Instant.now().toEpochMilli()) / 1_000);
         }
 
-        /** Indica se o bucket está expirado e pode ser removido do mapa. */
         boolean isExpired() {
             return Instant.now().toEpochMilli() >= resetAt + windowMs;
         }
@@ -86,7 +82,7 @@ public class RateLimiterFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(
-            @NotNull HttpServletRequest request,
+            @NonNull HttpServletRequest request,
             @NonNull HttpServletResponse response,
             @NonNull FilterChain chain
     ) throws ServletException, IOException {
@@ -94,13 +90,11 @@ public class RateLimiterFilter extends OncePerRequestFilter {
         String path   = request.getRequestURI();
         String method = request.getMethod();
 
-        // Só processa POST nos endpoints configurados
         Limit limit = "POST".equalsIgnoreCase(method) ? LIMITS.get(path) : null;
 
         if (limit != null) {
-            String ip  = resolveClientIp(request);
-            String key = ip + "::" + path;
-
+            String ip     = resolveClientIp(request);
+            String key    = ip + "::" + path;
             Bucket bucket = buckets.computeIfAbsent(key, k -> new Bucket(limit.windowSeconds()));
 
             if (!bucket.tryConsume(limit.maxRequests())) {
@@ -109,9 +103,9 @@ public class RateLimiterFilter extends OncePerRequestFilter {
                 response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
                 response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                 response.setHeader("Retry-After", String.valueOf(retryAfter));
-                response.getWriter().write("""
-                        {"error":"Too Many Requests","message":"Muitas tentativas. Aguarde %d segundo(s) antes de tentar novamente.","retryAfter":%d}
-                        """.formatted(retryAfter, retryAfter).strip());
+                response.getWriter().write(
+                        "{\"error\":\"Too Many Requests\",\"message\":\"Muitas tentativas. Aguarde %d segundo(s) antes de tentar novamente.\",\"retryAfter\":%d}"
+                                .formatted(retryAfter, retryAfter));
                 return;
             }
         }
@@ -119,9 +113,9 @@ public class RateLimiterFilter extends OncePerRequestFilter {
         chain.doFilter(request, response);
     }
 
-    // ── Limpeza periódica — evita vazamento de memória ────────────────────────
+    // ── Limpeza periódica ─────────────────────────────────────────────────────
 
-    @Scheduled(fixedDelay = 5 * 60 * 1_000) // a cada 5 minutos
+    @Scheduled(fixedDelay = 5 * 60 * 1_000)
     public void evictExpiredBuckets() {
         int before = buckets.size();
         Iterator<Map.Entry<String, Bucket>> it = buckets.entrySet().iterator();
@@ -134,13 +128,8 @@ public class RateLimiterFilter extends OncePerRequestFilter {
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── IP resolution ─────────────────────────────────────────────────────────
 
-    /**
-     * Resolve o IP real do cliente considerando o Cloudflare Tunnel.
-     * Cloudflare injeta CF-Connecting-IP; nginx repassa X-Real-IP e X-Forwarded-For.
-     * Prioridade: CF-Connecting-IP > X-Real-IP > X-Forwarded-For > remoteAddr
-     */
     private String resolveClientIp(HttpServletRequest request) {
         String cfIp = request.getHeader("CF-Connecting-IP");
         if (cfIp != null && !cfIp.isBlank()) return cfIp.trim();
@@ -149,9 +138,7 @@ public class RateLimiterFilter extends OncePerRequestFilter {
         if (realIp != null && !realIp.isBlank()) return realIp.trim();
 
         String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
+        if (forwarded != null && !forwarded.isBlank()) return forwarded.split(",")[0].trim();
 
         return request.getRemoteAddr();
     }
