@@ -19,7 +19,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
-
 import java.util.UUID;
 
 @Slf4j
@@ -77,7 +76,7 @@ public class CoupleService {
 
     @Transactional
     public CoupleDtos.CoupleResponse findMine(User currentUser) {
-        Couple couple  = requireCouple(currentUser);
+        Couple couple      = requireCouple(currentUser);
         List<User> members = userRepository.findByCoupleId(couple.getId());
         return toResponse(couple, members);
     }
@@ -110,7 +109,7 @@ public class CoupleService {
             throw new BusinessException("Este e-mail já é membro desta conta.");
         }
 
-        String token   = UUID.randomUUID().toString();
+        String token      = UUID.randomUUID().toString();
         LocalDateTime expires = LocalDateTime.now().plusHours(inviteExpirationHours);
 
         couple.setInviteToken(token);
@@ -155,6 +154,34 @@ public class CoupleService {
         );
     }
 
+    // ── RF34: Desvincular membro do casal ─────────────────────────────────────
+
+    @Transactional
+    public void removeMember(UUID targetUserId, User currentUser) {
+        Couple couple = requireCouple(currentUser);
+
+        List<User> members = userRepository.findByCoupleId(couple.getId());
+
+        // Validação: só faz sentido desvincular quando há 2 membros
+        if (members.size() < 2) {
+            throw new BusinessException("Não é possível desvincular — o casal tem apenas um membro.");
+        }
+
+        // Validação: o alvo deve ser membro do mesmo casal
+        User target = members.stream()
+                .filter(u -> u.getId().equals(targetUserId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Usuário não encontrado nesta conta de casal."));
+
+        // Desvincula: seta couple = null no usuário removido
+        target.setCouple(null);
+        userRepository.save(target);
+
+        log.info("Membro {} desvinculado do casal {} por {}",
+                targetUserId, couple.getId(), currentUser.getId());
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private Couple requireCouple(User user) {
@@ -170,11 +197,10 @@ public class CoupleService {
         String inviteUrl  = frontendUrl + "/invite/" + token;
         String senderName = sender.getFirstName() + " " + sender.getLastName();
 
-        // Monta contexto Thymeleaf
         Context ctx = new Context(Locale.forLanguageTag("pt-BR"));
         ctx.setVariable("senderName",      senderName);
         ctx.setVariable("senderFirstName", sender.getFirstName());
-        ctx.setVariable("senderAvatar",    sender.getAvatarUrl());   // pode ser null — template trata
+        ctx.setVariable("senderAvatar",    sender.getAvatarUrl());
         ctx.setVariable("coupleName",      couple.getName());
         ctx.setVariable("inviteUrl",       inviteUrl);
         ctx.setVariable("expiresAt",       expires.format(EXPIRES_FMT));
@@ -187,7 +213,7 @@ public class CoupleService {
             helper.setFrom(mailFrom);
             helper.setTo(to);
             helper.setSubject(sender.getFirstName() + " te convidou para o DuoFinance 💑");
-            helper.setText(html, true); // true = isHtml
+            helper.setText(html, true);
             mailSender.send(mime);
         } catch (Exception e) {
             log.error("Falha ao enviar e-mail de convite para {}: {}", to, e.getMessage(), e);
