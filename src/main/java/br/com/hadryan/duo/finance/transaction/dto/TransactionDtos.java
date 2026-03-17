@@ -40,6 +40,38 @@ public class TransactionDtos {
             @NotNull LocalDate date
     ) {}
 
+    /**
+     * RF42 — Editar série recorrente com escolha de escopo.
+     * scope = SINGLE | THIS_AND_FUTURE
+     */
+    public record UpdateRecurringRequest(
+            @NotNull TransactionCategory category,
+            @NotNull @Positive BigDecimal amount,
+            @Size(max = 255) String description,
+            @NotNull LocalDate date,
+            @NotNull RecurringScope scope
+    ) {}
+
+    /**
+     * RF43 — Cancelar série recorrente com escolha de escopo.
+     * scope = SINGLE | THIS_AND_FUTURE | ALL
+     */
+    public record DeleteRecurringRequest(
+            @NotNull RecurringScope scope
+    ) {}
+
+    /**
+     * Escopo de operação em séries recorrentes.
+     * SINGLE          — apenas esta ocorrência
+     * THIS_AND_FUTURE — esta e todas as futuras
+     * ALL             — toda a série (pai + todos os filhos)
+     */
+    public enum RecurringScope {
+        SINGLE,
+        THIS_AND_FUTURE,
+        ALL
+    }
+
     // ── Response ──────────────────────────────────────────────────────────────
 
     public record TransactionResponse(
@@ -73,6 +105,6 @@ public class TransactionDtos {
             UUID userId,
             LocalDate startDate,
             LocalDate endDate,
-            String description          // RF27 — busca textual por descrição
+            String description
     ) {}
 }

@@ -28,9 +28,7 @@ public class TransactionController {
         this.service = service;
     }
 
-    /**
-     * POST /api/transactions
-     */
+    /** POST /api/transactions */
     @PostMapping
     public ResponseEntity<TransactionDtos.TransactionResponse> create(
             @Valid @RequestBody TransactionDtos.CreateTransactionRequest request,
@@ -40,10 +38,7 @@ public class TransactionController {
                 .body(service.create(request, currentUser));
     }
 
-    /**
-     * GET /api/transactions
-     * Query params opcionais: category, type, userId, startDate, endDate, description, page, size, sort
-     */
+    /** GET /api/transactions */
     @GetMapping
     public ResponseEntity<Page<TransactionDtos.TransactionResponse>> findAll(
             @RequestParam(required = false) TransactionCategory category,
@@ -57,13 +52,10 @@ public class TransactionController {
     ) {
         TransactionDtos.TransactionFilter filter =
                 new TransactionDtos.TransactionFilter(category, type, userId, startDate, endDate, description);
-
         return ResponseEntity.ok(service.findAll(filter, currentUser, pageable));
     }
 
-    /**
-     * GET /api/transactions/{id}
-     */
+    /** GET /api/transactions/{id} */
     @GetMapping("/{id}")
     public ResponseEntity<TransactionDtos.TransactionResponse> findById(
             @PathVariable UUID id,
@@ -74,6 +66,7 @@ public class TransactionController {
 
     /**
      * PUT /api/transactions/{id}
+     * Edição simples — para transações não recorrentes.
      */
     @PutMapping("/{id}")
     public ResponseEntity<TransactionDtos.TransactionResponse> update(
@@ -85,7 +78,21 @@ public class TransactionController {
     }
 
     /**
+     * PATCH /api/transactions/{id}/recurring
+     * RF42 — Editar série recorrente com escopo: SINGLE | THIS_AND_FUTURE
+     */
+    @PatchMapping("/{id}/recurring")
+    public ResponseEntity<TransactionDtos.TransactionResponse> updateRecurring(
+            @PathVariable UUID id,
+            @Valid @RequestBody TransactionDtos.UpdateRecurringRequest request,
+            @AuthenticationPrincipal User currentUser
+    ) {
+        return ResponseEntity.ok(service.updateRecurring(id, request, currentUser));
+    }
+
+    /**
      * DELETE /api/transactions/{id}
+     * Exclusão simples — para transações não recorrentes.
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(
@@ -93,6 +100,20 @@ public class TransactionController {
             @AuthenticationPrincipal User currentUser
     ) {
         service.delete(id, currentUser);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * DELETE /api/transactions/{id}/recurring
+     * RF43 — Cancelar série recorrente com escopo: SINGLE | THIS_AND_FUTURE | ALL
+     */
+    @DeleteMapping("/{id}/recurring")
+    public ResponseEntity<Void> deleteRecurring(
+            @PathVariable UUID id,
+            @Valid @RequestBody TransactionDtos.DeleteRecurringRequest request,
+            @AuthenticationPrincipal User currentUser
+    ) {
+        service.deleteRecurring(id, request, currentUser);
         return ResponseEntity.noContent().build();
     }
 }
