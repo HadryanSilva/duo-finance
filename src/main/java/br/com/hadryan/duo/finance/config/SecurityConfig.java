@@ -74,7 +74,15 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/actuator/health"
+                                // ── Actuator endpoints ─────────────────────────────────────────────
+                                // health: Cloudflare Tunnel healthcheck (público)
+                                // prometheus: scrape interno pelo Prometheus (rede Docker)
+                                // metrics: consulta ad-hoc (rede Docker)
+                                "/actuator/health",
+                                "/actuator/health/**",
+                                "/actuator/prometheus",
+                                "/actuator/metrics",
+                                "/actuator/metrics/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

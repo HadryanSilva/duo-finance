@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- ── Propriedades ─────────────────────────────────────────────────── -->
+    <springProperty scope="context" name="appName"
+                    source="spring.application.name" defaultValue="duo-finance"/>
+
+    <!-- ── Appender: texto colorido para dev/test ───────────────────────── -->
+    <springProfile name="!docker">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) %cyan([%thread]) %yellow(%logger{36}) — %msg%n</pattern>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <!-- ── Appender: JSON estruturado para Docker/produção ──────────────── -->
+    <!--
+        Logback não inclui JSON encoder por padrão.
+        Usamos o encoder nativo do Spring Boot 3+ via LogstashEncoder substituído
+        por JsonEncoder do logback-classic, mas como não adicionamos logstash,
+        usamos PatternLayout com formato JSON manual que é simples e sem deps extras.
+        Para projetos maiores, considere adicionar logstash-logback-encoder.
+    -->
+    <springProfile name="docker">
+        <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+                <pattern>{"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%level","thread":"%thread","logger":"%logger{40}","message":"%replace(%msg){'\"','\\\"'}","app":"${appName}"}%n</pattern>
+                <charset>UTF-8</charset>
+            </encoder>
+        </appender>
+
+        <logger name="br.com.hadryan.duo.finance" level="INFO"/>
+        <logger name="org.springframework.security"  level="WARN"/>
+        <logger name="org.springframework.web"        level="WARN"/>
+        <logger name="com.zaxxer.hikari"              level="WARN"/>
+        <logger name="org.hibernate"                  level="WARN"/>
+        <logger name="org.flywaydb"                   level="INFO"/>
+
+        <root level="INFO">
+            <appender-ref ref="JSON_CONSOLE"/>
+        </root>
+    </springProfile>
+
+</configuration>
