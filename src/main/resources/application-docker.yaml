@@ -66,26 +66,64 @@ cloudinary:
   api-key: ${CLOUDINARY_API_KEY}
   api-secret: ${CLOUDINARY_API_SECRET}
 
-# ── Actuator ───────────────────────────────────────────────────────────────────
+# ── Actuator + Observabilidade ────────────────────────────────────────────────
 management:
   endpoints:
     web:
       exposure:
-        include: health
+        # health: healthcheck do Cloudflare Tunnel
+        # prometheus: scrape pelo Prometheus
+        # metrics: consulta ad-hoc de métricas
+        include: health, prometheus, metrics
+      base-path: /actuator
+
   endpoint:
     health:
-      show-details: never
+      # ALWAYS: exibe detalhes de todos os health indicators (db, diskSpace, etc.)
+      # Ficará visível apenas internamente (Prometheus está na rede Docker)
+      show-details: always
+      show-components: always
+    prometheus:
+      enabled: true
+
+  # ── Health indicators ─────────────────────────────────────────────────────
   health:
     mail:
-      enabled: false
+      enabled: false        # evita falso-negativo se SMTP estiver lento
+    db:
+      enabled: true         # verifica conectividade com PostgreSQL
+    diskspace:
+      enabled: true
+      threshold: 524288000  # alerta se disco livre < 500 MB
 
-# ── Logs ───────────────────────────────────────────────────────────────────────
-# Sem DEBUG — diferente do dev, aqui queremos logs mais limpos
+  # ── Métricas Micrometer ───────────────────────────────────────────────────
+  metrics:
+    tags:
+      application: duofinance   # tag global em todas as métricas
+      environment: production
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true    # histograma de latência HTTP
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+      slo:
+        http.server.requests: 100ms, 250ms, 500ms, 1s
+
+  # ── Prometheus ────────────────────────────────────────────────────────────
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+        step: 60s   # intervalo de agregação
+
+# ── Logs estruturados (JSON) ─────────────────────────────────────────────────
+# logback-spring.xml seleciona o appender "json" quando o profile "docker" está ativo
 logging:
   level:
     root: INFO
     br.com.hadryan.duo.finance: INFO
     org.springframework.security: WARN
+    com.zaxxer.hikari: WARN
 
 # ── Server ─────────────────────────────────────────────────────────────────────
 # Garante que o Spring usa o Host/Proto corretos vindos do nginx
