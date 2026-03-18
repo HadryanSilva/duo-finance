@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
  *   business_users_with_couple  — usuários vinculados a um casal ativo
  *   business_couples            — casais com pelo menos 1 membro (exclui fantasmas)
  *   business_couples_complete   — casais com 2 membros
- *   business_transactions_today — transações criadas hoje (por tipo)
+ *   business_transactions_today — transações registradas hoje por createdAt (por tipo)
  *   business_transactions       — total de transações ativas (não deletadas)
  */
 @Slf4j
@@ -35,10 +35,10 @@ public class BusinessMetrics {
     private final CoupleRepository      coupleRepository;
     private final TransactionRepository transactionRepository;
 
-    private final AtomicLong usersTotal              = new AtomicLong(0);
-    private final AtomicLong usersWithCouple         = new AtomicLong(0);
-    private final AtomicLong couplesActive           = new AtomicLong(0);
-    private final AtomicLong couplesComplete         = new AtomicLong(0);
+    private final AtomicLong usersTotal               = new AtomicLong(0);
+    private final AtomicLong usersWithCouple          = new AtomicLong(0);
+    private final AtomicLong couplesActive            = new AtomicLong(0);
+    private final AtomicLong couplesComplete          = new AtomicLong(0);
     private final AtomicLong transactionsTodayIncome  = new AtomicLong(0);
     private final AtomicLong transactionsTodayExpense = new AtomicLong(0);
     private final AtomicLong transactionsTotal        = new AtomicLong(0);
@@ -53,7 +53,6 @@ public class BusinessMetrics {
                 .description("Usuarios vinculados a um casal ativo")
                 .register(meterRegistry);
 
-        // Conta apenas casais com membros reais — exclui registros órfãos
         Gauge.builder("business_couples", couplesActive, AtomicLong::get)
                 .description("Casais com pelo menos 1 membro ativo")
                 .register(meterRegistry);
@@ -62,13 +61,14 @@ public class BusinessMetrics {
                 .description("Casais com 2 membros vinculados")
                 .register(meterRegistry);
 
+        // Conta por createdAt (quando o registro foi criado), não por date (data financeira)
         Gauge.builder("business_transactions_today", transactionsTodayIncome, AtomicLong::get)
-                .description("Transacoes criadas hoje")
+                .description("Transacoes registradas hoje (por createdAt)")
                 .tag("type", "INCOME")
                 .register(meterRegistry);
 
         Gauge.builder("business_transactions_today", transactionsTodayExpense, AtomicLong::get)
-                .description("Transacoes criadas hoje")
+                .description("Transacoes registradas hoje (por createdAt)")
                 .tag("type", "EXPENSE")
                 .register(meterRegistry);
 
@@ -86,8 +86,10 @@ public class BusinessMetrics {
             usersWithCouple.set(userRepository.countByHasCouple());
             couplesActive.set(coupleRepository.countActive());
             couplesComplete.set(coupleRepository.countComplete());
-            transactionsTodayIncome.set(transactionRepository.countTodayByType(TransactionType.INCOME));
-            transactionsTodayExpense.set(transactionRepository.countTodayByType(TransactionType.EXPENSE));
+            transactionsTodayIncome.set(
+                    transactionRepository.countCreatedTodayByType(TransactionType.INCOME));
+            transactionsTodayExpense.set(
+                    transactionRepository.countCreatedTodayByType(TransactionType.EXPENSE));
             transactionsTotal.set(transactionRepository.countActive());
         } catch (Exception e) {
             log.warn("Erro ao atualizar metricas de negocio: {}", e.getMessage());

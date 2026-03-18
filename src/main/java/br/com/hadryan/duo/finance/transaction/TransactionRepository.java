@@ -119,14 +119,19 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
 
     // ── Métricas de negócio ───────────────────────────────────────────────────
 
-    /** Transações criadas hoje por tipo (INCOME ou EXPENSE), excluindo soft-deleted. */
+    /**
+     * Transações criadas hoje pelo campo createdAt (momento do registro),
+     * independente da data financeira escolhida pelo usuário.
+     * Exclui soft-deleted e filhos de recorrência gerados pelo scheduler.
+     */
     @Query("""
             SELECT COUNT(t) FROM transactions t
-            WHERE t.type      = :type
-              AND t.date      = CURRENT_DATE
-              AND t.deletedAt IS NULL
+            WHERE t.type                      = :type
+              AND CAST(t.createdAt AS date)   = CURRENT_DATE
+              AND t.deletedAt                 IS NULL
+              AND t.parentTransaction         IS NULL
             """)
-    long countTodayByType(@Param("type") TransactionType type);
+    long countCreatedTodayByType(@Param("type") TransactionType type);
 
     /** Total de transações ativas (não soft-deleted). */
     @Query("SELECT COUNT(t) FROM transactions t WHERE t.deletedAt IS NULL")
