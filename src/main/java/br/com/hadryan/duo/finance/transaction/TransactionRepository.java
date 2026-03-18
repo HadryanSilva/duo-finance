@@ -1,5 +1,6 @@
 package br.com.hadryan.duo.finance.transaction;
 
+import br.com.hadryan.duo.finance.transaction.enums.TransactionType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
@@ -115,4 +116,19 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
             @Param("parentId") UUID parentId,
             @Param("now")      LocalDateTime now
     );
+
+    // ── Métricas de negócio ───────────────────────────────────────────────────
+
+    /** Transações criadas hoje por tipo (INCOME ou EXPENSE), excluindo soft-deleted. */
+    @Query("""
+            SELECT COUNT(t) FROM transactions t
+            WHERE t.type      = :type
+              AND t.date      = CURRENT_DATE
+              AND t.deletedAt IS NULL
+            """)
+    long countTodayByType(@Param("type") TransactionType type);
+
+    /** Total de transações ativas (não soft-deleted). */
+    @Query("SELECT COUNT(t) FROM transactions t WHERE t.deletedAt IS NULL")
+    long countActive();
 }
