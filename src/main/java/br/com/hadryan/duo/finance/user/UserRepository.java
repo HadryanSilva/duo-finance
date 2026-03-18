@@ -23,4 +23,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     // fora de uma transação (ex: no JwtAuthFilter)
     @Query("SELECT u FROM users u LEFT JOIN FETCH u.couple WHERE u.id = :id")
     Optional<User> findByIdWithCouple(UUID id);
+
+    // ── Métricas de negócio ───────────────────────────────────────────────────
+
+    @Query("SELECT COUNT(u) FROM users u WHERE u.couple IS NOT NULL")
+    long countByHasCouple();
 }

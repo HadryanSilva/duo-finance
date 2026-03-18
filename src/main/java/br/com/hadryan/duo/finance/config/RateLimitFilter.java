@@ -1,13 +1,15 @@
 package br.com.hadryan.duo.finance.config;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.lang.NonNull;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -19,21 +21,20 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Rate limiter in-memory por IP para endpoints de autenticação.
+ * Rate limiter in-memory por IP.
  *
  * Limites:
- *   POST /api/auth/login           → 5 tentativas / 60 s
- *   POST /api/auth/register        → 3 tentativas / 300 s
- *   POST /api/auth/forgot-password → 3 tentativas / 300 s
+ *   POST /api/auth/login           -> 5 tentativas / 60 s
+ *   POST /api/auth/register        -> 3 tentativas / 300 s
+ *   POST /api/auth/forgot-password -> 3 tentativas / 300 s
  *
- * NÃO é anotado com @Component — registrado exclusivamente via
- * FilterRegistrationBean em RateLimitFilterConfig para evitar
- * duplo registro automático pelo Spring Boot.
+ * Métrica gerada:
+ *   rate_limit_blocked_total{endpoint="/api/auth/login"|...}
  */
 @Slf4j
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    // ── Configuração dos endpoints protegidos ─────────────────────────────────
+    // ── Configuração ──────────────────────────────────────────────────────────
 
     private record Limit(int maxRequests, long windowSeconds) {}
 
@@ -45,8 +46,21 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     // ── Estado ────────────────────────────────────────────────────────────────
 
-    /** Chave: "IP::endpoint" → bucket de tentativas */
-    private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Bucket>  buckets        = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Counter> blockedCounters = new ConcurrentHashMap<>();
+    private final MeterRegistry meterRegistry;
+
+    public RateLimitFilter(MeterRegistry meterRegistry) {
+        this.meterRegistry = meterRegistry;
+        // Pré-registra counters para cada endpoint protegido
+        LIMITS.keySet().forEach(endpoint ->
+                blockedCounters.put(endpoint,
+                        Counter.builder("rate_limit_blocked_total")
+                                .description("Requisicoes bloqueadas pelo rate limiter")
+                                .tag("endpoint", endpoint)
+                                .register(meterRegistry))
+        );
+    }
 
     // ── Bucket ────────────────────────────────────────────────────────────────
 
@@ -100,6 +114,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
             if (!bucket.tryConsume(limit.maxRequests())) {
                 long retryAfter = bucket.retryAfterSeconds();
                 log.warn("Rate limit atingido | ip={} endpoint={} retry-after={}s", ip, path, retryAfter);
+
+                // Incrementa counter da métrica
+                Counter counter = blockedCounters.get(path);
+                if (counter != null) counter.increment();
+
                 response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
                 response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                 response.setHeader("Retry-After", String.valueOf(retryAfter));
