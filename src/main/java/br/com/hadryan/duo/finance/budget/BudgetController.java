@@ -17,11 +17,7 @@ public class BudgetController {
 
     private final BudgetService budgetService;
 
-    /**
-     * GET /api/budget/overview
-     * GET /api/budget/overview?year=2026&month=3
-     * Visão consolidada do orçamento do mês.
-     */
+    /** GET /api/budget/overview?year=2026&month=3 */
     @GetMapping("/overview")
     public ResponseEntity<BudgetDtos.BudgetOverviewResponse> overview(
             @RequestParam(required = false) Integer year,
@@ -33,10 +29,7 @@ public class BudgetController {
         return ResponseEntity.ok(budgetService.overview(y, m, currentUser));
     }
 
-    /**
-     * PUT /api/budget/global-limit
-     * Define ou atualiza o teto global mensal do casal.
-     */
+    /** PUT /api/budget/global-limit */
     @PutMapping("/global-limit")
     public ResponseEntity<Void> setGlobalLimit(
             @Valid @RequestBody BudgetDtos.SetGlobalLimitRequest request,
@@ -46,22 +39,14 @@ public class BudgetController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * DELETE /api/budget/global-limit
-     * Remove o limite global (volta a usar a soma das metas).
-     */
+    /** DELETE /api/budget/global-limit */
     @DeleteMapping("/global-limit")
-    public ResponseEntity<Void> removeGlobalLimit(
-            @AuthenticationPrincipal User currentUser
-    ) {
+    public ResponseEntity<Void> removeGlobalLimit(@AuthenticationPrincipal User currentUser) {
         budgetService.removeGlobalLimit(currentUser);
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * POST /api/budget/distribute
-     * Distribui automaticamente o limite global entre as metas ativas.
-     */
+    /** POST /api/budget/distribute — distribuição automática por regra */
     @PostMapping("/distribute")
     public ResponseEntity<BudgetDtos.DistributeResponse> distribute(
             @Valid @RequestBody BudgetDtos.DistributeRequest request,
@@ -71,9 +56,19 @@ public class BudgetController {
     }
 
     /**
-     * GET /api/budget/comparison?months=6
-     * Comparação orçado vs realizado dos últimos N meses.
+     * POST /api/budget/distribute/custom
+     * Distribuição customizada: usuário define % de cada categoria.
+     * A soma deve ser exatamente 100%.
      */
+    @PostMapping("/distribute/custom")
+    public ResponseEntity<BudgetDtos.CustomDistributeResponse> distributeCustom(
+            @Valid @RequestBody BudgetDtos.CustomDistributeRequest request,
+            @AuthenticationPrincipal User currentUser
+    ) {
+        return ResponseEntity.ok(budgetService.distributeCustom(request, currentUser));
+    }
+
+    /** GET /api/budget/comparison?months=6 */
     @GetMapping("/comparison")
     public ResponseEntity<BudgetDtos.BudgetComparisonResponse> comparison(
             @RequestParam(defaultValue = "6") int months,
