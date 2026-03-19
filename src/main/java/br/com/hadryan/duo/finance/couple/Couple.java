@@ -7,6 +7,7 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +29,10 @@ public class Couple {
 
     @Column(name = "invite_expires_at")
     private LocalDateTime inviteExpiresAt;
+
+    /** Teto global de despesas mensais do casal. Null = sem limite definido. */
+    @Column(name = "global_monthly_limit", precision = 12, scale = 2)
+    private BigDecimal globalMonthlyLimit;
 
     @OneToMany(mappedBy = "couple", fetch = FetchType.LAZY)
     private List<User> members = new ArrayList<>();
