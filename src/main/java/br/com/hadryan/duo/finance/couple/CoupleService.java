@@ -1,6 +1,7 @@
 package br.com.hadryan.duo.finance.couple;
 
 import br.com.hadryan.duo.finance.couple.dto.CoupleDtos;
+import br.com.hadryan.duo.finance.couple.event.PartnerJoinedEvent;
 import br.com.hadryan.duo.finance.shared.exception.BusinessException;
 import br.com.hadryan.duo.finance.shared.exception.ResourceNotFoundException;
 import br.com.hadryan.duo.finance.user.User;
@@ -9,6 +10,7 @@ import jakarta.mail.internet.MimeMessage;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -29,6 +31,7 @@ public class CoupleService {
     private final UserRepository    userRepository;
     private final JavaMailSender    mailSender;
     private final TemplateEngine    templateEngine;
+    private final ApplicationEventPublisher eventPublisher;
     private final long              inviteExpirationHours;
     private final String            frontendUrl;
     private final String            mailFrom;
@@ -41,6 +44,7 @@ public class CoupleService {
             UserRepository userRepository,
             JavaMailSender mailSender,
             TemplateEngine templateEngine,
+            ApplicationEventPublisher eventPublisher,
             @Value("${app.invite-expiration-hours}") long inviteExpirationHours,
             @Value("${app.frontend-url}")            String frontendUrl,
             @Value("${spring.mail.username}")        String mailFrom
@@ -49,6 +53,7 @@ public class CoupleService {
         this.userRepository        = userRepository;
         this.mailSender            = mailSender;
         this.templateEngine        = templateEngine;
+        this.eventPublisher        = eventPublisher;
         this.inviteExpirationHours = inviteExpirationHours;
         this.frontendUrl           = frontendUrl;
         this.mailFrom              = mailFrom;
@@ -143,11 +148,17 @@ public class CoupleService {
         currentUser.setCouple(couple);
         userRepository.save(currentUser);
 
+        List<User> members = userRepository.findByCoupleId(couple.getId());
+        members.stream()
+                .filter(u -> !u.getId().equals(currentUser.getId()))
+                .findFirst()
+                .ifPresent(existingUser ->
+                        eventPublisher.publishEvent(new PartnerJoinedEvent(currentUser, existingUser, couple)));
+
         couple.setInviteToken(null);
         couple.setInviteExpiresAt(null);
         coupleRepository.save(couple);
 
-        List<User> members = userRepository.findByCoupleId(couple.getId());
         return new CoupleDtos.JoinCoupleResponse(
                 "Você foi vinculado à conta com sucesso!",
                 toResponse(couple, members)

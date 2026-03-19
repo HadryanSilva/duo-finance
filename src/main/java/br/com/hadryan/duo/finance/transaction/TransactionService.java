@@ -1,5 +1,6 @@
 package br.com.hadryan.duo.finance.transaction;
 
+import br.com.hadryan.duo.finance.budget.BudgetService;
 import br.com.hadryan.duo.finance.category.CustomCategory;
 import br.com.hadryan.duo.finance.category.CustomCategoryRepository;
 import br.com.hadryan.duo.finance.couple.Couple;
@@ -31,6 +32,7 @@ public class TransactionService {
     private final TransactionRepository    repository;
     private final CustomCategoryRepository customCategoryRepository;
     private final GoalService              goalService;
+    private final BudgetService            budgetService;
 
     // ── Criar ─────────────────────────────────────────────────────────────────
 
@@ -57,6 +59,7 @@ public class TransactionService {
 
         if (saved.getType() == TransactionType.EXPENSE && saved.getCategory() != null) {
             goalService.checkAndPublishAlerts(couple.getId(), saved.getCategory());
+            budgetService.checkAndPublishBudgetAlert(couple.getId(), saved.getCategory());
         }
 
         return toResponse(saved);
