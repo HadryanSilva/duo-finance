@@ -1,6 +1,7 @@
 package br.com.hadryan.duo.finance.budget;
 
 import br.com.hadryan.duo.finance.budget.dto.BudgetDtos;
+import br.com.hadryan.duo.finance.budget.event.BudgetExceededEvent;
 import br.com.hadryan.duo.finance.couple.Couple;
 import br.com.hadryan.duo.finance.couple.CoupleRepository;
 import br.com.hadryan.duo.finance.report.ReportRepository;
@@ -10,6 +11,7 @@ import br.com.hadryan.duo.finance.transaction.enums.TransactionCategory;
 import br.com.hadryan.duo.finance.transaction.enums.TransactionType;
 import br.com.hadryan.duo.finance.user.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +29,7 @@ public class BudgetService {
     private final CoupleRepository  coupleRepository;
     private final BudgetRepository  budgetRepository;
     private final ReportRepository  reportRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     // ── Renda mensal ──────────────────────────────────────────────────────────
 
@@ -259,5 +262,37 @@ public class BudgetService {
     private void requireIncome(Couple couple) {
         if (couple.getMonthlyIncome() == null)
             throw new BusinessException("Informe a renda mensal do casal antes de definir o orçamento.");
+    }
+
+    /**
+     * Verifica se o gasto do mês atual excedeu o orçamento da categoria.
+     * Publicar BudgetExceededEvent se excedeu.
+     * Chamado pelo TransactionService após criar/editar uma transação EXPENSE.
+     */
+    @Transactional(readOnly = true)
+    public void checkAndPublishBudgetAlert(UUID coupleId, TransactionCategory category) {
+        Couple couple = coupleRepository.findById(coupleId).orElse(null);
+        if (couple == null || couple.getMonthlyIncome() == null) return;
+
+        budgetRepository.findByCoupleIdAndCategory(coupleId, category).ifPresent(budget -> {
+            BigDecimal allocated = couple.getMonthlyIncome()
+                    .multiply(budget.getPercentage())
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+
+            LocalDate start = LocalDate.now().withDayOfMonth(1);
+            LocalDate end   = LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth());
+
+            BigDecimal spent = reportRepository
+                    .sumByCategory(coupleId, TransactionType.EXPENSE, start, end)
+                    .stream()
+                    .filter(p -> p.category() == category)
+                    .map(CategorySumProjection::total)
+                    .findFirst()
+                    .orElse(BigDecimal.ZERO);
+
+            if (spent.compareTo(allocated) > 0) {
+                eventPublisher.publishEvent(new BudgetExceededEvent(coupleId, category, allocated, spent));
+            }
+        });
     }
 }
