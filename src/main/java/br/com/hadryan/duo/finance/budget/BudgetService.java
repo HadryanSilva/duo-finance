@@ -65,9 +65,7 @@ public class BudgetService {
                 .collect(Collectors.toMap(CategorySumProjection::category, CategorySumProjection::total));
 
         BigDecimal totalBudgeted = activeGoals.stream()
-                .map(Goal::getMonthlyLimit)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
+                .map(Goal::getMonthlyLimit).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalSpent = spentMap.values().stream()
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
@@ -84,22 +82,17 @@ public class BudgetService {
                     BigDecimal spent     = spentMap.getOrDefault(goal.getCategory(), BigDecimal.ZERO);
                     BigDecimal budgeted  = goal.getMonthlyLimit();
                     BigDecimal remaining = budgeted.subtract(spent).max(BigDecimal.ZERO);
-
                     double pct = budgeted.compareTo(BigDecimal.ZERO) == 0 ? 0.0
                             : spent.divide(budgeted, 4, RoundingMode.HALF_UP)
                             .multiply(BigDecimal.valueOf(100)).doubleValue();
-
                     double pctOfTotal = totalSpent.compareTo(BigDecimal.ZERO) == 0 ? 0.0
                             : spent.divide(totalSpent, 4, RoundingMode.HALF_UP)
                             .multiply(BigDecimal.valueOf(100)).doubleValue();
-
                     return new BudgetDtos.CategoryBudgetItem(
                             goal.getCategory(), goal.getCategory().getLabel(),
                             budgeted, spent, remaining,
-                            Math.min(pct, 100.0),
-                            Math.round(pctOfTotal * 100.0) / 100.0,
-                            resolveAlert(pct)
-                    );
+                            Math.min(pct, 100.0), Math.round(pctOfTotal * 100.0) / 100.0,
+                            resolveAlert(pct));
                 })
                 .sorted(Comparator.comparing(BudgetDtos.CategoryBudgetItem::spent).reversed())
                 .toList();
@@ -110,9 +103,7 @@ public class BudgetService {
         return new BudgetDtos.BudgetOverviewResponse(
                 year, month, monthLabel,
                 globalLimit, totalBudgeted, totalSpent, totalRemaining,
-                Math.min(globalPercentage, 100.0), resolveAlert(globalPercentage),
-                categories
-        );
+                Math.min(globalPercentage, 100.0), resolveAlert(globalPercentage), categories);
     }
 
     // ── Comparação orçado vs realizado ────────────────────────────────────────
@@ -125,7 +116,6 @@ public class BudgetService {
         List<Goal> activeGoals = goalRepository.findActiveByCoupleId(coupleId);
         BigDecimal totalBudgeted = activeGoals.stream()
                 .map(Goal::getMonthlyLimit).reduce(BigDecimal.ZERO, BigDecimal::add);
-
         BigDecimal effectiveLimit = couple.getGlobalMonthlyLimit() != null
                 ? couple.getGlobalMonthlyLimit() : totalBudgeted;
 
@@ -138,20 +128,16 @@ public class BudgetService {
             LocalDate end   = cursor.withDayOfMonth(cursor.lengthOfMonth());
             BigDecimal spent = reportRepository.sumByType(coupleId, TransactionType.EXPENSE, start, end);
             BigDecimal balance = effectiveLimit.subtract(spent);
-
             double adherence = effectiveLimit.compareTo(BigDecimal.ZERO) == 0 ? 0.0
                     : spent.divide(effectiveLimit, 4, RoundingMode.HALF_UP)
                     .multiply(BigDecimal.valueOf(100)).doubleValue();
-
             String label = cursor.getMonth().getDisplayName(TextStyle.SHORT, ptBR)
                     + "/" + String.valueOf(cursor.getYear()).substring(2);
-
             result.add(new BudgetDtos.MonthComparison(
                     cursor.getYear(), cursor.getMonthValue(), label,
                     effectiveLimit, spent, balance,
                     Math.round(adherence * 100.0) / 100.0,
-                    spent.compareTo(effectiveLimit) <= 0
-            ));
+                    spent.compareTo(effectiveLimit) <= 0));
             cursor = cursor.plusMonths(1);
         }
 
@@ -179,7 +165,8 @@ public class BudgetService {
 
         applyAllocations(activeGoals, allocations);
 
-        List<BudgetDtos.CategoryAllocation> allocationList = buildAllocationList(activeGoals, allocations, globalLimit);
+        List<BudgetDtos.CategoryAllocation> allocationList =
+                buildAllocationList(activeGoals, allocations, globalLimit);
         return new BudgetDtos.DistributeResponse(request.rule(), globalLimit, allocationList);
     }
 
@@ -193,48 +180,64 @@ public class BudgetService {
         requireGlobalLimit(couple);
 
         BigDecimal globalLimit = couple.getGlobalMonthlyLimit();
-        List<Goal> activeGoals = goalRepository.findActiveByCoupleId(couple.getId());
-        requireGoals(activeGoals);
 
-        // Valida que a soma dos percentuais é exatamente 100
-        BigDecimal total = request.allocations().stream()
+        // Filtra apenas categorias com percentual > 0
+        List<BudgetDtos.CategoryPercentage> nonZero = request.allocations().stream()
+                .filter(a -> a.percentage().compareTo(BigDecimal.ZERO) > 0)
+                .toList();
+
+        if (nonZero.isEmpty()) {
+            throw new BusinessException("Informe ao menos uma categoria com percentual maior que zero.");
+        }
+
+        // Valida que a soma é exatamente 100
+        BigDecimal total = nonZero.stream()
                 .map(BudgetDtos.CategoryPercentage::percentage)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         if (total.compareTo(new BigDecimal("100.00")) != 0) {
             throw new BusinessException(
-                    "A soma dos percentuais deve ser exatamente 100%. Soma atual: " +
-                            total.setScale(2, RoundingMode.HALF_UP) + "%");
+                    "A soma dos percentuais deve ser exatamente 100%. Soma atual: "
+                            + total.setScale(2, RoundingMode.HALF_UP) + "%");
         }
 
-        // Valida que todas as categorias informadas têm meta ativa
-        Set<TransactionCategory> activeCategories = activeGoals.stream()
-                .map(Goal::getCategory).collect(Collectors.toSet());
+        // Para cada categoria: busca meta existente ou cria uma nova
+        List<Goal> goalsToSave = new ArrayList<>();
 
-        request.allocations().forEach(alloc -> {
-            if (!activeCategories.contains(alloc.category())) {
-                throw new BusinessException(
-                        "A categoria " + alloc.category().getLabel() +
-                                " não possui uma meta ativa. Crie a meta antes de distribuir.");
-            }
-        });
+        for (BudgetDtos.CategoryPercentage alloc : nonZero) {
+            BigDecimal allocated = globalLimit
+                    .multiply(alloc.percentage())
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
-        // Monta mapa de alocações: category → valor em reais
-        Map<TransactionCategory, BigDecimal> allocations = request.allocations().stream()
-                .collect(Collectors.toMap(
-                        BudgetDtos.CategoryPercentage::category,
-                        alloc -> globalLimit
-                                .multiply(alloc.percentage())
-                                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
-                ));
+            Goal goal = goalRepository
+                    .findByCoupleIdAndCategory(couple.getId(), alloc.category())
+                    .orElseGet(() -> {
+                        // Cria meta automaticamente se não existir
+                        Goal newGoal = new Goal();
+                        newGoal.setCouple(couple);
+                        newGoal.setCategory(alloc.category());
+                        newGoal.setMonthlyLimit(allocated);
+                        return newGoal;
+                    });
 
-        applyAllocations(activeGoals, allocations);
+            goal.setMonthlyLimit(allocated);
+            goal.setActive(true);  // reativa se estava pausada
+            goalsToSave.add(goal);
+        }
 
-        List<BudgetDtos.CategoryAllocation> allocationList = buildAllocationList(activeGoals, allocations, globalLimit);
+        goalRepository.saveAll(goalsToSave);
+
+        // Monta resposta
+        Map<TransactionCategory, BigDecimal> allocMap = goalsToSave.stream()
+                .collect(Collectors.toMap(Goal::getCategory, Goal::getMonthlyLimit));
+
+        List<BudgetDtos.CategoryAllocation> allocationList = buildAllocationList(
+                goalsToSave, allocMap, globalLimit);
+
         return new BudgetDtos.CustomDistributeResponse(globalLimit, allocationList);
     }
 
-    // ── Estratégias de distribuição ───────────────────────────────────────────
+    // ── Estratégias automáticas ───────────────────────────────────────────────
 
     private Map<TransactionCategory, BigDecimal> distribute503020(
             List<Goal> goals, BigDecimal globalLimit) {
@@ -242,8 +245,7 @@ public class BudgetService {
         Set<TransactionCategory> necessidades = Set.of(
                 TransactionCategory.HOUSING, TransactionCategory.FOOD,
                 TransactionCategory.HEALTH,  TransactionCategory.TRANSPORT,
-                TransactionCategory.SUPERMARKET
-        );
+                TransactionCategory.SUPERMARKET);
         Set<TransactionCategory> poupanca = Set.of(TransactionCategory.INVESTMENTS);
 
         List<Goal> goalsNec  = goals.stream().filter(g -> necessidades.contains(g.getCategory())).toList();
@@ -284,7 +286,6 @@ public class BudgetService {
                     .filter(p -> p.category() == goal.getCategory())
                     .map(CategorySumProjection::total)
                     .findFirst().orElse(BigDecimal.ZERO);
-
             BigDecimal share = hist.compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ZERO
                     : hist.divide(totalHistorical, 4, RoundingMode.HALF_UP)
                     .multiply(globalLimit).setScale(2, RoundingMode.HALF_UP);
@@ -295,13 +296,14 @@ public class BudgetService {
 
     private Map<TransactionCategory, BigDecimal> distributeEqual(
             List<Goal> goals, BigDecimal globalLimit) {
-        BigDecimal perCategory = globalLimit.divide(BigDecimal.valueOf(goals.size()), 2, RoundingMode.HALF_UP);
+        BigDecimal perCategory = globalLimit.divide(
+                BigDecimal.valueOf(goals.size()), 2, RoundingMode.HALF_UP);
         Map<TransactionCategory, BigDecimal> result = new HashMap<>();
         goals.forEach(g -> result.put(g.getCategory(), perCategory));
         return result;
     }
 
-    // ── Helpers privados ──────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private void allocatePool(List<Goal> goals, BigDecimal pool,
                               Map<TransactionCategory, BigDecimal> result) {
@@ -349,11 +351,13 @@ public class BudgetService {
 
     private void requireGlobalLimit(Couple couple) {
         if (couple.getGlobalMonthlyLimit() == null)
-            throw new BusinessException("Defina um limite global mensal antes de distribuir o orçamento.");
+            throw new BusinessException(
+                    "Defina um limite global mensal antes de distribuir o orçamento.");
     }
 
     private void requireGoals(List<Goal> goals) {
         if (goals.isEmpty())
-            throw new BusinessException("Crie ao menos uma meta de categoria antes de distribuir o orçamento.");
+            throw new BusinessException(
+                    "Crie ao menos uma meta de categoria antes de distribuir o orçamento.");
     }
 }
