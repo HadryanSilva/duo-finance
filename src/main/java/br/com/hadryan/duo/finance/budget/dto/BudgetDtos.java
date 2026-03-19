@@ -2,8 +2,12 @@ package br.com.hadryan.duo.finance.budget.dto;
 
 import br.com.hadryan.duo.finance.goal.dto.GoalDtos;
 import br.com.hadryan.duo.finance.transaction.enums.TransactionCategory;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.DecimalMin;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -19,11 +23,8 @@ public class BudgetDtos {
     ) {}
 
     public enum DistributionRule {
-        /** 50% necessidades, 30% desejos, 20% poupança/investimento */
         RULE_50_30_20,
-        /** Distribui proporcionalmente ao gasto histórico dos últimos 3 meses */
         PROPORTIONAL_HISTORICAL,
-        /** Divide igualmente entre todas as categorias com meta ativa */
         EQUAL
     }
 
@@ -32,41 +33,53 @@ public class BudgetDtos {
             DistributionRule rule
     ) {}
 
-    // ── Responses ─────────────────────────────────────────────────────────────
+    /** Alocação de uma categoria na distribuição customizada. */
+    public record CategoryPercentage(
+            @NotNull(message = "Categoria é obrigatória")
+            TransactionCategory category,
+
+            @NotNull(message = "Percentual é obrigatório")
+            @DecimalMin(value = "0.0",   inclusive = true,  message = "Percentual não pode ser negativo")
+            @DecimalMax(value = "100.0", inclusive = true,  message = "Percentual não pode exceder 100%")
+            BigDecimal percentage
+    ) {}
 
     /**
-     * Visão consolidada do orçamento do mês.
+     * Distribuição customizada: o usuário define o % de cada categoria.
+     * A soma dos percentuais deve ser exatamente 100.
      */
+    public record CustomDistributeRequest(
+            @NotEmpty(message = "Informe ao menos uma categoria")
+            @Valid
+            List<CategoryPercentage> allocations
+    ) {}
+
+    // ── Responses ─────────────────────────────────────────────────────────────
+
     public record BudgetOverviewResponse(
             int year,
             int month,
             String monthLabel,
-            BigDecimal globalLimit,          // null se não definido
-            BigDecimal totalBudgeted,        // soma dos limits das goals ativas
-            BigDecimal totalSpent,           // total gasto no mês
-            BigDecimal totalRemaining,       // globalLimit - totalSpent (ou totalBudgeted - totalSpent)
-            double globalPercentage,         // % do limite global consumido
+            BigDecimal globalLimit,
+            BigDecimal totalBudgeted,
+            BigDecimal totalSpent,
+            BigDecimal totalRemaining,
+            double globalPercentage,
             GoalDtos.AlertLevel globalAlert,
             List<CategoryBudgetItem> categories
     ) {}
 
-    /**
-     * Item de categoria no orçamento — orçado vs realizado.
-     */
     public record CategoryBudgetItem(
             TransactionCategory category,
             String categoryLabel,
-            BigDecimal budgeted,             // limite da meta
-            BigDecimal spent,                // gasto real no mês
+            BigDecimal budgeted,
+            BigDecimal spent,
             BigDecimal remaining,
-            double percentage,               // spent / budgeted
-            double percentageOfTotal,        // spent / totalSpent (participação no gasto)
+            double percentage,
+            double percentageOfTotal,
             GoalDtos.AlertLevel alertLevel
     ) {}
 
-    /**
-     * Comparação orçado vs realizado por mês.
-     */
     public record BudgetComparisonResponse(
             List<MonthComparison> months
     ) {}
@@ -77,14 +90,11 @@ public class BudgetDtos {
             String monthLabel,
             BigDecimal totalBudgeted,
             BigDecimal totalSpent,
-            BigDecimal balance,              // budgeted - spent (positivo = sobrou, negativo = estourou)
-            double adherencePercentage,      // spent / budgeted * 100
+            BigDecimal balance,
+            double adherencePercentage,
             boolean withinBudget
     ) {}
 
-    /**
-     * Resultado da distribuição automática.
-     */
     public record DistributeResponse(
             DistributionRule rule,
             BigDecimal globalLimit,
@@ -96,5 +106,11 @@ public class BudgetDtos {
             String categoryLabel,
             BigDecimal allocated,
             double percentage
+    ) {}
+
+    /** Resposta da distribuição customizada — sem campo rule (é customizada). */
+    public record CustomDistributeResponse(
+            BigDecimal globalLimit,
+            List<CategoryAllocation> allocations
     ) {}
 }
