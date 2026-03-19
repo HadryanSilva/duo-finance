@@ -30,9 +30,13 @@ public class Couple {
     @Column(name = "invite_expires_at")
     private LocalDateTime inviteExpiresAt;
 
-    /** Teto global de despesas mensais do casal. Null = sem limite definido. */
-    @Column(name = "global_monthly_limit", precision = 12, scale = 2)
-    private BigDecimal globalMonthlyLimit;
+    /**
+     * Renda conjunta mensal do casal.
+     * Usada como base (100%) para o cálculo do orçamento por categoria.
+     * Null = renda não informada.
+     */
+    @Column(name = "monthly_income", precision = 12, scale = 2)
+    private BigDecimal monthlyIncome;
 
     @OneToMany(mappedBy = "couple", fetch = FetchType.LAZY)
     private List<User> members = new ArrayList<>();
