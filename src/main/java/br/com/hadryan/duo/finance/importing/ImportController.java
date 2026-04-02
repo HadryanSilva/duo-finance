@@ -20,18 +20,26 @@ public class ImportController {
     private final ImportService service;
 
     /**
-     * POST /api/imports/btg
-     *
-     * Receives a BTG Pactual XLSX statement via multipart/form-data (field "file"),
-     * parses it, deduplicates and persists the found transactions.
-     *
-     * Returns a summary with total found, imported and skipped.
+     * POST /api/imports/xlsx
+     * Imports a BTG Pactual XLSX bank statement.
      */
-    @PostMapping(value = "/btg", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ImportDtos.ImportResult> importBtg(
+    @PostMapping(value = "/xlsx", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ImportDtos.ImportResult> importXlsx(
             @RequestPart("file") MultipartFile file,
             @AuthenticationPrincipal User currentUser
     ) {
-        return ResponseEntity.ok(service.importBtg(file, currentUser));
+        return ResponseEntity.ok(service.importXlsx(file, currentUser));
+    }
+
+    /**
+     * POST /api/imports/ofx
+     * Imports an OFX bank statement (Nubank, Itaú, Bradesco, etc.).
+     */
+    @PostMapping(value = "/ofx", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ImportDtos.ImportResult> importOfx(
+            @RequestPart("file") MultipartFile file,
+            @AuthenticationPrincipal User currentUser
+    ) {
+        return ResponseEntity.ok(service.importOfx(file, currentUser));
     }
 }
