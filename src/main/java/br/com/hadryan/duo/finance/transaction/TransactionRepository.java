@@ -136,4 +136,22 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
     /** Total de transações ativas (não soft-deleted). */
     @Query("SELECT COUNT(t) FROM transactions t WHERE t.deletedAt IS NULL")
     long countActive();
+
+    @Query("""
+        SELECT t.date, t.description, t.amount
+        FROM transactions t
+        WHERE t.couple.id = :coupleId
+          AND t.deletedAt IS NULL
+          AND (:fromDate IS NULL OR t.date >= :fromDate)
+          AND (:toDate IS NULL OR t.date <= :toDate)
+        """)
+    List<Object[]> findDeduplicationKeys(
+            @Param("coupleId") UUID coupleId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate
+    );
+
+    default List<Object[]> findDeduplicationKeys(UUID coupleId) {
+        return findDeduplicationKeys(coupleId, null, null);
+    }
 }
