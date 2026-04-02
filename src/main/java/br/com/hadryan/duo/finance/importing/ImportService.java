@@ -91,14 +91,14 @@ public class ImportService {
 
     private void validateFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new BusinessException("No file was sent.");
+            throw new BusinessException("Nenhum arquivo foi enviado.");
         }
         if (file.getSize() > MAX_FILE_SIZE_BYTES) {
-            throw new BusinessException("File too large. Maximum allowed size is 10 MB.");
+            throw new BusinessException("Arquivo muito grande. O tamanho máximo permitido é de 10 MB.");
         }
         String filename = file.getOriginalFilename();
         if (filename == null || !filename.toLowerCase().endsWith(".xlsx")) {
-            throw new BusinessException("Invalid format. Please send an .xlsx file exported from BTG Pactual.");
+            throw new BusinessException("Formato inválido. Envie um arquivo .xlsx exportado do BTG Pactual.");
         }
     }
 
