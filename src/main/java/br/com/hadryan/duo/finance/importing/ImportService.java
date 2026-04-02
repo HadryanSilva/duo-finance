@@ -41,13 +41,13 @@ public class ImportService {
             throw new BusinessException(e.getMessage());
         } catch (IOException e) {
             log.error("Error reading BTG import file", e);
-            throw new BusinessException("Não foi possível ler o arquivo. Verifique se ele é um XLSX válido.");
+            throw new BusinessException("Could not read the file. Please verify it is a valid XLSX.");
         }
 
         if (parsed.isEmpty()) {
             throw new BusinessException(
-                    "Nenhuma transação foi encontrada no arquivo. " +
-                            "Verifique se ele é um extrato do BTG Pactual no formato correto.");
+                    "Nenhuma transação encontrada no arquivo. " +
+                            "Verifique se é um extrato bancário no formato XLSX correto.");
         }
 
         // Load deduplication keys: existing date+description+amount for this couple
@@ -91,14 +91,14 @@ public class ImportService {
 
     private void validateFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new BusinessException("Nenhum arquivo foi enviado.");
+            throw new BusinessException("No file was sent.");
         }
         if (file.getSize() > MAX_FILE_SIZE_BYTES) {
-            throw new BusinessException("Arquivo muito grande. O tamanho máximo permitido é de 10 MB.");
+            throw new BusinessException("File too large. Maximum allowed size is 10 MB.");
         }
         String filename = file.getOriginalFilename();
         if (filename == null || !filename.toLowerCase().endsWith(".xlsx")) {
-            throw new BusinessException("Formato inválido. Envie um arquivo .xlsx exportado do BTG Pactual.");
+            throw new BusinessException("Formato inválido. Envie um arquivo .xlsx exportado pelo seu banco.");
         }
     }
 

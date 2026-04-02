@@ -15,14 +15,27 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Lê e valida o extrato XLSX do BTG Pactual.
+ *
+ * Estrutura esperada (colunas base-0, sheet "Extrato"):
+ *  Col 1  → Data e hora  (ex: "01/03/2026 20:00")
+ *  Col 2  → Categoria BTG
+ *  Col 3  → Tipo de transação BTG
+ *  Col 6  → Descrição
+ *  Col 10 → Valor (positivo = receita, negativo = despesa)
+ *
+ * Linhas ignoradas:
+ *  - Cabeçalho (rows 0–10)
+ *  - Linhas de "Saldo Diário" (col 6 == "Saldo Diário")
+ *  - Linhas onde col 1 (data) está vazia
+ *  - Rodapé a partir da primeira linha sem valor numérico após os dados
+ */
 @Component
 public class BtgExcelParser {
 
     private static final DateTimeFormatter BTG_DATE_FORMAT =
             DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-
-    private static final DateTimeFormatter BTG_DATE_ONLY_FORMAT =
-            DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     // Índices das colunas relevantes no sheet
     private static final int COL_DATETIME    = 1;
@@ -39,8 +52,8 @@ public class BtgExcelParser {
             Sheet sheet = workbook.getSheet("Extrato");
             if (sheet == null) {
                 throw new IllegalArgumentException(
-                        "Arquivo inválido: sheet 'Extrato' não encontrado. " +
-                                "Verifique se o arquivo é um extrato BTG Pactual.");
+                        "Arquivo inválido: sheet 'Extrato' não encontrada. " +
+                                "Verifique se o arquivo é um extrato bancário no formato correto.");
             }
             return extractRows(sheet);
         }
@@ -124,15 +137,10 @@ public class BtgExcelParser {
     }
 
     private LocalDate parseDate(String raw) {
-        String value = raw.trim();
         try {
-            return LocalDateTime.parse(value, BTG_DATE_FORMAT).toLocalDate();
+            return LocalDate.parse(raw.trim().substring(0, 16), BTG_DATE_FORMAT);
         } catch (Exception e) {
-            try {
-                return LocalDate.parse(value, BTG_DATE_ONLY_FORMAT);
-            } catch (Exception ex) {
-                return null;
-            }
+            return null;
         }
     }
 
