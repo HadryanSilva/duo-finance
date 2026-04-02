@@ -41,13 +41,13 @@ public class ImportService {
             throw new BusinessException(e.getMessage());
         } catch (IOException e) {
             log.error("Error reading BTG import file", e);
-            throw new BusinessException("Could not read the file. Please verify it is a valid XLSX.");
+            throw new BusinessException("Não foi possível ler o arquivo. Verifique se ele é um XLSX válido.");
         }
 
         if (parsed.isEmpty()) {
             throw new BusinessException(
-                    "No transactions found in the file. " +
-                            "Please verify it is a BTG Pactual statement in the correct format.");
+                    "Nenhuma transação foi encontrada no arquivo. " +
+                            "Verifique se ele é um extrato do BTG Pactual no formato correto.");
         }
 
         // Load deduplication keys: existing date+description+amount for this couple
