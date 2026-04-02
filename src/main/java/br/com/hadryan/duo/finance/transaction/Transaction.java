@@ -79,6 +79,9 @@ public class Transaction {
     @Column(name = "recurrence_end_date")
     private LocalDate recurrenceEndDate;
 
+    @Column(name = "external_id", length = 100)
+    private String externalId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_transaction_id")
     private Transaction parentTransaction;

@@ -137,21 +137,22 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
     @Query("SELECT COUNT(t) FROM transactions t WHERE t.deletedAt IS NULL")
     long countActive();
 
+    // ── Deduplicação por externalId (OFX/FITID) ──────────────────────────────
+    @Query("""
+        SELECT t.externalId
+        FROM transactions t
+        WHERE t.couple.id  = :coupleId
+          AND t.externalId IS NOT NULL
+          AND t.deletedAt  IS NULL
+        """)
+    List<String> findExternalIdsByCoupleId(@Param("coupleId") UUID coupleId);
+
+    // ── Deduplicação por date+description+amount (XLSX / fallback) ────────────
     @Query("""
         SELECT t.date, t.description, t.amount
         FROM transactions t
         WHERE t.couple.id = :coupleId
           AND t.deletedAt IS NULL
-          AND (:fromDate IS NULL OR t.date >= :fromDate)
-          AND (:toDate IS NULL OR t.date <= :toDate)
         """)
-    List<Object[]> findDeduplicationKeys(
-            @Param("coupleId") UUID coupleId,
-            @Param("fromDate") LocalDate fromDate,
-            @Param("toDate") LocalDate toDate
-    );
-
-    default List<Object[]> findDeduplicationKeys(UUID coupleId) {
-        return findDeduplicationKeys(coupleId, null, null);
-    }
+    List<Object[]> findDeduplicationKeys(@Param("coupleId") UUID coupleId);
 }
