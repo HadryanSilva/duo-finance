@@ -7,7 +7,9 @@ import br.com.hadryan.duo.finance.transaction.enums.TransactionCategory;
 import br.com.hadryan.duo.finance.transaction.enums.TransactionType;
 import br.com.hadryan.duo.finance.user.User;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -19,13 +21,14 @@ import java.util.UUID;
 
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity(name = "transactions")
 @Table(name = "transactions", indexes = {
         @Index(name = "idx_tx_couple_date",     columnList = "couple_id, date"),
         @Index(name = "idx_tx_couple_category", columnList = "couple_id, category")
 })
 public class Transaction {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -88,8 +91,6 @@ public class Transaction {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
-
-    protected Transaction() {}
 
     // ── Helpers de conveniência ───────────────────────────────────────────────
 
