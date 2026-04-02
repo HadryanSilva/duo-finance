@@ -10,6 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +20,9 @@ public class BtgExcelParser {
 
     private static final DateTimeFormatter BTG_DATE_FORMAT =
             DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+
+    private static final DateTimeFormatter BTG_DATE_ONLY_FORMAT =
+            DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     // Índices das colunas relevantes no sheet
     private static final int COL_DATETIME    = 1;
@@ -120,10 +124,15 @@ public class BtgExcelParser {
     }
 
     private LocalDate parseDate(String raw) {
+        String value = raw.trim();
         try {
-            return LocalDate.parse(raw.trim().substring(0, 16), BTG_DATE_FORMAT);
+            return LocalDateTime.parse(value, BTG_DATE_FORMAT).toLocalDate();
         } catch (Exception e) {
-            return null;
+            try {
+                return LocalDate.parse(value, BTG_DATE_ONLY_FORMAT);
+            } catch (Exception ex) {
+                return null;
+            }
         }
     }
 
