@@ -142,7 +142,7 @@ public class TransactionDtos {
             String recurrenceRuleLabel,
             LocalDate recurrenceEndDate,
             LocalDate nextOccurrence,      // próxima data ainda não gerada
-            int occurrencesCount,          // total de filhos não deletados
+            long occurrencesCount,          // total de filhos não deletados
             AuthorResponse createdBy
     ) {}
 }

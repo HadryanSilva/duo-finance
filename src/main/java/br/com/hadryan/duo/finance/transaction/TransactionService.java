@@ -322,7 +322,7 @@ public class TransactionService {
     private TransactionDtos.RecurringSeriesResponse toSeriesResponse(Transaction p) {
         LocalDate lastChild = repository.findLastChildDate(p.getId()).orElse(p.getDate());
         LocalDate next      = nextOccurrence(p, lastChild);
-        int count           = repository.countChildrenByParentId(p.getId());
+        long count           = repository.countChildrenByParentId(p.getId());
 
         return new TransactionDtos.RecurringSeriesResponse(
                 p.getId(),
