@@ -16,6 +16,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -103,5 +104,13 @@ public class TransactionController {
     ) {
         service.deleteRecurring(id, request, currentUser);
         return ResponseEntity.noContent().build();
+    }
+
+    /** GET /api/transactions/recurring */
+    @GetMapping("/recurring")
+    public ResponseEntity<List<TransactionDtos.RecurringSeriesResponse>> listRecurringSeries(
+            @AuthenticationPrincipal User currentUser
+    ) {
+        return ResponseEntity.ok(service.listRecurringSeries(currentUser));
     }
 }

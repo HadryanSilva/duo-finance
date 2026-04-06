@@ -9,17 +9,19 @@ import br.com.hadryan.duo.finance.shared.exception.BusinessException;
 import br.com.hadryan.duo.finance.shared.exception.ResourceNotFoundException;
 import br.com.hadryan.duo.finance.transaction.dto.TransactionDtos;
 import br.com.hadryan.duo.finance.transaction.dto.TransactionDtos.RecurringScope;
+import br.com.hadryan.duo.finance.transaction.enums.RecurrenceRule;
 import br.com.hadryan.duo.finance.transaction.enums.TransactionCategory;
 import br.com.hadryan.duo.finance.transaction.enums.TransactionType;
 import br.com.hadryan.duo.finance.user.User;
 import jakarta.persistence.criteria.Predicate;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -308,5 +310,66 @@ public class TransactionService {
                 ),
                 tx.getCreatedAt()
         );
+    }
+
+    @Transactional(readOnly = true)
+    public List<TransactionDtos.RecurringSeriesResponse> listRecurringSeries(User currentUser) {
+        Couple couple = requireCouple(currentUser);
+        List<Transaction> parents = repository.findRecurringSeriesByCoupleId(couple.getId());
+        return parents.stream().map(this::toSeriesResponse).toList();
+    }
+
+    private TransactionDtos.RecurringSeriesResponse toSeriesResponse(Transaction p) {
+        LocalDate lastChild = repository.findLastChildDate(p.getId()).orElse(p.getDate());
+        LocalDate next      = nextOccurrence(p, lastChild);
+        int count           = repository.countChildrenByParentId(p.getId());
+
+        return new TransactionDtos.RecurringSeriesResponse(
+                p.getId(),
+                p.getCategory(),
+                p.resolvedLabel(),
+                p.resolvedIcon(),
+                p.getCustomCategory() != null ? p.getCustomCategory().getId() : null,
+                p.getType(),
+                p.getAmount(),
+                p.getDescription(),
+                p.getDate(),
+                p.getRecurrenceRule(),
+                recurrenceRuleLabel(p.getRecurrenceRule()),
+                p.getRecurrenceEndDate(),
+                next,
+                count,
+                new TransactionDtos.AuthorResponse(
+                        p.getUser().getId(),
+                        p.getUser().getFirstName(),
+                        p.getUser().getLastName(),
+                        p.getUser().getAvatarUrl()
+                )
+        );
+    }
+
+    private LocalDate nextOccurrence(Transaction parent, LocalDate from) {
+        if (parent.getRecurrenceEndDate() != null
+                && from.isAfter(parent.getRecurrenceEndDate())) return null;
+        return switch (parent.getRecurrenceRule()) {
+            case DAILY   -> from.plusDays(1);
+            case WEEKLY  -> from.plusWeeks(1);
+            case MONTHLY -> {
+                LocalDate candidate = from.plusMonths(1);
+                int targetDay = parent.getDate().getDayOfMonth();
+                yield candidate.withDayOfMonth(Math.min(targetDay, candidate.lengthOfMonth()));
+            }
+            case YEARLY  -> from.plusYears(1);
+        };
+    }
+
+    private String recurrenceRuleLabel(RecurrenceRule rule) {
+        if (rule == null) return "";
+        return switch (rule) {
+            case DAILY   -> "Diário";
+            case WEEKLY  -> "Semanal";
+            case MONTHLY -> "Mensal";
+            case YEARLY  -> "Anual";
+        };
     }
 }

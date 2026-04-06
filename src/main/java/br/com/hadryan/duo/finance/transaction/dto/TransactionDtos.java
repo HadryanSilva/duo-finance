@@ -123,4 +123,26 @@ public class TransactionDtos {
             LocalDate endDate,
             String description
     ) {}
+
+    /**
+     * Representa uma série recorrente para a tela de gerenciamento.
+     * Calculado a partir da transação pai (recurring=true, parentTransaction=null).
+     */
+    public record RecurringSeriesResponse(
+            UUID id,
+            TransactionCategory category,
+            String categoryLabel,
+            String categoryIcon,
+            UUID customCategoryId,
+            TransactionType type,
+            BigDecimal amount,
+            String description,
+            LocalDate startDate,
+            RecurrenceRule recurrenceRule,
+            String recurrenceRuleLabel,
+            LocalDate recurrenceEndDate,
+            LocalDate nextOccurrence,      // próxima data ainda não gerada
+            int occurrencesCount,          // total de filhos não deletados
+            AuthorResponse createdBy
+    ) {}
 }

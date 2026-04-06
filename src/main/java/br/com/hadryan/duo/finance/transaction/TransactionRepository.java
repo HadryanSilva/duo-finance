@@ -184,4 +184,24 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
             @Param("type")       TransactionType type,
             @Param("importHash") String importHash
     );
+
+    // ── Séries recorrentes do casal (pais) ───────────────────────────────────
+    @Query("""
+        SELECT t FROM transactions t
+        JOIN FETCH t.user
+        WHERE t.couple.id          = :coupleId
+          AND t.recurring          = true
+          AND t.parentTransaction  IS NULL
+          AND t.deletedAt          IS NULL
+        ORDER BY t.date DESC
+        """)
+    List<Transaction> findRecurringSeriesByCoupleId(@Param("coupleId") UUID coupleId);
+
+    // ── Total de filhos de uma série ─────────────────────────────────────────
+    @Query("""
+        SELECT COUNT(t) FROM transactions t
+        WHERE t.parentTransaction.id = :parentId
+          AND t.deletedAt            IS NULL
+        """)
+    int countChildrenByParentId(@Param("parentId") UUID parentId);
 }
