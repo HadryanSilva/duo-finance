@@ -349,18 +349,23 @@ public class TransactionService {
     }
 
     private LocalDate nextOccurrence(Transaction parent, LocalDate from) {
-        if (parent.getRecurrenceEndDate() != null
-                && from.isAfter(parent.getRecurrenceEndDate())) return null;
-        return switch (parent.getRecurrenceRule()) {
+        LocalDate recurrenceEndDate = parent.getRecurrenceEndDate();
+        if (recurrenceEndDate != null && !from.isBefore(recurrenceEndDate)) return null;
+
+        LocalDate candidate = switch (parent.getRecurrenceRule()) {
             case DAILY   -> from.plusDays(1);
             case WEEKLY  -> from.plusWeeks(1);
             case MONTHLY -> {
-                LocalDate candidate = from.plusMonths(1);
+                LocalDate nextMonth = from.plusMonths(1);
                 int targetDay = parent.getDate().getDayOfMonth();
-                yield candidate.withDayOfMonth(Math.min(targetDay, candidate.lengthOfMonth()));
+                yield nextMonth.withDayOfMonth(Math.min(targetDay, nextMonth.lengthOfMonth()));
             }
             case YEARLY  -> from.plusYears(1);
         };
+
+        if (candidate == null) return null;
+        if (recurrenceEndDate != null && candidate.isAfter(recurrenceEndDate)) return null;
+        return candidate;
     }
 
     private String recurrenceRuleLabel(RecurrenceRule rule) {
