@@ -203,5 +203,5 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
         WHERE t.parentTransaction.id = :parentId
           AND t.deletedAt            IS NULL
         """)
-    int countChildrenByParentId(@Param("parentId") UUID parentId);
+    long countChildrenByParentId(@Param("parentId") UUID parentId);
 }
