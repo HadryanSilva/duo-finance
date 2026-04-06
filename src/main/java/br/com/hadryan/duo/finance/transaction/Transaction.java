@@ -86,6 +86,9 @@ public class Transaction {
     @JoinColumn(name = "parent_transaction_id")
     private Transaction parentTransaction;
 
+    @Column(name = "import_hash", length = 64)
+    private String importHash;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 

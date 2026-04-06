@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -155,4 +156,32 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
           AND t.deletedAt IS NULL
         """)
     List<Object[]> findDeduplicationKeys(@Param("coupleId") UUID coupleId);
+
+    // ── Deduplicação por importHash ───────────────────────────────────────────
+    @Query("""
+        SELECT t.importHash
+        FROM transactions t
+        WHERE t.couple.id   = :coupleId
+          AND t.importHash  IS NOT NULL
+          AND t.deletedAt   IS NULL
+        """)
+    List<String> findImportHashesByCoupleId(@Param("coupleId") UUID coupleId);
+
+    // ── Candidatos a duplicata — mesma date+amount+type, import_hash diferente ──
+    @Query("""
+        SELECT t FROM transactions t
+        WHERE t.couple.id  = :coupleId
+          AND t.date       = :date
+          AND t.amount     = :amount
+          AND t.type       = :type
+          AND t.importHash != :importHash
+          AND t.deletedAt  IS NULL
+        """)
+    List<Transaction> findPotentialDuplicates(
+            @Param("coupleId")   UUID coupleId,
+            @Param("date")       LocalDate date,
+            @Param("amount")     BigDecimal amount,
+            @Param("type")       TransactionType type,
+            @Param("importHash") String importHash
+    );
 }

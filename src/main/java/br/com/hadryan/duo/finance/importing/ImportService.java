@@ -30,8 +30,8 @@ public class ImportService {
 
     private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
-    private final BtgExcelParser btgExcelParser;
-    private final OfxParser ofxParser;
+    private final BtgExcelParser        btgExcelParser;
+    private final OfxParser             ofxParser;
     private final TransactionRepository transactionRepository;
 
     // ── XLSX (BTG Pactual) ────────────────────────────────────────────────────
@@ -57,34 +57,38 @@ public class ImportService {
                             "Verifique se é um extrato bancário no formato XLSX correto.");
         }
 
-        // XLSX não possui FITID — deduplicação por date+description+amount
-        Set<String> existingKeys = loadExistingFallbackKeys(couple.getId());
+        Set<String> existingHashes = loadExistingHashes(couple.getId());
 
         List<Transaction> toSave = new ArrayList<>();
         int skipped = 0;
 
         for (BtgExcelParser.ParsedTransaction pt : parsed) {
-            String key = fallbackKey(pt.date(), pt.description(), pt.amount());
-            if (existingKeys.contains(key)) {
+            String hash = ImportHashUtil.forXlsx(couple.getId(), pt.date(), pt.amount(), pt.description());
+
+            if (existingHashes.contains(hash)) {
                 skipped++;
                 continue;
             }
 
-            Transaction tx = buildTransaction(couple, currentUser);
+            Transaction tx = buildBase(couple, currentUser);
             tx.setCategory(pt.category());
             tx.setType(pt.type());
             tx.setAmount(pt.amount());
             tx.setDescription(pt.description());
             tx.setDate(pt.date());
+            tx.setImportHash(hash);
 
             toSave.add(tx);
-            existingKeys.add(key);
+            existingHashes.add(hash);
         }
 
-        transactionRepository.saveAll(toSave);
-        log.info("XLSX import — couple={} imported={} skipped={}", couple.getId(), toSave.size(), skipped);
+        List<Transaction> saved = transactionRepository.saveAll(toSave);
+        List<ImportDtos.SuspectedDuplicate> suspects = detectSuspects(saved, couple.getId());
 
-        return new ImportDtos.ImportResult(parsed.size(), toSave.size(), skipped);
+        log.info("XLSX import — couple={} imported={} skipped={} suspects={}",
+                couple.getId(), saved.size(), skipped, suspects.size());
+
+        return new ImportDtos.ImportResult(parsed.size(), saved.size(), skipped, suspects);
     }
 
     // ── OFX (qualquer banco) ──────────────────────────────────────────────────
@@ -110,56 +114,95 @@ public class ImportService {
                             "Verifique se é um extrato bancário no formato OFX correto.");
         }
 
-        // OFX possui FITID — deduplicação primária por externalId
-        Set<String> existingExternalIds  = loadExistingExternalIds(couple.getId());
-        // Fallback para transações sem FITID (raro, mas possível)
-        Set<String> existingFallbackKeys = loadExistingFallbackKeys(couple.getId());
+        Set<String> existingHashes = loadExistingHashes(couple.getId());
 
         List<Transaction> toSave = new ArrayList<>();
         int skipped = 0;
 
         for (OfxParser.ParsedTransaction pt : parsed) {
-            if (pt.fitId() != null && !pt.fitId().isBlank()) {
-                if (existingExternalIds.contains(pt.fitId())) {
-                    skipped++;
-                    continue;
-                }
-            } else {
-                String key = fallbackKey(pt.date(), pt.description(), pt.amount());
-                if (existingFallbackKeys.contains(key)) {
-                    skipped++;
-                    continue;
-                }
-                existingFallbackKeys.add(key);
+            String hash = pt.fitId() != null && !pt.fitId().isBlank()
+                    ? ImportHashUtil.forOfx(couple.getId(), pt.fitId())
+                    : ImportHashUtil.forXlsx(couple.getId(), pt.date(), pt.amount(), pt.description());
+
+            if (existingHashes.contains(hash)) {
+                skipped++;
+                continue;
             }
 
-            Transaction tx = buildTransaction(couple, currentUser);
+            Transaction tx = buildBase(couple, currentUser);
             tx.setCategory(pt.category());
             tx.setType(pt.type());
             tx.setAmount(pt.amount());
             tx.setDescription(pt.description());
             tx.setDate(pt.date());
             tx.setExternalId(pt.fitId());
+            tx.setImportHash(hash);
 
             toSave.add(tx);
-            if (pt.fitId() != null) existingExternalIds.add(pt.fitId());
+            existingHashes.add(hash);
         }
 
-        transactionRepository.saveAll(toSave);
-        log.info("OFX import — couple={} imported={} skipped={}", couple.getId(), toSave.size(), skipped);
+        List<Transaction> saved = transactionRepository.saveAll(toSave);
+        List<ImportDtos.SuspectedDuplicate> suspects = detectSuspects(saved, couple.getId());
 
-        return new ImportDtos.ImportResult(parsed.size(), toSave.size(), skipped);
+        log.info("OFX import — couple={} imported={} skipped={} suspects={}",
+                couple.getId(), saved.size(), skipped, suspects.size());
+
+        return new ImportDtos.ImportResult(parsed.size(), saved.size(), skipped, suspects);
+    }
+
+    // ── Detecção de prováveis duplicatas ──────────────────────────────────────
+
+    /**
+     * For each newly saved transaction, queries existing transactions with the same
+     * date + amount + type but a different importHash.
+     *
+     * This catches cases where the user manually registered a transaction that was
+     * later imported, even if the description was typed differently.
+     */
+    private List<ImportDtos.SuspectedDuplicate> detectSuspects(
+            List<Transaction> saved, UUID coupleId) {
+
+        List<ImportDtos.SuspectedDuplicate> suspects = new ArrayList<>();
+
+        for (Transaction imported : saved) {
+            List<Transaction> candidates = transactionRepository.findPotentialDuplicates(
+                    coupleId,
+                    imported.getDate(),
+                    imported.getAmount(),
+                    imported.getType(),
+                    imported.getImportHash()
+            );
+
+            for (Transaction existing : candidates) {
+                suspects.add(new ImportDtos.SuspectedDuplicate(
+                        imported.getId(),
+                        imported.getDescription(),
+                        existing.getId(),
+                        existing.getDescription(),
+                        imported.getDate(),
+                        imported.getAmount(),
+                        imported.getType()
+                ));
+            }
+        }
+
+        return suspects;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private Transaction buildTransaction(Couple couple, User currentUser) {
+    private Transaction buildBase(Couple couple, User currentUser) {
         Transaction tx = new Transaction();
         tx.setCouple(couple);
         tx.setUser(currentUser);
         tx.setCustomCategory(null);
         tx.setRecurring(false);
         return tx;
+    }
+
+    private Set<String> loadExistingHashes(UUID coupleId) {
+        return new HashSet<>(transactionRepository.findImportHashesByCoupleId(coupleId));
     }
 
     private void validateFile(MultipartFile file, String expectedExtension) {
@@ -181,26 +224,5 @@ public class ImportService {
             throw new BusinessException("Você ainda não pertence a nenhuma conta de casal.");
         }
         return user.getCouple();
-    }
-
-    private Set<String> loadExistingExternalIds(UUID coupleId) {
-        return new HashSet<>(transactionRepository.findExternalIdsByCoupleId(coupleId));
-    }
-
-    private Set<String> loadExistingFallbackKeys(UUID coupleId) {
-        List<Object[]> rows = transactionRepository.findDeduplicationKeys(coupleId);
-        Set<String> keys = new HashSet<>();
-        for (Object[] row : rows) {
-            LocalDate  date        = (LocalDate)   row[0];
-            String     description = (String)       row[1];
-            BigDecimal amount      = (BigDecimal)   row[2];
-            keys.add(fallbackKey(date, description, amount));
-        }
-        return keys;
-    }
-
-    private String fallbackKey(LocalDate date, String description, BigDecimal amount) {
-        return date + "|" + (description == null ? "" : description.trim().toLowerCase())
-                + "|" + amount.toPlainString();
     }
 }
