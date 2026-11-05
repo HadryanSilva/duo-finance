@@ -41,7 +41,7 @@ public class AccessCodeService {
         return new GeneratedAccessCode(saved.getId(), plain);
     }
 
-    /** Non-locking pre-check used by the registration gate; {@link #consume} re-checks under lock. */
+    /** Non-locking pre-check used by the registration gate; {@link #consume} redeems atomically. */
     @Transactional(readOnly = true)
     public void check(String plainCode, String normalizedEmail) {
         AccessCode code = codes.findByCodeHash(hash(plainCode)).orElseThrow(AccessCodeService::invalid);
@@ -50,9 +50,9 @@ public class AccessCodeService {
 
     @Transactional
     public void consume(String plainCode, String normalizedEmail) {
-        AccessCode code = codes.findByCodeHashForUpdate(hash(plainCode)).orElseThrow(AccessCodeService::invalid);
-        requireRedeemable(code, normalizedEmail);
-        code.incrementUsedCount();
+        if (codes.redeem(hash(plainCode), normalizedEmail, Instant.now(clock)) == 0) {
+            throw invalid();
+        }
     }
 
     @Transactional

@@ -117,6 +117,38 @@ class RegisterTest {
     }
 
     @Test
+    void register_concurrentWithSameSingleUseCode_onlyOneSucceeds() throws Exception {
+        String code = newCode(null);
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        java.util.concurrent.CountDownLatch ready = new java.util.concurrent.CountDownLatch(2);
+        java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
+        java.util.List<java.util.concurrent.Future<Integer>> statuses = new java.util.ArrayList<>();
+        for (String email : new String[] {"ana@mail.com", "bia@mail.com"}) {
+            statuses.add(pool.submit(() -> {
+                ready.countDown();
+                go.await();
+                return register(body(email, true, code))
+                        .exchange()
+                        .getResponse()
+                        .getStatus();
+            }));
+        }
+        ready.await();
+        go.countDown();
+        java.util.List<Integer> results = new java.util.ArrayList<>();
+        for (var f : statuses) {
+            results.add(f.get());
+        }
+        pool.shutdown();
+
+        assertThat(results).containsExactlyInAnyOrder(201, 400);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM users", Integer.class))
+                .isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT used_count FROM access_codes", Integer.class))
+                .isEqualTo(1);
+    }
+
+    @Test
     void register_termsNotAccepted_returns400() {
         var result = register(body("ana@mail.com", false, newCode(null))).exchange();
 

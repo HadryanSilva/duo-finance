@@ -83,10 +83,6 @@ public class AccessCode {
         return usedCount;
     }
 
-    public void incrementUsedCount() {
-        this.usedCount++;
-    }
-
     public Instant getExpiresAt() {
         return expiresAt;
     }
