@@ -2,6 +2,7 @@ package br.dev.duofinance;
 
 import br.dev.duofinance.support.DatabaseCleanupExtension;
 import br.dev.duofinance.support.TestClockConfiguration;
+import br.dev.duofinance.support.TestEmailConfiguration;
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -18,7 +19,7 @@ import org.springframework.test.context.ActiveProfiles;
 @Documented
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import({TestcontainersConfiguration.class, TestClockConfiguration.class})
+@Import({TestcontainersConfiguration.class, TestClockConfiguration.class, TestEmailConfiguration.class})
 @ActiveProfiles("test")
 @ExtendWith(DatabaseCleanupExtension.class)
 public @interface IntegrationTest {}
