@@ -13,7 +13,7 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http.csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(auth -> auth.requestMatchers("/api/actuator/health")
+                .authorizeHttpRequests(auth -> auth.requestMatchers("/api/actuator/health", "/api/v1/__test/**")
                         .permitAll()
                         .anyRequest()
                         .authenticated())
