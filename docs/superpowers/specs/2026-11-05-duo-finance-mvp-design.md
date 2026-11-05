@@ -135,6 +135,7 @@ waitlist_entries ──0:1── access_codes   (acesso ao beta; independentes d
 - O `EntitlementService` é o único ponto que decide se uma `Account` tem acesso. No MVP, acesso = `status` em `TRIALING` ou `ACTIVE`. Um interceptor aplica essa verificação a todas as rotas financeiras (`bank-accounts`, `categories`, `transactions`, `recurring-rules`, `budgets`, `dashboard`), que respondem `402` com `code = SUBSCRIPTION_INACTIVE` quando não há acesso. As rotas `auth`, `me`, `account` e de lista de espera não são bloqueadas, para que o usuário consiga sair, excluir a conta ou, no futuro, pagar.
 - O job de recorrência ignora `Account`s sem acesso.
 - Os dados da assinatura são da `Account`: os dois membros compartilham o acesso.
+- Quando a cobrança existir, apagar uma `Account` com assinatura paga (aceite de convite ou exclusão de usuário) precisará cancelar a assinatura no provedor. Isso fica para a fase de cobrança.
 
 **Vínculo do casal**
 
@@ -220,8 +221,8 @@ Recursos de outra `Account` respondem `404` (nunca `403`) para não revelar exis
 ### E-mail
 
 - Interface `EmailSender` com implementações `ResendEmailSender` (produção, API HTTP do Resend via `RestClient`) e `LoggingEmailSender` (dev e testes).
-- Templates Thymeleaf por idioma: verificação, reset de senha e convite.
-- Envio assíncrono após o commit (`@TransactionalEventListener(phase = AFTER_COMMIT)` + `@Async`). Uma falha no envio é registrada em log e não desfaz a operação. O usuário pode reenviar a verificação, e o convite pode ser recriado.
+- Templates Thymeleaf por idioma: verificação, reset de senha, convite do casal e código de acesso ao beta.
+- Envio assíncrono após o commit (`@TransactionalEventListener(phase = AFTER_COMMIT)` + `@Async`). Uma falha no envio é registrada em log e não desfaz a operação. O usuário pode reenviar a verificação, o convite pode ser recriado e o admin pode gerar um novo código para uma entrada aprovada.
 
 ## 4. Frontend
 
@@ -246,12 +247,15 @@ Recursos de outra `Account` respondem `404` (nunca `403`) para não revelar exis
 
 ### Telas
 
-1. **Autenticação:** login, cadastro, verificação de e-mail, esqueci e redefinir senha, aceitar convite.
+0. **Landing pública** (`/`): proposta do produto, formulário de lista de espera e link para entrar; links para política de privacidade e termos.
+1. **Autenticação:** login, cadastro (campo de código de acesso, oculto quando vindo de um convite de casal ou com `registration-mode = OPEN`), verificação de e-mail, esqueci e redefinir senha, aceitar convite.
 2. **Onboarding** (após o primeiro login): nome do casal → convidar parceiro (pulável) → primeira conta bancária (pulável).
 3. **Dashboard** mensal com seletor de mês: saldo total e por conta, receitas × despesas, gastos por categoria (rosca), orçamentos com barras de progresso, próximas recorrências, últimos lançamentos.
 4. **Lançamentos:** lista agrupada por dia com avatar do autor, filtros e busca; painel lateral para criar ou editar receita, despesa ou transferência.
 5. **Contas bancárias**, **Categorias**, **Orçamentos**, **Recorrências:** listas com criação e edição em painel lateral.
-6. **Configurações:** perfil, senha, idioma, tema, casal (convite pendente, sair) e excluir conta.
+6. **Configurações:** perfil, senha, idioma, tema, casal (convite pendente, sair), plano atual (somente leitura: "Beta") e excluir conta.
+7. **Admin** (visível só para `ADMIN`): lista de espera com aprovar e rejeitar; códigos de acesso com gerar, listar e revogar.
+8. **Acesso suspenso:** exibida quando a API responde `SUBSCRIPTION_INACTIVE`. No MVP é só uma mensagem com links para configurações e logout; o paywall vem com a cobrança.
 
 ### Organização
 
@@ -259,7 +263,7 @@ Recursos de outra `Account` respondem `404` (nunca `403`) para não revelar exis
 src/
 ├── app/        router, layouts, providers
 ├── features/   auth, onboarding, dashboard, transactions, bank-accounts,
-│               categories, budgets, recurring, settings
+│               categories, budgets, recurring, settings, landing, admin
 │               └── <feature>/{api,components,pages}
 └── shared/     ui (componentes base), lib (http, money, dates), i18n
 ```
@@ -286,7 +290,7 @@ duo-finance/
 
 Uma instância AWS Lightsail (Ubuntu LTS, 2 GB RAM) com Docker Compose:
 
-- **nginx:** imagem própria contendo o build do Vue; fallback SPA para `index.html`; proxy de `/api/` para `api:8080`; TLS (Let's Encrypt via certbot, renovação automática) para `duofinance.dev.br` com redirect de `www` e de HTTP para HTTPS; `limit_req` nas rotas `/api/v1/auth/`; headers HSTS, CSP, `X-Content-Type-Options`, `Referrer-Policy`.
+- **nginx:** imagem própria contendo o build do Vue; fallback SPA para `index.html`; proxy de `/api/` para `api:8080`; TLS (Let's Encrypt via certbot, renovação automática) para `duofinance.dev.br` com redirect de `www` e de HTTP para HTTPS; `limit_req` nas rotas `/api/v1/auth/` e `/api/v1/public/`; headers HSTS, CSP, `X-Content-Type-Options`, `Referrer-Policy`.
 - **api:** Spring Boot, exposto apenas na rede interna do compose.
 - **postgres:16:** volume nomeado, apenas rede interna.
 - Firewall Lightsail: portas 22 (restrita ao IP do administrador), 80 e 443.
@@ -315,6 +319,7 @@ Uma instância AWS Lightsail (Ubuntu LTS, 2 GB RAM) com Docker Compose:
 - **Backend, unitários:** services com foco nas regras (limite de membros, convite e aceite, sair e excluir, transferências, saldo, geração de recorrências incluindo fim de mês, orçamento).
 - **Backend, integração:** `@SpringBootTest` + Testcontainers (Postgres 16) cobrindo controllers, segurança (fluxo completo de tokens, reuso de refresh) e migrations.
 - **Isolamento entre `Account`s:** suíte dedicada garante que toda rota com ID de outra `Account` responde `404`.
+- **Beta e assinatura:** cadastro sem credencial em `INVITE_ONLY` falha; código esgotado, expirado, revogado ou de outro e-mail falha; parceiro convidado se cadastra sem código; consumo concorrente de um código de uso único só aceita um cadastro; `Account` com assinatura inativa recebe `402` nas rotas financeiras e não é bloqueada em `auth`, `me` e `account`; rotas admin exigem `ADMIN`.
 - **Frontend:** Vitest para componentes e composables (formatação de dinheiro, interceptor de refresh); Playwright para cadastro → onboarding → lançamento → dashboard e convite → aceite.
 - **Processo:** TDD nas regras de domínio; Spotless no Java, ESLint + Prettier no frontend. Cobertura não é meta; regra crítica sem teste bloqueia o PR.
 
