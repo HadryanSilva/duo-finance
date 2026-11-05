@@ -6,23 +6,25 @@
 
 ## 1. Objetivo
 
-Gerenciador financeiro web para casais, oferecido como **produto aberto**: qualquer casal pode se cadastrar. Dois usuários compartilham uma única entidade `Account`, que centraliza todas as informações financeiras do casal. A `Account` não representa uma conta bancária. Os usuários podem, opcionalmente, cadastrar contas bancárias para rastrear a origem e o destino de cada lançamento.
+Gerenciador financeiro web para casais, oferecido como **produto público com monetização futura**. O MVP roda como **beta fechado**: o cadastro exige um código de acesso, e o modelo de dados já prevê uma assinatura por casal, que será cobrada numa fase posterior. Dois usuários compartilham uma única entidade `Account`, que centraliza todas as informações financeiras do casal. A `Account` não representa uma conta bancária. Os usuários podem, opcionalmente, cadastrar contas bancárias para rastrear a origem e o destino de cada lançamento.
 
 ### Critérios de sucesso do MVP
 
-1. Um usuário se cadastra, verifica o e-mail e usa o sistema sozinho imediatamente.
+1. Um visitante entra na lista de espera. Depois de aprovado, recebe um código de acesso, se cadastra, verifica o e-mail e usa o sistema sozinho imediatamente.
 2. Ele convida o parceiro por e-mail; o parceiro aceita e ambos passam a ver os mesmos dados.
 3. O casal registra receitas, despesas e transferências, com autor e conta bancária opcional.
 4. Lançamentos recorrentes são gerados automaticamente.
 5. O dashboard do mês mostra saldos, receitas × despesas, gastos por categoria e progresso dos orçamentos.
 6. Qualquer membro pode sair da `Account` ou excluir a própria conta (LGPD).
 7. A interface está disponível em pt-BR e inglês e funciona bem no desktop e no mobile web.
+8. O administrador aprova a lista de espera e gerencia códigos de acesso, e o cadastro pode ser aberto ao público por configuração.
 
 ### Decisões de produto
 
 | Tema | Decisão |
 |---|---|
-| Público | Produto aberto (cadastro público, LGPD aplicável) |
+| Público | Produto público (LGPD aplicável), em beta fechado no MVP: cadastro por código de acesso obtido via lista de espera |
+| Monetização | Futura. Assinatura por `Account` (o casal paga uma vez). No MVP, só o modelo e o ponto de verificação; sem cobrança |
 | Visibilidade | Tudo compartilhado dentro da `Account`; o sistema registra o autor de cada lançamento |
 | Vínculo | Usuário usa sozinho desde o cadastro, convida o parceiro, pode sair e pode excluir a conta |
 | Moeda | Apenas EUR no MVP (moeda armazenada na `Account` para permitir evolução) |
@@ -32,21 +34,24 @@ Gerenciador financeiro web para casais, oferecido como **produto aberto**: qualq
 
 ### Escopo
 
-**No MVP:** cadastro e autenticação, convite e vínculo do casal, contas bancárias, categorias, lançamentos (receita, despesa, transferência), lançamentos recorrentes, orçamento mensal por categoria, dashboard mensal, configurações (perfil, idioma, tema, saída, exclusão).
+**No MVP:** landing pública com lista de espera, cadastro por código de acesso, painel admin mínimo (lista de espera e códigos), modelo de assinatura com plano `BETA`, cadastro e autenticação, convite e vínculo do casal, contas bancárias, categorias, lançamentos (receita, despesa, transferência), lançamentos recorrentes, orçamento mensal por categoria, dashboard mensal, configurações (perfil, idioma, tema, saída, exclusão).
 
-**Fora do MVP:** cartão de crédito (fatura), parcelamento, metas, importação de extrato (OFX/CSV), login social, app mobile, multi-moeda, mesclagem de dados entre `Account`s, notificações de orçamento por e-mail, monitoramento externo de uptime.
+**Fora do MVP:** cobrança (provedor de pagamento, checkout, webhooks, planos pagos, paywall), cartão de crédito (fatura), parcelamento, metas, importação de extrato (OFX/CSV), login social, app mobile, multi-moeda, mesclagem de dados entre `Account`s, notificações de orçamento por e-mail, monitoramento externo de uptime.
 
 ## 2. Modelo de domínio
 
 ```
 users ──1:N── user_identities        (LOCAL hoje; GOOGLE/APPLE no futuro)
   │
-  └──1:1── account_members ──N:1── accounts   (máx. 2 membros)
+  └──1:1── account_members ──N:1── accounts ──1:1── subscriptions
+                                   (máx. 2 membros)
                                        │
           ┌──────────────┬─────────────┼──────────────┬──────────────┐
      invitations   bank_accounts   categories    transactions   recurring_rules
                                        │              ▲               │
                                     budgets           └── gera ───────┘
+
+waitlist_entries ──0:1── access_codes   (acesso ao beta; independentes da Account)
 ```
 
 ### Convenções
@@ -61,7 +66,7 @@ users ──1:N── user_identities        (LOCAL hoje; GOOGLE/APPLE no futuro
 
 **Identidade**
 
-- `users`: `id`, `email` (único, comparação case-insensitive), `display_name`, `locale` (`pt-BR` | `en`), `email_verified_at` (nulo até verificar), `failed_login_count`, `locked_until`, `terms_version`, `terms_accepted_at`, `created_at`, `updated_at`.
+- `users`: `id`, `email` (único, comparação case-insensitive), `display_name`, `locale` (`pt-BR` | `en`), `email_verified_at` (nulo até verificar), `role` (`USER` | `ADMIN`), `failed_login_count`, `locked_until`, `terms_version`, `terms_accepted_at`, `created_at`, `updated_at`.
 - `user_identities`: `id`, `user_id`, `provider` (`LOCAL`; futuramente `GOOGLE`, `APPLE`), `provider_subject` (para `LOCAL`, o e-mail normalizado), `password_hash` (só `LOCAL`, Argon2id), `created_at`. Único em `(provider, provider_subject)`.
 - `refresh_tokens`: `id`, `user_id`, `family_id`, `token_hash`, `expires_at`, `revoked_at`, `replaced_by_id`, `created_at`.
 - `user_tokens`: `id`, `user_id`, `type` (`EMAIL_VERIFICATION` | `PASSWORD_RESET`), `token_hash`, `expires_at`, `used_at`, `created_at`. Verificação expira em 24 h; reset em 1 h.
@@ -71,6 +76,12 @@ users ──1:N── user_identities        (LOCAL hoje; GOOGLE/APPLE no futuro
 - `accounts`: `id`, `name`, `currency` (`CHAR(3)`, `EUR`), `created_at`, `updated_at`.
 - `account_members`: `account_id`, `user_id` (único), `joined_at`. PK `(account_id, user_id)`.
 - `invitations`: `id`, `account_id`, `email`, `token_hash`, `invited_by` (nulo se o autor for excluído), `status` (`PENDING` | `ACCEPTED` | `CANCELED` | `EXPIRED`), `expires_at` (7 dias), `created_at`, `accepted_at`. No máximo um convite `PENDING` por `Account`.
+- `subscriptions`: `id`, `account_id` (único), `plan` (`BETA`; planos pagos virão depois), `status` (`TRIALING` | `ACTIVE` | `PAST_DUE` | `CANCELED` | `EXPIRED`), `current_period_end` (nulo no `BETA`), `provider` (`NONE`; futuramente o provedor de pagamento), `provider_customer_id`, `provider_subscription_id`, `created_at`, `updated_at`.
+
+**Acesso ao beta**
+
+- `waitlist_entries`: `id`, `email` (único, case-insensitive), `locale`, `status` (`PENDING` | `APPROVED` | `REJECTED`), `access_code_id` (preenchido na aprovação), `created_at`, `decided_at`.
+- `access_codes`: `id`, `code_hash`, `email` (opcional; se preenchido, o código só vale para esse e-mail), `max_uses` (padrão 1), `used_count`, `expires_at` (opcional), `revoked_at`, `note`, `created_by` (admin), `created_at`. O código em texto puro é mostrado ou enviado uma única vez e nunca é armazenado.
 
 **Finanças**
 
@@ -108,12 +119,29 @@ users ──1:N── user_identities        (LOCAL hoje; GOOGLE/APPLE no futuro
 - Progresso do mês = Σ `EXPENSE` da categoria no mês ÷ limite.
 - Estados exibidos na interface: normal (< 80%), atenção (≥ 80%) e estourado (≥ 100%).
 
+**Acesso ao beta**
+
+- O modo de cadastro é definido pela configuração `app.registration.mode`: `INVITE_ONLY` (padrão no MVP) ou `OPEN`.
+- Em `INVITE_ONLY`, o cadastro exige **uma** destas credenciais:
+  - um código de acesso válido (não revogado, não expirado, `used_count < max_uses` e, se o código tiver e-mail, igual ao e-mail do cadastro);
+  - um token de convite de casal `PENDING` para o mesmo e-mail. O parceiro convidado não precisa de código.
+- O consumo do código (`used_count + 1`) acontece na mesma transação do cadastro, com lock na linha do código.
+- Lista de espera: qualquer visitante deixa e-mail e idioma. A resposta é sempre a mesma, exista o e-mail ou não. Quando o admin aprova uma entrada, o sistema gera um código de uso único vinculado ao e-mail e o envia no idioma da entrada.
+- Admins (`users.role = ADMIN`) são promovidos manualmente no banco. Não há cadastro de admin pela interface.
+
+**Assinatura**
+
+- Toda `Account` nasce com uma `subscription` `plan = BETA`, `status = ACTIVE`, `provider = NONE`.
+- O `EntitlementService` é o único ponto que decide se uma `Account` tem acesso. No MVP, acesso = `status` em `TRIALING` ou `ACTIVE`. Um interceptor aplica essa verificação a todas as rotas financeiras (`bank-accounts`, `categories`, `transactions`, `recurring-rules`, `budgets`, `dashboard`), que respondem `402` com `code = SUBSCRIPTION_INACTIVE` quando não há acesso. As rotas `auth`, `me`, `account` e de lista de espera não são bloqueadas, para que o usuário consiga sair, excluir a conta ou, no futuro, pagar.
+- O job de recorrência ignora `Account`s sem acesso.
+- Os dados da assinatura são da `Account`: os dois membros compartilham o acesso.
+
 **Vínculo do casal**
 
-- **Cadastro:** cria `User`, `UserIdentity(LOCAL)`, uma `Account` solo (nome padrão a partir do `display_name`) e as categorias padrão no idioma do usuário.
+- **Cadastro:** cria `User`, `UserIdentity(LOCAL)`, uma `Account` solo (nome padrão a partir do `display_name`), a `subscription` `BETA` e as categorias padrão no idioma do usuário.
 - **Convite:** só membros com e-mail verificado podem convidar; só é possível quando a `Account` tem 1 membro; envia e-mail com link contendo o token.
-- **Aceite:** exige estar autenticado com o e-mail convidado. Se a `Account` solo do convidado tiver qualquer dado além das categorias padrão, a API exige confirmação explícita (`confirmDiscard = true`), e essa `Account` é apagada. O limite de 2 membros é verificado com lock pessimista na `Account` de destino.
-- **Sair:** o membro que sai recebe uma `Account` nova e vazia (com categorias padrão); os dados permanecem com quem fica. Só é permitido quando a `Account` tem 2 membros.
+- **Aceite:** exige estar autenticado com o e-mail convidado. Se a `Account` solo do convidado tiver qualquer dado além das categorias padrão, a API exige confirmação explícita (`confirmDiscard = true`), e essa `Account` é apagada junto com a sua `subscription`. O limite de 2 membros é verificado com lock pessimista na `Account` de destino.
+- **Sair:** o membro que sai recebe uma `Account` nova e vazia (com categorias padrão e `subscription` `BETA`); os dados e a assinatura existente permanecem com quem fica. Só é permitido quando a `Account` tem 2 membros.
 - **Excluir usuário:** apaga `users`, identidades e tokens. Se ele era o único membro, a `Account` e todos os dados são apagados. Caso contrário, `created_by` e `invited_by` passam a `NULL` e a interface mostra "Ex-membro".
 
 ## 3. Backend
@@ -141,6 +169,8 @@ br.dev.duofinance
 ├── transaction/
 ├── recurring/
 ├── budget/
+├── subscription/  (assinatura e EntitlementService)
+├── access/        (lista de espera, códigos de acesso, endpoints admin)
 ├── dashboard/     (controller · service · dto; apenas consultas agregadas)
 └── shared/        (security, email, error, config)
 ```
@@ -157,7 +187,8 @@ Regras entre camadas:
 
 | Recurso | Operações |
 |---|---|
-| `auth` | `POST register`, `login`, `refresh`, `logout`, `verify-email`, `resend-verification`, `forgot-password`, `reset-password` |
+| `public` | `GET registration-mode` (`INVITE_ONLY` \| `OPEN`); `POST waitlist` (e-mail, idioma) |
+| `auth` | `POST register` (com `accessCode` ou `invitationToken` em `INVITE_ONLY`), `login`, `refresh`, `logout`, `verify-email`, `resend-verification`, `forgot-password`, `reset-password` |
 | `me` | `GET`, `PATCH` (nome, idioma), `PUT password`, `DELETE` (exclusão LGPD) |
 | `account` | `GET`, `PATCH` (nome); `POST/DELETE invitations`; `GET invitations/{token}` (prévia pública); `POST invitations/{token}/accept`; `POST leave` |
 | `bank-accounts` | CRUD + `POST {id}/archive`, `POST {id}/unarchive`; listagem inclui saldo calculado |
@@ -166,13 +197,16 @@ Regras entre camadas:
 | `recurring-rules` | CRUD + ativar/desativar |
 | `budgets` | CRUD |
 | `dashboard` | `GET ?month=YYYY-MM`: saldos por conta e total, receitas, despesas, gastos por categoria, orçamentos com progresso, próximas recorrências (30 dias) |
+| `account/subscription` | `GET`: plano, status e se há acesso (somente leitura no MVP) |
+| `admin/waitlist` | `GET` (filtro por status, paginação); `POST {id}/approve` (gera código e envia e-mail); `POST {id}/reject` |
+| `admin/access-codes` | `GET`; `POST` (gera código avulso com `email`, `maxUses`, `expiresAt`, `note` opcionais; devolve o código em texto puro uma única vez); `POST {id}/revoke` |
 
 Recursos de outra `Account` respondem `404` (nunca `403`) para não revelar existência.
 
 ### Segurança
 
 - Senhas com Argon2id; mínimo de 8 caracteres.
-- Access token JWT RS256 de 15 min com claims `sub` (userId) e `acc` (accountId). Como o `accountId` muda ao sair ou aceitar convite, essas operações devolvem um novo par de tokens.
+- Access token JWT RS256 de 15 min com claims `sub` (userId), `acc` (accountId) e `role`. Rotas `/api/v1/admin/**` exigem `role = ADMIN`. Como o `accountId` muda ao sair ou aceitar convite, essas operações devolvem um novo par de tokens.
 - Refresh token opaco de 30 dias, armazenado com hash, rotativo a cada uso. Reuso de um token já rotacionado revoga toda a família.
 - Na web, o refresh token vai em cookie `HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth`. O access token vai no corpo da resposta e fica só em memória no frontend.
 - E-mail não verificado permite o uso normal, mas bloqueia o envio de convites.
@@ -181,7 +215,7 @@ Recursos de outra `Account` respondem `404` (nunca `403`) para não revelar exis
 
 ### Erros
 
-`@RestControllerAdvice` devolve `ProblemDetail` (RFC 9457) com campos extras `code` (estável, ex.: `ACCOUNT_FULL`, `INVITE_EXPIRED`, `CATEGORY_ARCHIVED`, `VALIDATION_FAILED`) e, para validação, `errors[]` com `field` e `code`. O frontend traduz `code` via i18n.
+`@RestControllerAdvice` devolve `ProblemDetail` (RFC 9457) com campos extras `code` (estável, ex.: `ACCOUNT_FULL`, `INVITE_EXPIRED`, `CATEGORY_ARCHIVED`, `ACCESS_CODE_INVALID`, `SUBSCRIPTION_INACTIVE`, `VALIDATION_FAILED`) e, para validação, `errors[]` com `field` e `code`. O frontend traduz `code` via i18n.
 
 ### E-mail
 
