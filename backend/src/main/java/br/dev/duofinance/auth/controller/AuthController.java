@@ -1,9 +1,11 @@
 package br.dev.duofinance.auth.controller;
 
 import br.dev.duofinance.auth.dto.AuthResponse;
+import br.dev.duofinance.auth.dto.LoginRequest;
 import br.dev.duofinance.auth.dto.RegisterRequest;
 import br.dev.duofinance.auth.service.AuthSessionService;
 import br.dev.duofinance.auth.service.AuthSessionService.SessionTokens;
+import br.dev.duofinance.auth.service.LoginService;
 import br.dev.duofinance.auth.service.RegistrationService;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ErrorCode;
@@ -24,17 +26,27 @@ public class AuthController {
     private final AuthSessionService sessions;
     private final RefreshCookies cookies;
     private final RegistrationService registration;
+    private final LoginService login;
 
-    public AuthController(AuthSessionService sessions, RefreshCookies cookies, RegistrationService registration) {
+    public AuthController(
+            AuthSessionService sessions, RefreshCookies cookies, RegistrationService registration, LoginService login) {
         this.sessions = sessions;
         this.cookies = cookies;
         this.registration = registration;
+        this.login = login;
     }
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     public AuthResponse register(@Valid @RequestBody RegisterRequest request, HttpServletResponse response) {
         SessionTokens session = registration.register(request);
+        cookies.set(response, session.rawRefreshToken());
+        return AuthResponse.of(session);
+    }
+
+    @PostMapping("/login")
+    public AuthResponse login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
+        SessionTokens session = login.login(request.email(), request.password());
         cookies.set(response, session.rawRefreshToken());
         return AuthResponse.of(session);
     }
