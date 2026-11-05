@@ -71,6 +71,22 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void accessDenied_returns403Forbidden() {
+        assertThat(mvc.get().uri("/api/v1/__test/errors/denied"))
+                .hasStatus(403)
+                .bodyJson()
+                .satisfies(json -> json.assertThat().extractingPath("$.code").isEqualTo("FORBIDDEN"));
+    }
+
+    @Test
+    void authenticationException_returns401Unauthenticated() {
+        assertThat(mvc.get().uri("/api/v1/__test/errors/unauth"))
+                .hasStatus(401)
+                .bodyJson()
+                .satisfies(json -> json.assertThat().extractingPath("$.code").isEqualTo("UNAUTHENTICATED"));
+    }
+
+    @Test
     void malformedJson_returns400ValidationFailed() {
         assertThat(mvc.post()
                         .uri("/api/v1/__test/errors/validate")
@@ -95,6 +111,16 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/detailed")
         void detailed() {
             throw new ApiException(ErrorCode.NOT_FOUND, "Thing 42 missing");
+        }
+
+        @GetMapping("/denied")
+        void denied() {
+            throw new org.springframework.security.access.AccessDeniedException("nope");
+        }
+
+        @GetMapping("/unauth")
+        void unauth() {
+            throw new org.springframework.security.authentication.BadCredentialsException("nope");
         }
 
         @GetMapping("/boom")
