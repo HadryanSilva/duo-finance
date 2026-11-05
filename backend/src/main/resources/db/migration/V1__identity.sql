@@ -22,7 +22,7 @@ CREATE TABLE user_identities (
     provider_subject  varchar(255) NOT NULL,
     password_hash     varchar(255),
     created_at        timestamptz  NOT NULL,
-    CONSTRAINT user_identities_provider_check CHECK (provider IN ('LOCAL', 'GOOGLE')),
+    CONSTRAINT user_identities_provider_check CHECK (provider IN ('LOCAL', 'GOOGLE', 'APPLE')),
     CONSTRAINT user_identities_provider_subject_key UNIQUE (provider, provider_subject)
 );
 CREATE INDEX idx_user_identities_user_id ON user_identities (user_id);
