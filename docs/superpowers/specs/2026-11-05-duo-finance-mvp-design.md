@@ -211,7 +211,7 @@ Recursos de outra `Account` respondem `404` (nunca `403`) para não revelar exis
 - Refresh token opaco de 30 dias, armazenado com hash, rotativo a cada uso. Reuso de um token já rotacionado revoga toda a família.
 - Na web, o refresh token vai em cookie `HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth`. O access token vai no corpo da resposta e fica só em memória no frontend.
 - E-mail não verificado permite o uso normal, mas bloqueia o envio de convites.
-- Após 5 logins falhos consecutivos, a conta fica bloqueada por 15 min. Respostas de login, cadastro e esqueci-senha são genéricas e não revelam se o e-mail existe.
+- Após 5 logins falhos consecutivos, a conta fica bloqueada por 15 min. Respostas de login e esqueci-senha são genéricas e não revelam se o e-mail existe. No cadastro, a credencial de acesso (código ou convite) é validada antes do e-mail; só com credencial válida um e-mail já cadastrado responde `409 EMAIL_ALREADY_REGISTERED`, o que limita a enumeração a quem já possui credencial.
 - Preparação para login social: o login local é apenas um `AuthenticationProvider` que resolve `UserIdentity(LOCAL)`. A emissão de tokens fica num `TokenService` independente, reutilizável por futuros provedores OIDC.
 
 ### Erros
