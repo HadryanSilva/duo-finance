@@ -23,6 +23,10 @@ public class ResendEmailSender implements EmailSender {
         AppProperties.Email email = props.email();
         this.from = email == null ? null : email.from();
         String apiKey = email == null ? null : email.resendApiKey();
+        if (apiKey == null || apiKey.isBlank() || from == null || from.isBlank()) {
+            throw new IllegalStateException(
+                    "app.email.provider=RESEND requires app.email.resend-api-key and app.email.from to be set");
+        }
         this.client = builder.baseUrl(BASE_URL)
                 .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
                 .build();
@@ -31,7 +35,7 @@ public class ResendEmailSender implements EmailSender {
     @Override
     public void send(EmailMessage message) {
         Map<String, Object> body = Map.of(
-                "from", from == null ? "" : from,
+                "from", from,
                 "to", List.of(message.to()),
                 "subject", message.subject(),
                 "html", message.html());
