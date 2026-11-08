@@ -69,6 +69,12 @@ describe('http client', () => {
     await expect(http.del('/x')).resolves.toBeUndefined()
   })
 
+  it('202 without a body resolves undefined', async () => {
+    server.use(rest.post(`${base}/x`, () => new HttpResponse(null, { status: 202 })))
+    const { http } = setup()
+    await expect(http.post('/x', { a: 1 })).resolves.toBeUndefined()
+  })
+
   it('put and patch send their methods and bodies', async () => {
     const seen: string[] = []
     server.use(

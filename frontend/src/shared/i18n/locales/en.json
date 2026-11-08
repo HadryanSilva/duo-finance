@@ -51,7 +51,9 @@
   },
   "common": {
     "logout": "Sign out",
-    "signIn": "Sign in"
+    "signIn": "Sign in",
+    "cancel": "Cancel",
+    "continue": "Continue"
   },
   "nav": {
     "main": "Main navigation",
@@ -95,5 +97,69 @@
   },
   "app": {
     "name": "Duo Finance"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "newPassword": "New password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "passwordHint": "Use 8 to 128 characters.",
+    "backToLogin": "Back to sign in",
+    "login": {
+      "subtitle": "Sign in to follow your couple's finances.",
+      "forgot": "Forgot my password",
+      "noAccount": "Don't have an account yet?",
+      "createAccount": "Create account",
+      "resetDone": "Password reset. Sign in with your new password."
+    },
+    "register": {
+      "subtitle": "Start organizing your finances together.",
+      "displayName": "Name",
+      "locale": "Language",
+      "accessCode": "Access code",
+      "accessCodeHint": "Sign-up is by invitation. Enter the code you received.",
+      "acceptTerms": "I have read and accept the {terms} and the {privacy}.",
+      "terms": "Terms of use",
+      "privacy": "Privacy policy",
+      "submit": "Create account",
+      "haveAccount": "Already have an account?"
+    },
+    "verify": {
+      "title": "Confirm email",
+      "loading": "Confirming your email…",
+      "success": "Email confirmed",
+      "successMessage": "All set. Your email has been confirmed.",
+      "resend": "Resend email",
+      "resent": "We sent a new confirmation link to your email.",
+      "continue": "Continue"
+    },
+    "forgot": {
+      "subtitle": "Enter your email to receive a reset link.",
+      "submit": "Send link",
+      "sentTitle": "Check your email",
+      "sentMessage": "If an account exists for that email, we sent a link to reset the password."
+    },
+    "reset": {
+      "subtitle": "Choose a new password for your account.",
+      "submit": "Reset password",
+      "requestNew": "Request a new link"
+    }
+  },
+  "invite": {
+    "title": "You have an invitation",
+    "subtitle": "Accept to share your finances in a joint account.",
+    "invitedBy": "Invited by",
+    "unknownInviter": "Someone",
+    "account": "Account",
+    "email": "Invitation email",
+    "signIn": "Sign in",
+    "createAccount": "Create account",
+    "accept": "Accept invitation",
+    "confirmTitle": "Replace your current data?",
+    "confirmMessage": "Your current account already has transactions. If you accept this invitation, your current data will be deleted and you will use the shared account. This cannot be undone.",
+    "confirmLabel": "Accept and delete my data",
+    "notForThisAccount": "This invitation isn't for this account. Sign in with the email that received it.",
+    "loading": "Loading invitation…"
   }
 }

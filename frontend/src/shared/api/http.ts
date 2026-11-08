@@ -128,8 +128,9 @@ export function createHttp(deps: HttpDeps): Http {
       if (res.status === 402 && err.code === 'SUBSCRIPTION_INACTIVE') deps.onSubscriptionInactive()
       throw err
     }
-    if (res.status === 204) return undefined as T
-    return (await res.json()) as T
+    // 204, or a 202 without a body: nothing to parse.
+    const text = res.status === 204 ? '' : await res.text()
+    return (text ? JSON.parse(text) : undefined) as T
   }
 
   return {

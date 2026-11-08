@@ -1,3 +1,4 @@
+import { screen } from '@testing-library/dom'
 import { QueryClient } from '@tanstack/vue-query'
 import userEvent from '@testing-library/user-event'
 import { mount, type ComponentMountingOptions } from '@vue/test-utils'
@@ -5,6 +6,7 @@ import type { RequestHandler } from 'msw'
 import { createPinia } from 'pinia'
 import type { Component } from 'vue'
 import { createMemoryHistory } from 'vue-router'
+import App from '@/app/App.vue'
 import { installProviders } from '@/app/providers'
 import { createAppRouter } from '@/app/router'
 import type { MeResponse } from '@/shared/api/types'
@@ -95,4 +97,15 @@ export async function render<C extends Component>(
   await router.isReady()
 
   return { wrapper, router, queryClient, pinia, user: userEvent.setup() }
+}
+
+/**
+ * Mounts the whole app at `route` (layouts, guards and lazy page included) and resolves once the
+ * page's heading is on screen. Pages read the route while setting up, so they are rendered by the
+ * router like in the real app rather than mounted directly.
+ */
+export async function renderRoute(opts: RenderOptions & { route: string }) {
+  const r = await render(App, opts)
+  await screen.findByRole('heading', { level: 1 })
+  return r
 }

@@ -51,7 +51,9 @@
   },
   "common": {
     "logout": "Sair",
-    "signIn": "Entrar"
+    "signIn": "Entrar",
+    "cancel": "Cancelar",
+    "continue": "Continuar"
   },
   "nav": {
     "main": "Navegação principal",
@@ -95,5 +97,69 @@
   },
   "app": {
     "name": "Duo Finance"
+  },
+  "auth": {
+    "email": "E-mail",
+    "password": "Senha",
+    "newPassword": "Nova senha",
+    "showPassword": "Mostrar senha",
+    "hidePassword": "Ocultar senha",
+    "passwordHint": "Use de 8 a 128 caracteres.",
+    "backToLogin": "Voltar para entrar",
+    "login": {
+      "subtitle": "Entre para acompanhar as finanças do casal.",
+      "forgot": "Esqueci minha senha",
+      "noAccount": "Ainda não tem conta?",
+      "createAccount": "Criar conta",
+      "resetDone": "Senha redefinida. Entre com a nova senha."
+    },
+    "register": {
+      "subtitle": "Comece a organizar as finanças a dois.",
+      "displayName": "Nome",
+      "locale": "Idioma",
+      "accessCode": "Código de acesso",
+      "accessCodeHint": "O cadastro é por convite. Informe o código que você recebeu.",
+      "acceptTerms": "Li e aceito os {terms} e a {privacy}.",
+      "terms": "Termos de uso",
+      "privacy": "Política de privacidade",
+      "submit": "Criar conta",
+      "haveAccount": "Já tem conta?"
+    },
+    "verify": {
+      "title": "Confirmar e-mail",
+      "loading": "Confirmando seu e-mail…",
+      "success": "E-mail confirmado",
+      "successMessage": "Tudo certo. Seu e-mail foi confirmado.",
+      "resend": "Reenviar e-mail",
+      "resent": "Enviamos um novo link de confirmação para o seu e-mail.",
+      "continue": "Continuar"
+    },
+    "forgot": {
+      "subtitle": "Informe seu e-mail para receber um link de redefinição.",
+      "submit": "Enviar link",
+      "sentTitle": "Verifique seu e-mail",
+      "sentMessage": "Se existir uma conta com esse e-mail, enviamos um link para redefinir a senha."
+    },
+    "reset": {
+      "subtitle": "Escolha uma nova senha para a sua conta.",
+      "submit": "Redefinir senha",
+      "requestNew": "Pedir um novo link"
+    }
+  },
+  "invite": {
+    "title": "Você recebeu um convite",
+    "subtitle": "Aceite para compartilhar as finanças em uma conta a dois.",
+    "invitedBy": "Convidado por",
+    "unknownInviter": "Alguém",
+    "account": "Conta",
+    "email": "E-mail do convite",
+    "signIn": "Entrar",
+    "createAccount": "Criar conta",
+    "accept": "Aceitar convite",
+    "confirmTitle": "Substituir seus dados atuais?",
+    "confirmMessage": "Sua conta atual já tem lançamentos. Ao aceitar este convite, os dados atuais serão apagados e você passará a usar a conta compartilhada. Esta ação não pode ser desfeita.",
+    "confirmLabel": "Aceitar e apagar meus dados",
+    "notForThisAccount": "Este convite não é para esta conta. Entre com o e-mail que recebeu o convite.",
+    "loading": "Carregando convite…"
   }
 }

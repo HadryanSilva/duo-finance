@@ -18,5 +18,7 @@ export type DashboardResponse = Schemas['DashboardResponse']
 export type WaitlistEntryResponse = Schemas['WaitlistEntryResponse']
 export type AccessCodeResponse = Schemas['AccessCodeResponse']
 export type CreatedAccessCodeResponse = Schemas['CreatedAccessCodeResponse']
+export type RegisterRequest = Schemas['RegisterRequest']
+export type RegistrationMode = Schemas['RegistrationModeResponse']['mode']
 
 export type { ErrorCode } from '../i18n/error-codes'
