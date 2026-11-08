@@ -5,6 +5,7 @@ import br.dev.duofinance.access.service.RegistrationGate;
 import br.dev.duofinance.access.service.RegistrationGate.CodeGrant;
 import br.dev.duofinance.access.service.RegistrationGate.InvitationGrant;
 import br.dev.duofinance.access.service.RegistrationGate.RegistrationGrant;
+import br.dev.duofinance.account.model.Account;
 import br.dev.duofinance.account.model.AccountMember;
 import br.dev.duofinance.account.model.Invitation;
 import br.dev.duofinance.account.model.InvitationStatus;
@@ -30,9 +31,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class RegistrationService {
-
-    /** A couple has exactly two members. */
-    static final int MAX_MEMBERS = 2;
 
     private final RegistrationGate gate;
     private final AccessCodeService accessCodes;
@@ -112,7 +110,7 @@ public class RegistrationService {
     private void joinInvitedAccount(User user, Invitation invitation, Instant now) {
         accounts.findByIdForUpdate(invitation.getAccountId())
                 .orElseThrow(() -> new ApiException(ErrorCode.INVITE_INVALID));
-        if (members.countByAccountId(invitation.getAccountId()) >= MAX_MEMBERS) {
+        if (members.countByAccountId(invitation.getAccountId()) >= Account.MAX_MEMBERS) {
             throw new ApiException(ErrorCode.ACCOUNT_FULL);
         }
         members.save(new AccountMember(invitation.getAccountId(), user.getId(), now));

@@ -16,6 +16,9 @@ public class Account {
 
     public static final String DEFAULT_CURRENCY = "EUR";
 
+    /** A couple has exactly two members. */
+    public static final int MAX_MEMBERS = 2;
+
     @Id
     @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
     private UUID id;
