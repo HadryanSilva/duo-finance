@@ -8,6 +8,9 @@
  * Contrast (WCAG): text on surface >= 4.5:1 in both modes; brand-foreground on brand >= 4.5:1.
  */
 @theme {
+  /* Tailwind's default palette is unavailable: only the tokens below exist */
+  --color-*: initial;
+
   /* Brand and surfaces */
   --color-brand: #4f46e5;
   --color-brand-foreground: #ffffff;
