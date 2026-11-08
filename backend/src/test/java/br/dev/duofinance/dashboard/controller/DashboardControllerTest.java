@@ -346,6 +346,20 @@ class DashboardControllerTest {
     }
 
     @Test
+    void dashboard_upcomingClampsOverdueRuleToToday() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID rule = weeklyRule(s, "2027-03-01", null);
+        // Overdue: the generation job has not run, so nextRunDate is before today (2027-03-15).
+        jdbc.update("UPDATE recurring_rules SET next_run_date = '2027-03-01' WHERE id = ?", rule);
+
+        List<String> dates = dates(dashboard(s, "").path("upcoming"));
+
+        assertThat(dates).first().isEqualTo("2027-03-15");
+        assertThat(dates).allSatisfy(d -> assertThat(d).isGreaterThanOrEqualTo("2027-03-15"));
+        assertThat(dates).containsExactly("2027-03-15", "2027-03-22", "2027-03-29", "2027-04-05", "2027-04-12");
+    }
+
+    @Test
     void dashboard_invalidMonth_returns400() {
         TestSession s = testUsers.verified("ana@mail.com");
 
