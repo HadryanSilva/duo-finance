@@ -90,9 +90,13 @@ public class WaitlistService {
         return WaitlistEntryResponse.of(entry);
     }
 
+    /** Rejecting an approved entry revokes the access code already e-mailed to it. */
     @Transactional
     public WaitlistEntryResponse reject(UUID id) {
         WaitlistEntry entry = lock(id);
+        if (entry.getStatus() == WaitlistStatus.APPROVED && entry.getAccessCodeId() != null) {
+            accessCodes.revoke(entry.getAccessCodeId());
+        }
         entry.setStatus(WaitlistStatus.REJECTED);
         entry.setDecidedAt(Instant.now(clock));
         return WaitlistEntryResponse.of(entry);

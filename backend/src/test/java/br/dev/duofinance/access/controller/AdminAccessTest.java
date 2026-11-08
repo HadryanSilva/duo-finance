@@ -131,6 +131,22 @@ class AdminAccessTest {
     }
 
     @Test
+    void admin_rejectAfterApprove_revokesEmailedCode() {
+        TestSession admin = testUsers.admin("admin@mail.com");
+        join("ana@x.com");
+        String id = entryId("ana@x.com").toString();
+        adminPost(admin, "/api/v1/admin/waitlist/" + id + "/approve", null);
+        String code = awaitCode("ana@x.com", 1);
+
+        var rejected = adminPost(admin, "/api/v1/admin/waitlist/" + id + "/reject", null);
+
+        assertThat(rejected).bodyJson().extractingPath("$.status").isEqualTo("REJECTED");
+        var result = register("ana@x.com", code);
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("ACCESS_CODE_INVALID");
+    }
+
+    @Test
     void admin_rejectedEntry_canStillBeApproved() {
         TestSession admin = testUsers.admin("admin@mail.com");
         join("ana@x.com");
