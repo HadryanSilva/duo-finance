@@ -17,4 +17,10 @@ public interface UserTokenRepository extends JpaRepository<UserToken, UUID> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update UserToken t set t.usedAt = :now where t.userId = :userId and t.type = :type and t.usedAt is null")
     int invalidateUnused(@Param("userId") UUID userId, @Param("type") UserTokenType type, @Param("now") Instant now);
+
+    /** Atomically marks a live token used; 0 rows means unknown, wrong type, already used or expired. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update UserToken t set t.usedAt = :now where t.tokenHash = :hash and t.type = :type"
+            + " and t.usedAt is null and t.expiresAt > :now")
+    int consume(@Param("hash") String hash, @Param("type") UserTokenType type, @Param("now") Instant now);
 }

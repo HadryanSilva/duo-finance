@@ -1,14 +1,20 @@
 package br.dev.duofinance.auth.controller;
 
 import br.dev.duofinance.auth.dto.AuthResponse;
+import br.dev.duofinance.auth.dto.ForgotPasswordRequest;
 import br.dev.duofinance.auth.dto.LoginRequest;
 import br.dev.duofinance.auth.dto.RegisterRequest;
+import br.dev.duofinance.auth.dto.ResetPasswordRequest;
+import br.dev.duofinance.auth.dto.TokenRequest;
 import br.dev.duofinance.auth.service.AuthSessionService;
 import br.dev.duofinance.auth.service.AuthSessionService.SessionTokens;
+import br.dev.duofinance.auth.service.EmailVerificationService;
 import br.dev.duofinance.auth.service.LoginService;
+import br.dev.duofinance.auth.service.PasswordResetService;
 import br.dev.duofinance.auth.service.RegistrationService;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ErrorCode;
+import br.dev.duofinance.shared.security.CurrentUser;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -27,9 +33,18 @@ public class AuthController {
     private final RefreshCookies cookies;
     private final RegistrationService registration;
     private final LoginService login;
+    private final EmailVerificationService verification;
+    private final PasswordResetService passwordReset;
 
     public AuthController(
-            AuthSessionService sessions, RefreshCookies cookies, RegistrationService registration, LoginService login) {
+            AuthSessionService sessions,
+            RefreshCookies cookies,
+            RegistrationService registration,
+            LoginService login,
+            EmailVerificationService verification,
+            PasswordResetService passwordReset) {
+        this.verification = verification;
+        this.passwordReset = passwordReset;
         this.sessions = sessions;
         this.cookies = cookies;
         this.registration = registration;
@@ -64,5 +79,29 @@ public class AuthController {
     public void logout(HttpServletRequest request, HttpServletResponse response) {
         cookies.read(request).ifPresent(sessions::revokeFamilyOf);
         cookies.clear(response);
+    }
+
+    @PostMapping("/verify-email")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void verifyEmail(@Valid @RequestBody TokenRequest request) {
+        verification.verify(request.token());
+    }
+
+    @PostMapping("/resend-verification")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resendVerification(CurrentUser current) {
+        verification.resend(current.userId());
+    }
+
+    @PostMapping("/forgot-password")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        passwordReset.requestReset(request.email());
+    }
+
+    @PostMapping("/reset-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordReset.reset(request.token(), request.newPassword());
     }
 }
