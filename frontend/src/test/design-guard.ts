@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 export const SRC = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 const EXEMPT = new Set(['app/styles.css', 'shared/api/schema.ts'])
-export const SCANNED_EXT = /\.(vue|ts|tsx|js|css)$/
+export const SCANNED_EXT = /\.(vue|ts|tsx|js|css|json)$/
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
