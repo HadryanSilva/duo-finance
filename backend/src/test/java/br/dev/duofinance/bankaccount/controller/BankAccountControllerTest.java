@@ -173,6 +173,26 @@ class BankAccountControllerTest {
     }
 
     @Test
+    void update_withUnchangedNonMemberHolder_isAllowed() {
+        TestSession ana = testUsers.verified("ana@mail.com");
+        TestSession bob = testUsers.verified("bob@mail.com");
+        TestSession carl = testUsers.verified("carl@mail.com");
+        UUID id = fixtures.bankAccount(ana, "Main", 0);
+        jdbc.update("UPDATE bank_accounts SET holder_user_id = ? WHERE id = ?", bob.userId(), id);
+
+        var unchanged = send("PUT", ana, BASE + "/" + id, body("Renamed", 0, bob.userId()));
+        assertThat(unchanged).hasStatus(HttpStatus.OK);
+        assertThat(unchanged).bodyJson().extractingPath("$.name").isEqualTo("Renamed");
+        assertThat(unchanged)
+                .bodyJson()
+                .extractingPath("$.holderUserId")
+                .isEqualTo(bob.userId().toString());
+
+        assertThat(send("PUT", ana, BASE + "/" + id, body("Renamed", 0, carl.userId())))
+                .hasStatus(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
     void archiveAndUnarchive() {
         TestSession s = testUsers.verified("ana@mail.com");
         UUID id = fixtures.bankAccount(s, "Main", 0);

@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -70,7 +71,10 @@ public class BankAccountService {
     @Transactional
     public BankAccountResponse update(UUID accountId, UUID id, BankAccountRequest request) {
         BankAccount account = requireOwned(accountId, id);
-        requireMember(accountId, request.holderUserId());
+        // An unchanged holder is kept even if no longer a member, as unchanged archived references are.
+        if (!Objects.equals(request.holderUserId(), account.getHolderUserId())) {
+            requireMember(accountId, request.holderUserId());
+        }
         account.setName(request.name());
         account.setType(request.type());
         account.setInitialBalanceCents(request.initialBalanceCents());

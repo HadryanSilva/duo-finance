@@ -179,6 +179,46 @@ class FinanceLifecycleTest {
     }
 
     @Test
+    void leave_clearsLeaverAsBankAccountHolder() {
+        TestSession[] pair = testUsers.couple("ana@mail.com", "rui@mail.com");
+        String created = """
+                {"name":"Conta Rui","type":"CHECKING","initialBalanceCents":0,"holderUserId":"%s"}
+                """.formatted(pair[1].userId());
+        var create = mvc.post()
+                .uri("/api/v1/bank-accounts")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(pair[0]))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(created)
+                .exchange();
+        assertThat(create).hasStatus(HttpStatus.CREATED);
+        UUID bank = UUID.fromString(json.readTree(create.getResponse().getContentAsByteArray())
+                .path("id")
+                .asString());
+
+        assertThat(mvc.post()
+                        .uri("/api/v1/account/leave")
+                        .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(pair[1]))
+                        .exchange())
+                .hasStatus(HttpStatus.OK);
+
+        var after = mvc.get()
+                .uri("/api/v1/bank-accounts/" + bank)
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(pair[0]))
+                .exchange();
+        assertThat(after).hasStatus(HttpStatus.OK);
+        assertThat(after).bodyJson().extractingPath("$.holderUserId").isNull();
+
+        var put = mvc.put()
+                .uri("/api/v1/bank-accounts/" + bank)
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(pair[0]))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Conta Casa\",\"type\":\"CHECKING\",\"initialBalanceCents\":0}")
+                .exchange();
+        assertThat(put).hasStatus(HttpStatus.OK);
+        assertThat(put).bodyJson().extractingPath("$.name").isEqualTo("Conta Casa");
+    }
+
+    @Test
     void deleteMe_soleMemberWithFinanceData_returns204() {
         TestSession ana = testUsers.verified("ana@mail.com");
         seedEverything(ana);

@@ -8,7 +8,9 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface BankAccountRepository extends JpaRepository<BankAccount, UUID> {
 
@@ -34,4 +36,12 @@ public interface BankAccountRepository extends JpaRepository<BankAccount, UUID> 
             order by case when b.archivedAt is null then 0 else 1 end, b.name, b.id
             """)
     List<BankAccount> list(UUID accountId, boolean includeArchived);
+
+    /**
+     * Clears a member who leaves the account as holder of its bank accounts, so the remaining partner can keep
+     * editing them; returns the number of rows changed.
+     */
+    @Modifying(flushAutomatically = true)
+    @Query("update BankAccount b set b.holderUserId = null where b.accountId = :accountId and b.holderUserId = :userId")
+    int clearHolder(@Param("accountId") UUID accountId, @Param("userId") UUID userId);
 }
