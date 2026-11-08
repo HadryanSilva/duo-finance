@@ -2,6 +2,7 @@ package br.dev.duofinance.category.repository;
 
 import br.dev.duofinance.category.model.Category;
 import br.dev.duofinance.category.model.CategoryKind;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,6 +16,8 @@ public interface CategoryRepository extends JpaRepository<Category, UUID> {
     boolean existsByAccountIdAndSystemDefaultFalse(UUID accountId);
 
     Optional<Category> findByIdAndAccountId(UUID id, UUID accountId);
+
+    List<Category> findByAccountIdAndIdIn(UUID accountId, Collection<UUID> ids);
 
     @Query("""
             select c from Category c

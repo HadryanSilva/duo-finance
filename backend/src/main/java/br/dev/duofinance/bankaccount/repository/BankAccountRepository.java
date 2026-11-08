@@ -1,6 +1,7 @@
 package br.dev.duofinance.bankaccount.repository;
 
 import br.dev.duofinance.bankaccount.model.BankAccount;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -10,6 +11,8 @@ import org.springframework.data.jpa.repository.Query;
 public interface BankAccountRepository extends JpaRepository<BankAccount, UUID> {
 
     Optional<BankAccount> findByIdAndAccountId(UUID id, UUID accountId);
+
+    List<BankAccount> findByAccountIdAndIdIn(UUID accountId, Collection<UUID> ids);
 
     boolean existsByAccountId(UUID accountId);
 

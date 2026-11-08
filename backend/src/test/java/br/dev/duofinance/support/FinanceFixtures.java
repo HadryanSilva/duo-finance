@@ -2,6 +2,7 @@ package br.dev.duofinance.support;
 
 import br.dev.duofinance.category.model.CategoryKind;
 import br.dev.duofinance.support.TestUsers.TestSession;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.boot.test.context.TestComponent;
 import org.springframework.http.HttpHeaders;
@@ -51,6 +52,26 @@ public class FinanceFixtures {
                 .getResponse();
         if (response.getStatus() != 201) {
             throw new IllegalStateException("Bank account creation failed: " + response.getStatus());
+        }
+        try {
+            return UUID.fromString(
+                    json.readTree(response.getContentAsString()).path("id").asString());
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** Creates a transaction through the API from a raw request body and returns its id. */
+    public UUID transaction(TestSession session, Map<String, Object> body) {
+        var response = mvc.post()
+                .uri("/api/v1/transactions")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(session))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(body))
+                .exchange()
+                .getResponse();
+        if (response.getStatus() != 201) {
+            throw new IllegalStateException("Transaction creation failed: " + response.getStatus());
         }
         try {
             return UUID.fromString(

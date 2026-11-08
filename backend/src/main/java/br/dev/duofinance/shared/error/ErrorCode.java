@@ -32,6 +32,8 @@ public enum ErrorCode {
     CATEGORY_KIND_MISMATCH(HttpStatus.BAD_REQUEST),
     CATEGORY_NAME_TAKEN(HttpStatus.CONFLICT),
     CATEGORY_IN_USE(HttpStatus.CONFLICT),
+    TRANSFER_INVALID(HttpStatus.BAD_REQUEST),
+    RECURRING_DATE_TAKEN(HttpStatus.CONFLICT),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final HttpStatus status;
