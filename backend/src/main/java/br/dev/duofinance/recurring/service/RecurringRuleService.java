@@ -59,7 +59,7 @@ public class RecurringRuleService {
             throw ApiException.invalidField("startDate", "OutOfRange");
         }
         validateEndDate(start, request.endDate());
-        validator.validate(
+        validator.validateAndLock(
                 accountId,
                 request.kind(),
                 request.categoryId(),
@@ -84,9 +84,9 @@ public class RecurringRuleService {
     /** Only future occurrences change; transactions already generated keep their values. */
     @Transactional
     public RecurringRuleResponse update(UUID accountId, UUID id, UpdateRecurringRuleRequest request) {
-        RecurringRule rule = requireOwned(accountId, id);
+        RecurringRule rule = requireOwnedForUpdate(accountId, id);
         validateEndDate(rule.getStartDate(), request.endDate());
-        validator.validate(
+        validator.validateAndLock(
                 accountId,
                 rule.getKind(),
                 request.categoryId(),
@@ -105,11 +105,21 @@ public class RecurringRuleService {
         return respond(accountId, rules.saveAndFlush(rule));
     }
 
-    /** Resumes from today: occurrences missed while inactive are not recovered. Already active is a no-op. */
+    /**
+     * Resumes from today: occurrences missed while inactive are not recovered. Already active is a no-op. References
+     * are re-validated as for a new rule, since they may have been archived while the rule was inactive.
+     */
     @Transactional
     public RecurringRuleResponse activate(UUID accountId, UUID id) {
-        RecurringRule rule = requireOwned(accountId, id);
+        RecurringRule rule = requireOwnedForUpdate(accountId, id);
         if (!rule.isActive()) {
+            validator.validateAndLock(
+                    accountId,
+                    rule.getKind(),
+                    rule.getCategoryId(),
+                    rule.getBankAccountId(),
+                    rule.getDestinationBankAccountId(),
+                    ReferenceSnapshot.none());
             LocalDate today = today();
             rule.activate(
                     RecurrenceSchedule.firstOnOrAfter(rule.getStartDate(), rule.getFrequency(), today),
@@ -122,7 +132,7 @@ public class RecurringRuleService {
 
     @Transactional
     public RecurringRuleResponse deactivate(UUID accountId, UUID id) {
-        RecurringRule rule = requireOwned(accountId, id);
+        RecurringRule rule = requireOwnedForUpdate(accountId, id);
         if (rule.isActive()) {
             rule.deactivate(Instant.now(clock));
         }
@@ -138,6 +148,15 @@ public class RecurringRuleService {
 
     private RecurringRule requireOwned(UUID accountId, UUID id) {
         return rules.findByIdAndAccountId(id, accountId).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+    }
+
+    /**
+     * Writes lock the rule row first (then, in validation, the referenced rows FOR SHARE), so they serialize with
+     * {@link RecurringGenerator#generateDue} and never overwrite its nextRunDate.
+     */
+    private RecurringRule requireOwnedForUpdate(UUID accountId, UUID id) {
+        return rules.findByIdAndAccountIdForUpdate(id, accountId)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
     }
 
     private static void validateEndDate(LocalDate start, LocalDate end) {

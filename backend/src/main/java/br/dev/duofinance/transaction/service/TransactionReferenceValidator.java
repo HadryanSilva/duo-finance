@@ -42,13 +42,43 @@ public class TransactionReferenceValidator {
             UUID bankAccountId,
             UUID destinationBankAccountId,
             ReferenceSnapshot current) {
+        validate(accountId, kind, categoryId, bankAccountId, destinationBankAccountId, current, false);
+    }
+
+    /**
+     * Like {@link #validate}, but holds each referenced category and bank account row FOR SHARE until the caller's
+     * transaction ends, so the references cannot be archived before a recurring rule using them commits. Used by
+     * recurring rules, whose references keep generating new transactions; the caller must hold the rule's row lock
+     * first (lock order: rule, then references).
+     */
+    public void validateAndLock(
+            UUID accountId,
+            TransactionKind kind,
+            UUID categoryId,
+            UUID bankAccountId,
+            UUID destinationBankAccountId,
+            ReferenceSnapshot current) {
+        validate(accountId, kind, categoryId, bankAccountId, destinationBankAccountId, current, true);
+    }
+
+    private void validate(
+            UUID accountId,
+            TransactionKind kind,
+            UUID categoryId,
+            UUID bankAccountId,
+            UUID destinationBankAccountId,
+            ReferenceSnapshot current,
+            boolean lock) {
         validateShape(kind, categoryId, bankAccountId, destinationBankAccountId);
 
-        Category category = categoryId == null ? null : categories.requireOwned(accountId, categoryId);
-        BankAccount origin = bankAccountId == null ? null : bankAccounts.requireOwned(accountId, bankAccountId);
-        BankAccount destination = destinationBankAccountId == null
+        Category category = categoryId == null
                 ? null
-                : bankAccounts.requireOwned(accountId, destinationBankAccountId);
+                : lock
+                        ? categories.requireOwnedForShare(accountId, categoryId)
+                        : categories.requireOwned(accountId, categoryId);
+        BankAccount origin = bankAccountId == null ? null : bankAccount(accountId, bankAccountId, lock);
+        BankAccount destination =
+                destinationBankAccountId == null ? null : bankAccount(accountId, destinationBankAccountId, lock);
 
         if (category != null) {
             CategoryKind expected = kind == TransactionKind.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
@@ -61,6 +91,10 @@ public class TransactionReferenceValidator {
         }
         requireNotArchivedUnlessKept(origin, current.bankAccountId());
         requireNotArchivedUnlessKept(destination, current.destinationBankAccountId());
+    }
+
+    private BankAccount bankAccount(UUID accountId, UUID id, boolean lock) {
+        return lock ? bankAccounts.requireOwnedForShare(accountId, id) : bankAccounts.requireOwned(accountId, id);
     }
 
     private static void validateShape(

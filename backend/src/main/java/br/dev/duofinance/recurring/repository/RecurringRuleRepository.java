@@ -19,6 +19,11 @@ public interface RecurringRuleRepository extends JpaRepository<RecurringRule, UU
     @Query("select r from RecurringRule r where r.id = :id")
     Optional<RecurringRule> findByIdForUpdate(UUID id);
 
+    /** FOR UPDATE, scoped to the account: rule writes serialize with generateDue. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from RecurringRule r where r.id = :id and r.accountId = :accountId")
+    Optional<RecurringRule> findByIdAndAccountIdForUpdate(UUID id, UUID accountId);
+
     @Query("""
             select r from RecurringRule r
             where r.accountId = :accountId

@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -62,10 +63,16 @@ public class CategoryService {
         return CategoryResponse.of(categories.saveAndFlush(category));
     }
 
-    /** An active, not finished recurring rule using the category blocks archiving (IN_USE_BY_ACTIVE_RULE). */
+    /**
+     * An active, not finished recurring rule using the category blocks archiving (IN_USE_BY_ACTIVE_RULE). The row is
+     * locked FOR UPDATE before the rule count, so a concurrent rule write holding it FOR SHARE commits first and is
+     * counted, or waits and then sees the archive.
+     */
     @Transactional
     public CategoryResponse archive(UUID accountId, UUID id) {
-        Category category = requireOwned(accountId, id);
+        Category category = categories
+                .findByIdAndAccountIdForUpdate(id, accountId)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
         if (category.getArchivedAt() == null) {
             if (rules.activeRuleUsesCategory(id)) {
                 throw new ApiException(ErrorCode.IN_USE_BY_ACTIVE_RULE);
@@ -97,6 +104,14 @@ public class CategoryService {
     @Transactional(readOnly = true)
     public Category requireOwned(UUID accountId, UUID id) {
         return categories.findByIdAndAccountId(id, accountId).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+    }
+
+    /** Like {@link #requireOwned}, holding the row FOR SHARE until the caller's transaction ends. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Category requireOwnedForShare(UUID accountId, UUID id) {
+        return categories
+                .findByIdAndAccountIdForShare(id, accountId)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
     }
 
     /**

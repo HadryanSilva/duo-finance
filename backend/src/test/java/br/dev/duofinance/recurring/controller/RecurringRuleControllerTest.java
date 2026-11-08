@@ -1,6 +1,7 @@
 package br.dev.duofinance.recurring.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import br.dev.duofinance.IntegrationTest;
 import br.dev.duofinance.category.model.CategoryKind;
@@ -15,6 +16,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -622,5 +628,167 @@ class RecurringRuleControllerTest {
         var categoryDelete = send(HttpMethod.DELETE, s, "/api/v1/categories/" + category, null);
         assertThat(categoryDelete).hasStatus(HttpStatus.CONFLICT);
         assertThat(categoryDelete).bodyJson().extractingPath("$.code").isEqualTo("CATEGORY_IN_USE");
+    }
+
+    @Test
+    void activate_withArchivedReference_returns409() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID category = seeded(s, "EXPENSE");
+        UUID bank = fixtures.bankAccount(s, "Main", 0);
+        Map<String, Object> request = monthlyExpense(category, "2027-01-15");
+        request.put("bankAccountId", bank);
+        UUID ruleId = create(s, request);
+        send(HttpMethod.POST, s, BASE + "/" + ruleId + "/deactivate", null);
+        assertThat(send(HttpMethod.POST, s, "/api/v1/categories/" + category + "/archive", null))
+                .hasStatus(HttpStatus.OK);
+
+        clock.setInstant(Instant.parse("2027-04-15T09:00:00Z"));
+        TestSession fresh = relogin(s, "ana@mail.com");
+        var result = send(HttpMethod.POST, fresh, BASE + "/" + ruleId + "/activate", null);
+
+        assertThat(result).hasStatus(HttpStatus.CONFLICT);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("CATEGORY_ARCHIVED");
+        assertThat(jdbc.queryForObject("SELECT active FROM recurring_rules WHERE id = ?", Boolean.class, ruleId))
+                .isFalse();
+        assertThat(generatedDates(ruleId)).hasSize(3);
+
+        // Same for an archived bank account once the category is usable again.
+        send(HttpMethod.POST, fresh, "/api/v1/categories/" + category + "/unarchive", null);
+        assertThat(send(HttpMethod.POST, fresh, "/api/v1/bank-accounts/" + bank + "/archive", null))
+                .hasStatus(HttpStatus.OK);
+        var bankResult = send(HttpMethod.POST, fresh, BASE + "/" + ruleId + "/activate", null);
+        assertThat(bankResult).hasStatus(HttpStatus.CONFLICT);
+        assertThat(bankResult).bodyJson().extractingPath("$.code").isEqualTo("BANK_ACCOUNT_ARCHIVED");
+        assertThat(generatedDates(ruleId)).hasSize(3);
+    }
+
+    /**
+     * Runs {@code work} in its own transaction on another thread and keeps that transaction open (holding its locks)
+     * until {@code release} is counted down.
+     */
+    private CompletableFuture<Void> holdTransaction(
+            Consumer<JdbcTemplate> work, CountDownLatch acquired, CountDownLatch release) {
+        return CompletableFuture.runAsync(() -> tx.executeWithoutResult(status -> {
+            work.accept(jdbc);
+            acquired.countDown();
+            try {
+                if (!release.await(30, TimeUnit.SECONDS)) {
+                    throw new IllegalStateException("Lock holder was never released");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(e);
+            }
+        }));
+    }
+
+    private static void assertStillBlocked(CompletableFuture<?> future) {
+        assertThatThrownBy(() -> future.get(500, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+    }
+
+    @Test
+    void createRule_whileCategoryArchiveInFlight_waitsAndReturns409() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID category = fixtures.category(s, "Gym custom", CategoryKind.EXPENSE);
+        CountDownLatch acquired = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        // An archive in flight: the row is locked FOR UPDATE and archived, but not committed yet.
+        var archive = holdTransaction(
+                j -> {
+                    j.queryForObject("SELECT id FROM categories WHERE id = ? FOR UPDATE", UUID.class, category);
+                    j.update("UPDATE categories SET archived_at = now() WHERE id = ?", category);
+                },
+                acquired,
+                release);
+        assertThat(acquired.await(10, TimeUnit.SECONDS)).isTrue();
+
+        var createRule = CompletableFuture.supplyAsync(
+                () -> send(HttpMethod.POST, s, BASE, monthlyExpense(category, "2027-04-01")));
+        assertStillBlocked(createRule);
+        release.countDown();
+        archive.get(10, TimeUnit.SECONDS);
+
+        var result = createRule.get(10, TimeUnit.SECONDS);
+        assertThat(result).hasStatus(HttpStatus.CONFLICT);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("CATEGORY_ARCHIVED");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM recurring_rules", Integer.class))
+                .isZero();
+    }
+
+    @Test
+    void archiveCategory_whileRuleCreateInFlight_waitsAndReturns409() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID category = fixtures.category(s, "Gym custom", CategoryKind.EXPENSE);
+        CountDownLatch acquired = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        // A rule create in flight: the category is held FOR SHARE and an active rule is inserted, not committed yet.
+        var ruleCreate = holdTransaction(
+                j -> {
+                    j.queryForObject("SELECT id FROM categories WHERE id = ? FOR SHARE", UUID.class, category);
+                    j.update(
+                            "INSERT INTO recurring_rules (id, account_id, kind, amount_cents, category_id, frequency,"
+                                    + " start_date, next_run_date, active, created_by, created_at, updated_at)"
+                                    + " VALUES (gen_random_uuid(), ?, 'EXPENSE', 1000, ?, 'MONTHLY', ?, ?, true, ?,"
+                                    + " now(), now())",
+                            s.accountId(),
+                            category,
+                            LocalDate.parse("2027-04-01"),
+                            LocalDate.parse("2027-04-01"),
+                            s.userId());
+                },
+                acquired,
+                release);
+        assertThat(acquired.await(10, TimeUnit.SECONDS)).isTrue();
+
+        var archive = CompletableFuture.supplyAsync(
+                () -> send(HttpMethod.POST, s, "/api/v1/categories/" + category + "/archive", null));
+        assertStillBlocked(archive);
+        release.countDown();
+        ruleCreate.get(10, TimeUnit.SECONDS);
+
+        var result = archive.get(10, TimeUnit.SECONDS);
+        assertThat(result).hasStatus(HttpStatus.CONFLICT);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("IN_USE_BY_ACTIVE_RULE");
+        assertThat(jdbc.queryForObject("SELECT archived_at FROM categories WHERE id = ?", Instant.class, category))
+                .isNull();
+    }
+
+    @Test
+    void ruleWrites_waitForGeneratorLock_andKeepItsNextRunDate() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        Map<String, Object> request = monthlyExpense(seeded(s, "EXPENSE"), "2027-01-31");
+        UUID ruleId = create(s, request);
+        Map<String, Object> update = updateOf(request);
+        update.put("amountCents", 2000);
+
+        for (String action : List.of("update", "deactivate")) {
+            CountDownLatch acquired = new CountDownLatch(1);
+            CountDownLatch release = new CountDownLatch(1);
+            LocalDate advanced =
+                    action.equals("update") ? LocalDate.parse("2027-04-30") : LocalDate.parse("2027-05-31");
+            // A generator run in flight: the rule row is locked and nextRunDate moved, not committed yet.
+            var generatorRun = holdTransaction(
+                    j -> {
+                        j.queryForObject("SELECT id FROM recurring_rules WHERE id = ? FOR UPDATE", UUID.class, ruleId);
+                        j.update("UPDATE recurring_rules SET next_run_date = ? WHERE id = ?", advanced, ruleId);
+                    },
+                    acquired,
+                    release);
+            assertThat(acquired.await(10, TimeUnit.SECONDS)).isTrue();
+
+            var write = CompletableFuture.supplyAsync(() -> action.equals("update")
+                    ? send(HttpMethod.PUT, s, BASE + "/" + ruleId, update)
+                    : send(HttpMethod.POST, s, BASE + "/" + ruleId + "/deactivate", null));
+            assertStillBlocked(write);
+            release.countDown();
+            generatorRun.get(10, TimeUnit.SECONDS);
+
+            var result = write.get(10, TimeUnit.SECONDS);
+            assertThat(result).hasStatus(HttpStatus.OK);
+            assertThat(result).bodyJson().extractingPath("$.nextRunDate").isEqualTo(advanced.toString());
+            assertThat(jdbc.queryForObject(
+                            "SELECT next_run_date FROM recurring_rules WHERE id = ?", LocalDate.class, ruleId))
+                    .isEqualTo(advanced);
+        }
     }
 }

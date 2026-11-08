@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -78,10 +79,16 @@ public class BankAccountService {
         return respond(bankAccounts.saveAndFlush(account));
     }
 
-    /** An active, not finished recurring rule using the account in any slot blocks archiving (IN_USE_BY_ACTIVE_RULE). */
+    /**
+     * An active, not finished recurring rule using the account in any slot blocks archiving (IN_USE_BY_ACTIVE_RULE).
+     * The row is locked FOR UPDATE before the rule count, so a concurrent rule write holding it FOR SHARE commits first
+     * and is counted, or waits and then sees the archive.
+     */
     @Transactional
     public BankAccountResponse archive(UUID accountId, UUID id) {
-        BankAccount account = requireOwned(accountId, id);
+        BankAccount account = bankAccounts
+                .findByIdAndAccountIdForUpdate(id, accountId)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
         if (!account.isArchived()) {
             if (rules.activeRuleUsesBankAccount(id)) {
                 throw new ApiException(ErrorCode.IN_USE_BY_ACTIVE_RULE);
@@ -118,6 +125,14 @@ public class BankAccountService {
     public BankAccount requireOwned(UUID accountId, UUID id) {
         return bankAccounts
                 .findByIdAndAccountId(id, accountId)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+    }
+
+    /** Like {@link #requireOwned}, holding the row FOR SHARE until the caller's transaction ends. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public BankAccount requireOwnedForShare(UUID accountId, UUID id) {
+        return bankAccounts
+                .findByIdAndAccountIdForShare(id, accountId)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
     }
 
