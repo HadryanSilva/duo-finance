@@ -8,7 +8,7 @@ import java.util.regex.Pattern;
 /** Extracts the distinct http(s) links of an e-mail body, in order of appearance. */
 public final class EmailLinks {
 
-    private static final Pattern LINK = Pattern.compile("https?://[^\s\"'<>]+");
+    private static final Pattern LINK = Pattern.compile("https?://[^\\s\"'<>]+");
 
     private EmailLinks() {}
 

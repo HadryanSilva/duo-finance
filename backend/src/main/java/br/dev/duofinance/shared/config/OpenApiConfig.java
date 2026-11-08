@@ -1,7 +1,9 @@
 package br.dev.duofinance.shared.config;
 
 import io.swagger.v3.oas.models.media.Schema;
+import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -11,46 +13,41 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * springdoc marks a record component as required only when it carries a validation annotation, which response DTOs
- * do not. Without this, every field of every response becomes optional in the generated client types. Response
- * properties are always serialized, so all of them are required; the ones that can be {@code null} are listed here and
- * stay optional (absent or {@code null}).
+ * do not, so every response field would be optional in the generated client types. Response properties are always
+ * serialized: every component is required, and the ones annotated {@code @Nullable} are declared nullable
+ * ({@code T | null}) instead of optional. See {@link ResponseRecords} for what counts as a response record.
  */
 @Configuration(proxyBeanMethods = false)
 public class OpenApiConfig {
 
-    private static final Map<String, Set<String>> NULLABLE = Map.ofEntries(
-            Map.entry(
-                    "TransactionResponse",
-                    Set.of("description", "category", "destinationBankAccount", "createdBy", "recurringRuleId")),
-            Map.entry(
-                    "RecurringRuleResponse",
-                    Set.of("description", "category", "destinationBankAccount", "endDate", "createdBy")),
-            Map.entry("UpcomingOccurrence", Set.of("description", "categoryId")),
-            Map.entry("AccessCodeResponse", Set.of("email", "expiresAt", "revokedAt", "note")),
-            Map.entry("WaitlistEntryResponse", Set.of("decidedAt")),
-            Map.entry("BankAccountResponse", Set.of("holderUserId")),
-            Map.entry("SubscriptionResponse", Set.of("currentPeriodEnd")),
-            Map.entry("AccountResponse", Set.of("pendingInvitation")));
-
-    private static final Set<String> EXTRA_RESPONSE_SCHEMAS = Set.of(
-            "AccountBalance", "CategorySpend", "UpcomingOccurrence", "AuthorRef", "BankAccountRef", "CategoryRef");
-
     @Bean
-    OpenApiCustomizer responsePropertiesRequired() {
+    OpenApiCustomizer responseNullability() {
+        Map<String, Class<?>> bySchemaName = new java.util.HashMap<>();
+        for (Class<?> type : ResponseRecords.all()) {
+            bySchemaName.put(type.getSimpleName(), type);
+        }
         return openApi -> {
             if (openApi.getComponents() == null || openApi.getComponents().getSchemas() == null) {
                 return;
             }
             openApi.getComponents().getSchemas().forEach((name, rawSchema) -> {
                 Schema<?> schema = rawSchema;
-                if (!isResponse(name) || schema.getProperties() == null) {
+                Class<?> type = bySchemaName.get(name.startsWith("PageResponse") ? "PageResponse" : name);
+                if (type == null || schema.getProperties() == null) {
                     return;
                 }
-                Set<String> nullable = NULLABLE.getOrDefault(name, Set.of());
+                Set<String> nullable = new HashSet<>();
+                for (RecordComponent component : type.getRecordComponents()) {
+                    if (ResponseRecords.isNullable(component)) {
+                        nullable.add(component.getName());
+                    }
+                }
                 List<String> required = new ArrayList<>();
-                for (String property : schema.getProperties().keySet()) {
-                    if (!nullable.contains(property)) {
-                        required.add(property);
+                for (String property : new ArrayList<>(schema.getProperties().keySet())) {
+                    required.add(property);
+                    if (nullable.contains(property)) {
+                        Schema<?> original = schema.getProperties().get(property);
+                        schema.getProperties().put(property, nullableOf(original));
                     }
                 }
                 schema.setRequired(required);
@@ -58,7 +55,11 @@ public class OpenApiConfig {
         };
     }
 
-    private static boolean isResponse(String name) {
-        return name.endsWith("Response") || name.endsWith("Summary") || EXTRA_RESPONSE_SCHEMAS.contains(name);
+    /** {@code anyOf: [original, {type: null}]}, which openapi-typescript renders as {@code T | null}. */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static Schema nullableOf(Schema original) {
+        Schema wrapper = new Schema();
+        wrapper.setAnyOf(List.of(original, new Schema().types(Set.of("null"))));
+        return wrapper;
     }
 }

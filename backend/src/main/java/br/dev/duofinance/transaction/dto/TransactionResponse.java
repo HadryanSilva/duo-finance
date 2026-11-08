@@ -4,18 +4,19 @@ import br.dev.duofinance.transaction.model.TransactionKind;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 public record TransactionResponse(
         UUID id,
         TransactionKind kind,
         long amountCents,
         LocalDate date,
-        String description,
-        CategoryRef category,
-        BankAccountRef bankAccount,
-        BankAccountRef destinationBankAccount,
-        AuthorRef createdBy,
-        UUID recurringRuleId,
+        @Nullable String description,
+        @Nullable CategoryRef category,
+        @Nullable BankAccountRef bankAccount,
+        @Nullable BankAccountRef destinationBankAccount,
+        @Nullable AuthorRef createdBy,
+        @Nullable UUID recurringRuleId,
         Instant createdAt,
         Instant updatedAt) {
 
