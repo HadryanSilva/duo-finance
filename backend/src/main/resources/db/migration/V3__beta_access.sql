@@ -24,4 +24,4 @@ CREATE TABLE waitlist_entries (
     decided_at      timestamptz,
     CONSTRAINT waitlist_entries_status_check CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED'))
 );
-CREATE UNIQUE INDEX uq_waitlist_entries_email ON waitlist_entries (lower(email));
+CREATE UNIQUE INDEX uq_waitlist_entries_email ON waitlist_entries (email);
