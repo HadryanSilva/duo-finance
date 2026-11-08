@@ -250,6 +250,21 @@ class InvitationTest {
     }
 
     @Test
+    void cancel_afterAccept_doesNotRewriteAcceptedInvitation() {
+        TestSession[] couple = testUsers.couple("ana@mail.com", "rui@mail.com");
+        Invitation accepted = invitations.findAll().getFirst();
+
+        var result = mvc.delete()
+                .uri(BASE + "/" + accepted.getId())
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(couple[0]))
+                .exchange();
+
+        assertError(result, HttpStatus.NOT_FOUND, "NOT_FOUND");
+        assertThat(invitations.findById(accepted.getId()).orElseThrow().getStatus())
+                .isEqualTo(InvitationStatus.ACCEPTED);
+    }
+
+    @Test
     void cancel_twice_returns404AndAllowsNewInvite() {
         TestSession ana = testUsers.verified("ana@mail.com");
         assertThat(invite(ana, "rui@mail.com")).hasStatus(HttpStatus.CREATED);
