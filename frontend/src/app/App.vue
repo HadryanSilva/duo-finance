@@ -1,11 +1,18 @@
 <script setup lang="ts">
-import Logo from '@/shared/ui/Logo.vue'
-import { Button } from '@/shared/ui/button'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import AppLayout from './layouts/AppLayout.vue'
+import AuthLayout from './layouts/AuthLayout.vue'
+import PublicLayout from './layouts/PublicLayout.vue'
+
+const route = useRoute()
+const LAYOUTS = { public: PublicLayout, auth: AuthLayout, app: AppLayout }
+const layout = computed(() => LAYOUTS[route.meta.layout ?? 'public'])
 </script>
 
 <template>
-  <main class="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
-    <Logo size="lg" />
-    <Button>Duo Finance</Button>
-  </main>
+  <!-- Nothing renders until the first navigation (and the session restore) settles. -->
+  <component :is="layout" v-if="route.matched.length">
+    <RouterView />
+  </component>
 </template>

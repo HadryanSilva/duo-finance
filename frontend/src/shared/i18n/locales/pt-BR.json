@@ -48,5 +48,52 @@
     "OutOfRange": "O valor está fora do intervalo permitido.",
     "NotAllowed": "Este valor não é permitido.",
     "Invalid": "Valor inválido."
+  },
+  "common": {
+    "logout": "Sair",
+    "signIn": "Entrar"
+  },
+  "nav": {
+    "main": "Navegação principal",
+    "dashboard": "Dashboard",
+    "transactions": "Lançamentos",
+    "bankAccounts": "Contas",
+    "categories": "Categorias",
+    "budgets": "Orçamentos",
+    "recurring": "Recorrências",
+    "settings": "Configurações",
+    "admin": "Admin",
+    "newTransaction": "Novo lançamento"
+  },
+  "theme": {
+    "toggle": "Mudar tema (atual: {theme})",
+    "light": "Claro",
+    "dark": "Escuro",
+    "system": "Do sistema"
+  },
+  "pages": {
+    "landing": "Duo Finance",
+    "privacy": "Privacidade",
+    "terms": "Termos de uso",
+    "login": "Entrar",
+    "register": "Criar conta",
+    "verifyEmail": "Confirmar e-mail",
+    "forgotPassword": "Esqueci minha senha",
+    "resetPassword": "Nova senha",
+    "acceptInvite": "Convite",
+    "onboarding": "Boas-vindas"
+  },
+  "suspended": {
+    "title": "Acesso suspenso",
+    "message": "O acesso às finanças desta conta está suspenso. Confira o plano em Configurações ou fale com o suporte.",
+    "settings": "Ir para Configurações"
+  },
+  "notFound": {
+    "title": "Página não encontrada",
+    "message": "O endereço que você abriu não existe ou foi movido.",
+    "home": "Voltar ao início"
+  },
+  "app": {
+    "name": "Duo Finance"
   }
 }

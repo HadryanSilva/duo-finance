@@ -48,5 +48,52 @@
     "OutOfRange": "The value is outside the allowed range.",
     "NotAllowed": "This value isn't allowed.",
     "Invalid": "Invalid value."
+  },
+  "common": {
+    "logout": "Sign out",
+    "signIn": "Sign in"
+  },
+  "nav": {
+    "main": "Main navigation",
+    "dashboard": "Dashboard",
+    "transactions": "Transactions",
+    "bankAccounts": "Accounts",
+    "categories": "Categories",
+    "budgets": "Budgets",
+    "recurring": "Recurring",
+    "settings": "Settings",
+    "admin": "Admin",
+    "newTransaction": "New transaction"
+  },
+  "theme": {
+    "toggle": "Change theme (current: {theme})",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "pages": {
+    "landing": "Duo Finance",
+    "privacy": "Privacy",
+    "terms": "Terms of use",
+    "login": "Sign in",
+    "register": "Create account",
+    "verifyEmail": "Confirm email",
+    "forgotPassword": "Forgot password",
+    "resetPassword": "New password",
+    "acceptInvite": "Invitation",
+    "onboarding": "Welcome"
+  },
+  "suspended": {
+    "title": "Access suspended",
+    "message": "Access to this account’s finances is suspended. Check the plan in Settings or contact support.",
+    "settings": "Go to Settings"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "message": "The address you opened does not exist or has moved.",
+    "home": "Back to home"
+  },
+  "app": {
+    "name": "Duo Finance"
   }
 }
