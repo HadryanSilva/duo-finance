@@ -1,5 +1,7 @@
 package br.dev.duofinance.transaction.service;
 
+import br.dev.duofinance.bankaccount.service.BankAccountService;
+import br.dev.duofinance.category.service.CategoryService;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.web.PageRequests;
 import br.dev.duofinance.shared.web.PageResponse;
@@ -26,10 +28,18 @@ public class TransactionQueryService {
 
     private final TransactionRepository transactions;
     private final TransactionResponseAssembler assembler;
+    private final CategoryService categories;
+    private final BankAccountService bankAccounts;
 
-    public TransactionQueryService(TransactionRepository transactions, TransactionResponseAssembler assembler) {
+    public TransactionQueryService(
+            TransactionRepository transactions,
+            TransactionResponseAssembler assembler,
+            CategoryService categories,
+            BankAccountService bankAccounts) {
         this.transactions = transactions;
         this.assembler = assembler;
+        this.categories = categories;
+        this.bankAccounts = bankAccounts;
     }
 
     @Transactional(readOnly = true)
@@ -53,9 +63,11 @@ public class TransactionQueryService {
             spec = spec.and(TransactionSpecifications.ofKind(filter.kind()));
         }
         if (filter.categoryId() != null) {
+            categories.requireOwned(accountId, filter.categoryId());
             spec = spec.and(TransactionSpecifications.inCategory(filter.categoryId()));
         }
         if (filter.bankAccountId() != null) {
+            bankAccounts.requireOwned(accountId, filter.bankAccountId());
             spec = spec.and(TransactionSpecifications.involvingBankAccount(filter.bankAccountId()));
         }
         if (filter.createdBy() != null) {

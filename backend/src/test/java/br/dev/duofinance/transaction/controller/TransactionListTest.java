@@ -230,8 +230,8 @@ class TransactionListTest {
         expense(bob, "2026-11-01", "bob-only");
 
         assertThat(descriptions(get(bob, ""))).containsExactly("bob-only");
-        assertThat(descriptions(get(bob, "?categoryId=" + anaCategory))).isEmpty();
-        assertThat(descriptions(get(bob, "?bankAccountId=" + anaBank))).isEmpty();
+        assertThat(get(bob, "?categoryId=" + anaCategory)).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(get(bob, "?bankAccountId=" + anaBank)).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(descriptions(get(bob, "?createdBy=" + ana.userId()))).isEmpty();
     }
 
@@ -283,13 +283,15 @@ class TransactionListTest {
                 expense(author, date, "row" + i, categories.get(i % 4), banks.get(i % 3));
             }
         }
+        UUID unused = fixtures.category(couple[0], "Cat Sem Uso", CategoryKind.EXPENSE);
         var statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
         statistics.setStatisticsEnabled(true);
         try {
             get(couple[0], "?size=10"); // warm-up
-            // An empty result runs only the page query (count and assembler are skipped): the rest is auth overhead.
-            assertThat(statementsFor(statistics, couple[0], "?categoryId=" + UUID.randomUUID(), 0))
-                    .isEqualTo(1 + AUTH_STATEMENTS);
+            // An empty result runs only the page query (count and assembler are skipped), plus the category ownership
+            // check.
+            assertThat(statementsFor(statistics, couple[0], "?categoryId=" + unused, 0))
+                    .isEqualTo(2 + AUTH_STATEMENTS);
             long small = statementsFor(statistics, couple[0], "?size=3", 12);
             long large = statementsFor(statistics, couple[0], "?size=10", 12);
 
