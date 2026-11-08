@@ -276,7 +276,7 @@ git commit -m "feat(backend): income, expense and transfer transactions"
   - `GET /api/v1/transactions?from&to&kind&categoryId&bankAccountId&createdBy&q&page&size` → `PageResponse<TransactionResponse>`, ordenado por `date DESC, createdAt DESC, id DESC`.
   - `TransactionQueryService.list(UUID accountId, TransactionFilter filter, int page, int size): PageResponse<TransactionResponse>`.
 
-Regras: `from`/`to` são inclusivos; `from > to` → `VALIDATION_FAILED` (campo `from`). `bankAccountId` casa origem **ou** destino. `q` (trim, máx. 100 caracteres) faz `lower(description) LIKE lower(:q) ESCAPE '\'`, com `\`, `%` e `_` escapados antes de envolver em `%...%`. Um `categoryId`, `bankAccountId` ou `createdBy` de fora da `Account` não dá erro: o filtro sempre inclui `account_id = :accountId`, então a resposta vem vazia. A página usa o assembler em lote (no máximo 4 consultas além da contagem).
+Regras: `from`/`to` são inclusivos; `from > to` → `VALIDATION_FAILED` (campo `from`). `bankAccountId` casa origem **ou** destino. `q` (trim, máx. 100 caracteres) faz `lower(description) LIKE lower(:q) ESCAPE '\'`, com `\`, `%` e `_` escapados antes de envolver em `%...%`. Um `categoryId` ou `bankAccountId` de outra `Account` responde `404 NOT_FOUND` (como qualquer referência a recurso de outra `Account`). Um `createdBy` de fora da `Account` não dá erro: o filtro sempre inclui `account_id = :accountId`, então a resposta vem vazia. A página usa o assembler em lote (no máximo 4 consultas além da contagem).
 
 - [ ] **Step 1: Escrever os testes que falham**
 
@@ -287,7 +287,7 @@ Regras: `from`/`to` são inclusivos; `from > to` → `VALIDATION_FAILED` (campo 
 @Test void list_bankAccountMatchesOriginOrDestination() {}
 @Test void list_qIsLiteralAndCaseInsensitive() { /* descrições "Pizza 50%", "pizza", "50 euros" → q="50%" só a 1ª; q="PIZZA" as 2 primeiras; q="_" nenhuma */ }
 @Test void list_paginates() { /* 7 lançamentos, size=3 → totalElements 7, totalPages 3, page 2 tem 1 */ }
-@Test void list_neverShowsOtherAccounts() { /* filtro com categoryId de outra Account → content vazio */ }
+@Test void list_neverShowsOtherAccounts() { /* filtro com categoryId ou bankAccountId de outra Account → 404 NOT_FOUND; createdBy de fora → content vazio */ }
 @Test void list_fromAfterTo_returns400() {}
 ```
 
