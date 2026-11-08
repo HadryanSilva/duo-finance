@@ -54,7 +54,16 @@
     "signIn": "Entrar",
     "cancel": "Cancelar",
     "continue": "Continuar",
-    "skip": "Pular"
+    "skip": "Pular",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "save": "Salvar",
+    "archive": "Arquivar",
+    "unarchive": "Desarquivar",
+    "archived": "Arquivada",
+    "showArchived": "Mostrar arquivadas",
+    "close": "Fechar",
+    "viewRecurring": "Ver lançamentos recorrentes"
   },
   "nav": {
     "main": "Navegação principal",
@@ -231,5 +240,84 @@
     "SAVINGS": "Poupança",
     "CASH": "Dinheiro",
     "OTHER": "Outra"
+  },
+  "bankAccounts": {
+    "subtitle": "Onde seu dinheiro está.",
+    "new": "Nova conta",
+    "createTitle": "Nova conta",
+    "editTitle": "Editar conta",
+    "total": "Saldo total",
+    "heldBy": "Titular: {name}",
+    "formerMember": "Ex-membro",
+    "emptyTitle": "Nenhuma conta ainda",
+    "emptyDescription": "Adicione uma conta bancária ou carteira para acompanhar os saldos.",
+    "form": {
+      "name": "Nome",
+      "type": "Tipo",
+      "balance": "Saldo inicial",
+      "holder": "Titular",
+      "noHolder": "Sem titular"
+    },
+    "deleteTitle": "Excluir {name}?",
+    "deleteMessage": "Isso remove a conta definitivamente.",
+    "actions": {
+      "edit": "Editar {name}",
+      "archive": "Arquivar {name}",
+      "unarchive": "Desarquivar {name}",
+      "delete": "Excluir {name}"
+    }
+  },
+  "categories": {
+    "subtitle": "Organize receitas e despesas.",
+    "new": "Nova categoria",
+    "createTitle": "Nova categoria",
+    "editTitle": "Editar categoria",
+    "kind": {
+      "EXPENSE": "Despesas",
+      "INCOME": "Receitas"
+    },
+    "emptyTitle": "Nenhuma categoria aqui",
+    "emptyDescription": "Crie uma categoria para organizar seus lançamentos.",
+    "form": {
+      "name": "Nome",
+      "kind": "Tipo",
+      "icon": "Ícone",
+      "color": "Cor",
+      "colorN": "Cor {n}"
+    },
+    "deleteTitle": "Excluir {name}?",
+    "deleteMessage": "Isso remove a categoria definitivamente.",
+    "actions": {
+      "edit": "Editar {name}",
+      "archive": "Arquivar {name}",
+      "unarchive": "Desarquivar {name}",
+      "delete": "Excluir {name}"
+    },
+    "icons": {
+      "shopping-cart": "Carrinho de compras",
+      "house": "Casa",
+      "car": "Carro",
+      "utensils": "Talheres",
+      "heart-pulse": "Saúde",
+      "party-popper": "Festa",
+      "repeat": "Repetição",
+      "graduation-cap": "Formatura",
+      "ellipsis": "Reticências",
+      "banknote": "Cédula",
+      "laptop": "Notebook",
+      "trending-up": "Em alta",
+      "plus": "Mais",
+      "wallet": "Carteira",
+      "piggy-bank": "Cofrinho",
+      "landmark": "Banco",
+      "plane": "Avião",
+      "gift": "Presente",
+      "shirt": "Camiseta",
+      "coffee": "Café",
+      "dumbbell": "Halter",
+      "baby": "Bebê",
+      "paw-print": "Pet",
+      "briefcase": "Maleta"
+    }
   }
 }

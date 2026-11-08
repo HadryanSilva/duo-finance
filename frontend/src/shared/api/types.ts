@@ -24,3 +24,7 @@ export type RegistrationMode = Schemas['RegistrationModeResponse']['mode']
 export type { ErrorCode } from '../i18n/error-codes'
 export type JoinWaitlistRequest = Schemas['JoinWaitlistRequest']
 export type BankAccountRequest = Schemas['BankAccountRequest']
+export type CategoryRequest = Schemas['CategoryRequest']
+export type UpdateCategoryRequest = Schemas['UpdateCategoryRequest']
+export type CategoryKind = CategoryResponse['kind']
+export type BankAccountType = BankAccountResponse['type']

@@ -110,3 +110,10 @@ export function crossFeatureImports(root: string = SRC): string[] {
       })
     })
 }
+
+/** Feature .vue files that call formatMoney( directly; templates must use MoneyText. */
+export function formatMoneyInFeatureViews(root: string = SRC): string[] {
+  return guardedFiles(root)
+    .filter((f) => f.startsWith('features/') && f.endsWith('.vue'))
+    .filter((f) => /\bformatMoney\(/.test(readFileSync(join(root, f), 'utf8')))
+}

@@ -54,7 +54,16 @@
     "signIn": "Sign in",
     "cancel": "Cancel",
     "continue": "Continue",
-    "skip": "Skip"
+    "skip": "Skip",
+    "delete": "Delete",
+    "edit": "Edit",
+    "save": "Save",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "archived": "Archived",
+    "showArchived": "Show archived",
+    "close": "Close",
+    "viewRecurring": "View recurring transactions"
   },
   "nav": {
     "main": "Main navigation",
@@ -231,5 +240,84 @@
     "SAVINGS": "Savings",
     "CASH": "Cash",
     "OTHER": "Other"
+  },
+  "bankAccounts": {
+    "subtitle": "Where your money lives.",
+    "new": "New account",
+    "createTitle": "New account",
+    "editTitle": "Edit account",
+    "total": "Total balance",
+    "heldBy": "Holder: {name}",
+    "formerMember": "Former member",
+    "emptyTitle": "No accounts yet",
+    "emptyDescription": "Add a bank account or wallet to start tracking balances.",
+    "form": {
+      "name": "Name",
+      "type": "Type",
+      "balance": "Initial balance",
+      "holder": "Holder",
+      "noHolder": "No holder"
+    },
+    "deleteTitle": "Delete {name}?",
+    "deleteMessage": "This permanently removes the account.",
+    "actions": {
+      "edit": "Edit {name}",
+      "archive": "Archive {name}",
+      "unarchive": "Unarchive {name}",
+      "delete": "Delete {name}"
+    }
+  },
+  "categories": {
+    "subtitle": "Organize income and expenses.",
+    "new": "New category",
+    "createTitle": "New category",
+    "editTitle": "Edit category",
+    "kind": {
+      "EXPENSE": "Expenses",
+      "INCOME": "Income"
+    },
+    "emptyTitle": "No categories here",
+    "emptyDescription": "Create a category to organize your transactions.",
+    "form": {
+      "name": "Name",
+      "kind": "Type",
+      "icon": "Icon",
+      "color": "Color",
+      "colorN": "Color {n}"
+    },
+    "deleteTitle": "Delete {name}?",
+    "deleteMessage": "This permanently removes the category.",
+    "actions": {
+      "edit": "Edit {name}",
+      "archive": "Archive {name}",
+      "unarchive": "Unarchive {name}",
+      "delete": "Delete {name}"
+    },
+    "icons": {
+      "shopping-cart": "Shopping cart",
+      "house": "House",
+      "car": "Car",
+      "utensils": "Utensils",
+      "heart-pulse": "Heart pulse",
+      "party-popper": "Party",
+      "repeat": "Repeat",
+      "graduation-cap": "Graduation cap",
+      "ellipsis": "Ellipsis",
+      "banknote": "Banknote",
+      "laptop": "Laptop",
+      "trending-up": "Trending up",
+      "plus": "Plus",
+      "wallet": "Wallet",
+      "piggy-bank": "Piggy bank",
+      "landmark": "Bank",
+      "plane": "Plane",
+      "gift": "Gift",
+      "shirt": "Shirt",
+      "coffee": "Coffee",
+      "dumbbell": "Dumbbell",
+      "baby": "Baby",
+      "paw-print": "Pet",
+      "briefcase": "Briefcase"
+    }
   }
 }

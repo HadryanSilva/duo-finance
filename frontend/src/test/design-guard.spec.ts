@@ -7,6 +7,7 @@ import {
   COLOR_LITERAL,
   PALETTE_CLASS,
   crossFeatureImports,
+  formatMoneyInFeatureViews,
   guardedFiles,
   inlineStyleOffenders,
   offenders,
@@ -42,6 +43,10 @@ describe('design guard', () => {
 
   it('no feature imports from another feature', () => {
     expect(crossFeatureImports()).toEqual([])
+  })
+
+  it('no feature view calls formatMoney directly (use MoneyText)', () => {
+    expect(formatMoneyInFeatureViews()).toEqual([])
   })
 
   it('actually scans the source tree', () => {
@@ -199,6 +204,20 @@ describe('design guard checkers', () => {
           'features/transactions/pages/TransactionsPage.vue',
         ])
         expect(pagesMissingHeader(root)).toEqual(['features/budgets/pages/BudgetsPage.vue'])
+      },
+    )
+  })
+
+  it('flags formatMoney( in feature .vue files only', () => {
+    withFixture(
+      {
+        'features/a/A.vue': '{{ formatMoney(1, "en") }}',
+        'features/a/a.ts': 'formatMoney(1)',
+        'shared/ui/MoneyText.vue': 'formatMoney(1)',
+        'features/b/B.vue': '<MoneyText />',
+      },
+      (root) => {
+        expect(formatMoneyInFeatureViews(root)).toEqual(['features/a/A.vue'])
       },
     )
   })
