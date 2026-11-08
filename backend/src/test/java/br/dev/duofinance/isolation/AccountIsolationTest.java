@@ -36,6 +36,9 @@ class AccountIsolationTest {
     @Autowired
     FinanceFixtures fixtures;
 
+    @Autowired
+    org.springframework.jdbc.core.JdbcTemplate jdbc;
+
     private final JsonMapper json = JsonMapper.builder().build();
 
     static Stream<Arguments> idRoutes() {
@@ -69,12 +72,13 @@ class AccountIsolationTest {
         TestSession owner = testUsers.verified("ana@mail.com");
         TestSession intruder = testUsers.verified("rui@mail.com");
         Map<String, UUID> ids = createAll(owner);
+        UUID intruderCategory = fixtures.category(intruder, "Cat Teste C", CategoryKind.EXPENSE);
 
         var request = mvc.method(HttpMethod.valueOf(method))
                 .uri("/api/v1/" + resource + "/" + ids.get(resource) + suffix)
                 .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(intruder));
         if (method.equals("PUT")) {
-            request.contentType(MediaType.APPLICATION_JSON).content(updateBody(resource, ids));
+            request.contentType(MediaType.APPLICATION_JSON).content(updateBody(resource, intruderCategory));
         }
         var result = request.exchange();
 
@@ -146,6 +150,77 @@ class AccountIsolationTest {
                 .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(intruder))
                 .exchange();
         assertThat(foreignFilter).hasStatus(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void otherForeignReferences_return404AndWriteNothing() {
+        TestSession owner = testUsers.verified("ana@mail.com");
+        TestSession intruder = testUsers.verified("rui@mail.com");
+        Map<String, UUID> ids = createAll(owner);
+        UUID ownBank = fixtures.bankAccount(intruder, "Conta Rui", 0);
+        long before = rowCount();
+
+        assertNotFound(get(intruder, "/api/v1/transactions?bankAccountId=" + ids.get("bank-accounts")));
+        assertNotFound(post(
+                intruder,
+                "/api/v1/transactions",
+                Map.of(
+                        "kind",
+                        "TRANSFER",
+                        "amountCents",
+                        100,
+                        "date",
+                        "2026-11-01",
+                        "bankAccountId",
+                        ownBank,
+                        "destinationBankAccountId",
+                        ids.get("bank-accounts"))));
+        assertNotFound(post(
+                intruder,
+                "/api/v1/recurring-rules",
+                Map.of(
+                        "kind", "EXPENSE",
+                        "amountCents", 100,
+                        "categoryId", ids.get("categories"),
+                        "frequency", "MONTHLY",
+                        "startDate", "2099-01-01")));
+        assertNotFound(post(
+                intruder, "/api/v1/budgets", Map.of("categoryId", ids.get("categories"), "monthlyLimitCents", 100)));
+        assertNotFound(post(
+                intruder,
+                "/api/v1/bank-accounts",
+                Map.of("name", "Y", "type", "CHECKING", "initialBalanceCents", 0, "holderUserId", owner.userId())));
+
+        assertThat(rowCount()).isEqualTo(before);
+    }
+
+    private long rowCount() {
+        return jdbc.queryForObject(
+                "SELECT (SELECT count(*) FROM transactions) + (SELECT count(*) FROM recurring_rules)"
+                        + " + (SELECT count(*) FROM budgets) + (SELECT count(*) FROM bank_accounts)",
+                Long.class);
+    }
+
+    private org.springframework.test.web.servlet.assertj.MvcTestResult get(TestSession s, String uri) {
+        return mvc.get()
+                .uri(uri)
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                .exchange();
+    }
+
+    private org.springframework.test.web.servlet.assertj.MvcTestResult post(
+            TestSession s, String uri, Map<String, Object> body) {
+        return mvc.post()
+                .uri(uri)
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(body))
+                .exchange();
+    }
+
+    private static void assertNotFound(org.springframework.test.web.servlet.assertj.MvcTestResult result) {
+        assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("NOT_FOUND");
     }
 
     @Test
@@ -230,21 +305,13 @@ class AccountIsolationTest {
     }
 
     /** Minimal valid body per resource, so a PUT reaches the lookup instead of failing validation. */
-    private String updateBody(String resource, Map<String, UUID> ids) {
+    private String updateBody(String resource, UUID intruderCategory) {
         Map<String, Object> body = switch (resource) {
             case "bank-accounts" -> Map.of("name", "X", "type", "CHECKING", "initialBalanceCents", 0);
             case "categories" -> Map.of("name", "X", "color", "#112233", "icon", "tag");
             case "transactions" ->
-                Map.of(
-                        "kind",
-                        "EXPENSE",
-                        "amountCents",
-                        100,
-                        "date",
-                        "2026-11-01",
-                        "categoryId",
-                        ids.get("categories"));
-            case "recurring-rules" -> Map.of("amountCents", 100, "categoryId", ids.get("categories"));
+                Map.of("kind", "EXPENSE", "amountCents", 100, "date", "2026-11-01", "categoryId", intruderCategory);
+            case "recurring-rules" -> Map.of("amountCents", 100, "categoryId", intruderCategory);
             case "budgets" -> Map.of("monthlyLimitCents", 100);
             default -> throw new IllegalArgumentException(resource);
         };
