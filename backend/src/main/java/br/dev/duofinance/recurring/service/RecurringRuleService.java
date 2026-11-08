@@ -86,14 +86,21 @@ public class RecurringRuleService {
     public RecurringRuleResponse update(UUID accountId, UUID id, UpdateRecurringRuleRequest request) {
         RecurringRule rule = requireOwnedForUpdate(accountId, id);
         validateEndDate(rule.getStartDate(), request.endDate());
+        // A finished rule was not protected by the archive guard, so extending or clearing its end date revives it
+        // as an unfinished one: that is a fresh use of the references and must not keep archived ones.
+        boolean revived = rule.isActive()
+                && rule.isFinished()
+                && (request.endDate() == null || !rule.getNextRunDate().isAfter(request.endDate()));
         validator.validateAndLock(
                 accountId,
                 rule.getKind(),
                 request.categoryId(),
                 request.bankAccountId(),
                 request.destinationBankAccountId(),
-                new ReferenceSnapshot(
-                        rule.getCategoryId(), rule.getBankAccountId(), rule.getDestinationBankAccountId()));
+                revived
+                        ? ReferenceSnapshot.none()
+                        : new ReferenceSnapshot(
+                                rule.getCategoryId(), rule.getBankAccountId(), rule.getDestinationBankAccountId()));
         rule.assign(
                 request.amountCents(),
                 request.description(),

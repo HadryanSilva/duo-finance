@@ -2,6 +2,7 @@ package br.dev.duofinance.recurring.repository;
 
 import br.dev.duofinance.recurring.model.RecurringRule;
 import jakarta.persistence.LockModeType;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -14,6 +15,13 @@ public interface RecurringRuleRepository extends JpaRepository<RecurringRule, UU
     Optional<RecurringRule> findByIdAndAccountId(UUID id, UUID accountId);
 
     boolean existsByAccountId(UUID accountId);
+
+    /** Active rules whose next run is due; unlocked, so callers must re-check under the lock. */
+    @Query("select r.id from RecurringRule r where r.active = true and r.nextRunDate <= :today order by r.id")
+    List<UUID> findDueRuleIds(LocalDate today);
+
+    @Query("select r.accountId from RecurringRule r where r.id = :id")
+    Optional<UUID> findAccountId(UUID id);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from RecurringRule r where r.id = :id")

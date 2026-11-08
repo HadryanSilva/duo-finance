@@ -31,6 +31,8 @@ app:
     provider: RESEND
   auth:
     cookie-secure: true
+  recurring:
+    scheduler-enabled: true
 
 springdoc:
   api-docs:

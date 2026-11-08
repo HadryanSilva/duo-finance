@@ -455,6 +455,37 @@ class RecurringRuleControllerTest {
     }
 
     @Test
+    void update_revivingFinishedRuleWithArchivedReference_returns409() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID category = seeded(s, "EXPENSE");
+        UUID bank = fixtures.bankAccount(s, "Main", 0);
+        Map<String, Object> request = monthlyExpense(category, "2027-01-15");
+        request.put("bankAccountId", bank);
+        request.put("endDate", "2027-02-15");
+        UUID ruleId = create(s, request);
+        assertThat(jdbc.queryForObject(
+                        "SELECT next_run_date FROM recurring_rules WHERE id = ?", LocalDate.class, ruleId))
+                .isEqualTo(LocalDate.parse("2027-04-15"));
+        // Finished, so the archive guard lets both go.
+        assertThat(send(HttpMethod.POST, s, "/api/v1/categories/" + category + "/archive", null))
+                .hasStatus(HttpStatus.OK);
+
+        Map<String, Object> clearEnd = updateOf(request);
+        clearEnd.put("endDate", null);
+        var result = send(HttpMethod.PUT, s, BASE + "/" + ruleId, clearEnd);
+
+        assertThat(result).hasStatus(HttpStatus.CONFLICT);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("CATEGORY_ARCHIVED");
+        assertThat(jdbc.queryForObject("SELECT end_date FROM recurring_rules WHERE id = ?", LocalDate.class, ruleId))
+                .isEqualTo(LocalDate.parse("2027-02-15"));
+
+        // A finished rule that stays finished may still be edited with its archived references.
+        Map<String, Object> stillFinished = updateOf(request);
+        stillFinished.put("amountCents", 2000);
+        assertThat(send(HttpMethod.PUT, s, BASE + "/" + ruleId, stillFinished)).hasStatus(HttpStatus.OK);
+    }
+
+    @Test
     void transferRule_validatesLikeTransactions() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         UUID a = fixtures.bankAccount(s, "A", 0);
