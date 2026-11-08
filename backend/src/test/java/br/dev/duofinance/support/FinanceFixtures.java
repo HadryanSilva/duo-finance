@@ -1,5 +1,6 @@
 package br.dev.duofinance.support;
 
+import br.dev.duofinance.category.model.CategoryKind;
 import br.dev.duofinance.support.TestUsers.TestSession;
 import java.util.UUID;
 import org.springframework.boot.test.context.TestComponent;
@@ -17,6 +18,26 @@ public class FinanceFixtures {
 
     public FinanceFixtures(MockMvcTester mvc) {
         this.mvc = mvc;
+    }
+
+    public UUID category(TestSession session, String name, CategoryKind kind) {
+        var response = mvc.post()
+                .uri("/api/v1/categories")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(session))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"%s\",\"kind\":\"%s\",\"color\":\"#112233\",\"icon\":\"tag\"}"
+                        .formatted(name, kind))
+                .exchange()
+                .getResponse();
+        if (response.getStatus() != 201) {
+            throw new IllegalStateException("Category creation failed: " + response.getStatus());
+        }
+        try {
+            return UUID.fromString(
+                    json.readTree(response.getContentAsString()).path("id").asString());
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     public UUID bankAccount(TestSession session, String name, long initialCents) {

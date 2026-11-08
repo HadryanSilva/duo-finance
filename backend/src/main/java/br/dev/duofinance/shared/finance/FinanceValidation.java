@@ -11,7 +11,7 @@ public final class FinanceValidation {
     private FinanceValidation() {}
 
     /** Trims a nullable string, keeping {@code null}. A blank result stays empty so {@code @NotBlank} rejects it. */
-    public static String trimToNull(String value) {
+    public static String trimOrNull(String value) {
         return value == null ? null : value.trim();
     }
 

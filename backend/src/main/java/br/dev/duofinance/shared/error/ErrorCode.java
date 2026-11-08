@@ -28,6 +28,10 @@ public enum ErrorCode {
     TOKEN_INVALID(HttpStatus.BAD_REQUEST),
     BANK_ACCOUNT_ARCHIVED(HttpStatus.CONFLICT),
     BANK_ACCOUNT_IN_USE(HttpStatus.CONFLICT),
+    CATEGORY_ARCHIVED(HttpStatus.CONFLICT),
+    CATEGORY_KIND_MISMATCH(HttpStatus.BAD_REQUEST),
+    CATEGORY_NAME_TAKEN(HttpStatus.CONFLICT),
+    CATEGORY_IN_USE(HttpStatus.CONFLICT),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final HttpStatus status;

@@ -20,6 +20,6 @@ public record BankAccountRequest(
 
     /** Surrounding whitespace is not an error; trim before validation runs. */
     public BankAccountRequest {
-        name = FinanceValidation.trimToNull(name);
+        name = FinanceValidation.trimOrNull(name);
     }
 }
