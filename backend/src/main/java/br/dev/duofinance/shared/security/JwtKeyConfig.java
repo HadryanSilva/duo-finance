@@ -5,6 +5,8 @@ import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.SecureRandom;
+import java.security.Signature;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -16,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
@@ -24,8 +27,9 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.util.StringUtils;
 
 /**
- * RS256 signing keys for access tokens. Uses the PEM keys from {@code app.auth.*} when set; otherwise generates an
- * ephemeral key pair (tokens do not survive a restart).
+ * RS256 signing keys for access tokens. Uses the PEM keys from {@code app.auth.*} when set, and fails startup if they
+ * do not form a pair. Without keys, the dev and test profiles get an ephemeral key pair (tokens do not survive a
+ * restart); any other profile fails startup.
  */
 @Configuration(proxyBeanMethods = false)
 public class JwtKeyConfig {
@@ -33,7 +37,7 @@ public class JwtKeyConfig {
     private static final Logger log = LoggerFactory.getLogger(JwtKeyConfig.class);
 
     @Bean
-    KeyPair jwtKeyPair(AppProperties properties) {
+    KeyPair jwtKeyPair(AppProperties properties, Environment environment) {
         AppProperties.Auth auth = properties.auth();
         String privatePem = auth == null ? null : auth.jwtPrivateKey();
         String publicPem = auth == null ? null : auth.jwtPublicKey();
@@ -43,6 +47,12 @@ public class JwtKeyConfig {
             throw new IllegalStateException(
                     "app.auth.jwt-private-key and app.auth.jwt-public-key must be set together");
         }
+        if (!hasPrivate && !environment.matchesProfiles("dev | test")) {
+            throw new IllegalStateException(
+                    "app.auth.jwt-private-key and app.auth.jwt-public-key are required outside the dev and test"
+                            + " profiles");
+        }
+        KeyPair keyPair;
         try {
             if (!hasPrivate) {
                 log.warn("app.auth.jwt-private-key/jwt-public-key not set; using an ephemeral RSA key pair");
@@ -51,10 +61,32 @@ public class JwtKeyConfig {
                 return generator.generateKeyPair();
             }
             KeyFactory factory = KeyFactory.getInstance("RSA");
-            return new KeyPair(
+            keyPair = new KeyPair(
                     factory.generatePublic(new X509EncodedKeySpec(decodePem(publicPem))),
                     factory.generatePrivate(new PKCS8EncodedKeySpec(decodePem(privatePem))));
         } catch (GeneralSecurityException | IllegalArgumentException e) {
+            throw new IllegalStateException("Invalid JWT RSA key configuration", e);
+        }
+        requireMatchingKeys(keyPair);
+        return keyPair;
+    }
+
+    /** Signs a random probe with the private key and verifies it with the public key. */
+    private static void requireMatchingKeys(KeyPair keyPair) {
+        try {
+            byte[] probe = new byte[32];
+            new SecureRandom().nextBytes(probe);
+            Signature signer = Signature.getInstance("SHA256withRSA");
+            signer.initSign(keyPair.getPrivate());
+            signer.update(probe);
+            byte[] signature = signer.sign();
+            Signature verifier = Signature.getInstance("SHA256withRSA");
+            verifier.initVerify(keyPair.getPublic());
+            verifier.update(probe);
+            if (!verifier.verify(signature)) {
+                throw new IllegalStateException("app.auth.jwt-private-key and app.auth.jwt-public-key do not match");
+            }
+        } catch (GeneralSecurityException e) {
             throw new IllegalStateException("Invalid JWT RSA key configuration", e);
         }
     }

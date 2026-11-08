@@ -8,6 +8,7 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.util.Base64;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.env.MockEnvironment;
 
 class JwtKeyConfigTest {
 
@@ -22,29 +23,68 @@ class JwtKeyConfigTest {
         return new AppProperties(null, null, new AppProperties.Auth(privateKey, publicKey, true), null);
     }
 
-    @Test
-    void configuredPemKeys_areLoaded() throws Exception {
+    private static MockEnvironment profiles(String... active) {
+        MockEnvironment env = new MockEnvironment();
+        env.setActiveProfiles(active);
+        return env;
+    }
+
+    private static KeyPair generate() throws Exception {
         KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
         generator.initialize(2048);
-        KeyPair expected = generator.generateKeyPair();
+        return generator.generateKeyPair();
+    }
 
-        KeyPair loaded = config.jwtKeyPair(props(
-                pem("PRIVATE KEY", expected.getPrivate().getEncoded()),
-                pem("PUBLIC KEY", expected.getPublic().getEncoded())));
+    @Test
+    void configuredPemKeys_areLoaded() throws Exception {
+        KeyPair expected = generate();
+
+        KeyPair loaded = config.jwtKeyPair(
+                props(
+                        pem("PRIVATE KEY", expected.getPrivate().getEncoded()),
+                        pem("PUBLIC KEY", expected.getPublic().getEncoded())),
+                profiles());
 
         assertThat(loaded.getPublic()).isEqualTo(expected.getPublic());
         assertThat(loaded.getPrivate()).isEqualTo(expected.getPrivate());
     }
 
     @Test
-    void missingKeys_generateEphemeralPair() {
-        assertThat(config.jwtKeyPair(props("", null)).getPublic().getAlgorithm())
+    void missingKeys_inDevOrTest_generateEphemeralPair() {
+        assertThat(config.jwtKeyPair(props("", null), profiles("dev"))
+                        .getPublic()
+                        .getAlgorithm())
                 .isEqualTo("RSA");
-        assertThat(config.jwtKeyPair(new AppProperties(null, null, null, null))).isNotNull();
+        assertThat(config.jwtKeyPair(new AppProperties(null, null, null, null), profiles("test")))
+                .isNotNull();
+    }
+
+    @Test
+    void missingKeys_outsideDevAndTest_failFast() {
+        assertThatThrownBy(() -> config.jwtKeyPair(props(null, null), profiles()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("jwt-private-key");
+        assertThatThrownBy(() -> config.jwtKeyPair(new AppProperties(null, null, null, null), profiles("prod")))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
     void onlyOneKey_failsFast() {
-        assertThatThrownBy(() -> config.jwtKeyPair(props("x", ""))).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> config.jwtKeyPair(props("x", ""), profiles("dev")))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void mismatchedKeys_failFast() throws Exception {
+        KeyPair one = generate();
+        KeyPair other = generate();
+
+        assertThatThrownBy(() -> config.jwtKeyPair(
+                        props(
+                                pem("PRIVATE KEY", one.getPrivate().getEncoded()),
+                                pem("PUBLIC KEY", other.getPublic().getEncoded())),
+                        profiles("dev")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("do not match");
     }
 }

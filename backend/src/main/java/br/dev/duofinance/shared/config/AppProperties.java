@@ -1,11 +1,15 @@
 package br.dev.duofinance.shared.config;
 
+import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.validation.annotation.Validated;
 
+/** Validated so a missing {@code app.public-base-url} fails startup instead of every e-mail-sending request. */
 @ConfigurationProperties(prefix = "app")
-public record AppProperties(URI publicBaseUrl, Registration registration, Auth auth, Email email) {
+@Validated
+public record AppProperties(@NotNull URI publicBaseUrl, Registration registration, Auth auth, Email email) {
 
     public enum RegistrationMode {
         INVITE_ONLY,
