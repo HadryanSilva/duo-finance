@@ -21,6 +21,16 @@ function host(initial: number | null, allowNegative = false) {
 }
 
 describe('MoneyInput', () => {
+  it('moneyInput_clear_emptiesFieldAndEmitsNull', async () => {
+    const { C, value } = host(0)
+    const r = await render(C)
+    const input = screen.getByLabelText('Saldo') as HTMLInputElement
+    await r.user.click(input) // focus first, as a real user does, so the focus re-render settles
+    await r.user.clear(input)
+    expect(input.value).toBe('')
+    expect(value.value).toBeNull()
+  })
+
   it('moneyInput_emitsCentsAndFormatsOnBlur', async () => {
     const { C, value } = host(null)
     const r = await render(C)

@@ -73,18 +73,18 @@
 
 /* Category palette: 12 hues readable on light and dark surfaces. ColorPicker reads these values. */
 @theme static {
-  --color-cat-1: #16a34a;
+  --color-cat-1: #e11d48;
   --color-cat-2: #4f46e5;
   --color-cat-3: #2563eb;
   --color-cat-4: #ea580c;
-  --color-cat-5: #dc2626;
+  --color-cat-5: #14b8a6;
   --color-cat-6: #db2777;
   --color-cat-7: #7c3aed;
-  --color-cat-8: #0d9488;
+  --color-cat-8: #a16207;
   --color-cat-9: #6b7280;
   --color-cat-10: #d97706;
   --color-cat-11: #0891b2;
-  --color-cat-12: #65a30d;
+  --color-cat-12: #c026d3;
 }
 
 :root {
