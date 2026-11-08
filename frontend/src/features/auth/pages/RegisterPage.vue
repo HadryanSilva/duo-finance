@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useQuery } from '@tanstack/vue-query'
 import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import { computed, ref } from 'vue'
@@ -7,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useHttp } from '@/app/providers'
 import type { AuthResponse } from '@/shared/api/types'
+import { useRegistrationMode } from '@/shared/api/queries/public'
 import { detectLocale } from '@/shared/i18n'
 import { errorMessage } from '@/shared/i18n/error-codes'
 import { TERMS_VERSION } from '@/shared/lib/legal'
@@ -15,7 +15,7 @@ import { useSession } from '@/shared/session/session-store'
 import { Button } from '@/shared/ui/button'
 import { applyFieldErrors } from '@/shared/ui/FormErrors'
 import PageHeader from '@/shared/ui/PageHeader.vue'
-import { register, registrationMode } from '../api/auth-api'
+import { register } from '../api/auth-api'
 import PasswordField from '../components/PasswordField.vue'
 import TextField from '../components/TextField.vue'
 import { registerSchema } from '../schemas'
@@ -29,11 +29,7 @@ const router = useRouter()
 const first = (v: unknown) => (typeof v === 'string' && v ? v : undefined)
 const inviteToken = first(route.query.invite)
 
-const mode = useQuery({
-  queryKey: ['registration-mode'],
-  queryFn: () => registrationMode(http),
-  enabled: !inviteToken,
-})
+const mode = useRegistrationMode({ enabled: () => !inviteToken })
 // An invitation replaces the code; in OPEN mode none is needed. If the mode can't be read, ask for it.
 const modeKnown = computed(() => !!inviteToken || !mode.isPending.value)
 const showCode = computed(() => !inviteToken && modeKnown.value && mode.data.value !== 'OPEN')

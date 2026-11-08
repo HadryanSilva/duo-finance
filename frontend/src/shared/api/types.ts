@@ -22,3 +22,4 @@ export type RegisterRequest = Schemas['RegisterRequest']
 export type RegistrationMode = Schemas['RegistrationModeResponse']['mode']
 
 export type { ErrorCode } from '../i18n/error-codes'
+export type JoinWaitlistRequest = Schemas['JoinWaitlistRequest']

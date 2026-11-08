@@ -1,10 +1,5 @@
 import type { Http } from '@/shared/api/http'
-import type {
-  AuthResponse,
-  InvitationPreviewResponse,
-  RegisterRequest,
-  RegistrationMode,
-} from '@/shared/api/types'
+import type { AuthResponse, InvitationPreviewResponse, RegisterRequest } from '@/shared/api/types'
 
 export const login = (http: Http, body: { email: string; password: string }) =>
   http.post<AuthResponse>('/auth/login', body)
@@ -22,11 +17,6 @@ export const forgotPassword = (http: Http, email: string) =>
 
 export const resetPassword = (http: Http, token: string, newPassword: string) =>
   http.post<void>('/auth/reset-password', { token, newPassword })
-
-export async function registrationMode(http: Http): Promise<RegistrationMode> {
-  const res = await http.get<{ mode: RegistrationMode }>('/public/registration-mode')
-  return res.mode
-}
 
 export const invitationPreview = (http: Http, token: string) =>
   http.get<InvitationPreviewResponse>(`/account/invitations/${encodeURIComponent(token)}`)

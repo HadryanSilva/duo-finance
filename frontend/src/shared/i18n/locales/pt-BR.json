@@ -161,5 +161,42 @@
     "confirmLabel": "Aceitar e apagar meus dados",
     "notForThisAccount": "Este convite não é para esta conta. Entre com o e-mail que recebeu o convite.",
     "loading": "Carregando convite…"
+  },
+  "landing": {
+    "title": "Cuidem do dinheiro juntos, como casal",
+    "subtitle": "O Duo Finance dá a você e ao seu par uma visão clara das finanças compartilhadas.",
+    "highlights": {
+      "shared": {
+        "title": "Uma conta para dois",
+        "text": "Vocês dois veem e registram os mesmos lançamentos."
+      },
+      "recurring": {
+        "title": "Lançamentos recorrentes automáticos",
+        "text": "Aluguel, salários e assinaturas são lançados para vocês."
+      },
+      "budgets": {
+        "title": "Orçamentos por categoria",
+        "text": "Defina limites mensais e receba aviso antes de estourar."
+      }
+    },
+    "waitlist": {
+      "title": "Entre na lista de espera",
+      "subtitle": "Deixe seu e-mail e avisaremos quando houver vaga.",
+      "submit": "Entrar na lista",
+      "successTitle": "Você está na lista",
+      "successMessage": "Se abrir uma vaga, enviaremos um e-mail."
+    },
+    "createAccount": "Criar conta",
+    "footer": "Legal"
+  },
+  "legal": {
+    "privacy": {
+      "title": "Política de privacidade",
+      "body": "[texto jurídico a ser fornecido]"
+    },
+    "terms": {
+      "title": "Termos de uso",
+      "body": "[texto jurídico a ser fornecido]"
+    }
   }
 }

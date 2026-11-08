@@ -12,6 +12,8 @@ export type LayoutName = 'public' | 'auth' | 'app'
 declare module 'vue-router' {
   interface RouteMeta {
     public?: boolean
+    /** Signed-in users are sent to the dashboard instead of seeing this page. */
+    redirectAuthenticated?: boolean
     requiresAuth?: boolean
     requiresAdmin?: boolean
     /** Shell the page renders in (App.vue); defaults to 'public'. */
@@ -27,7 +29,7 @@ export const routes: RouteRecordRaw[] = [
   {
     path: '/',
     component: () => import('@/features/landing/pages/LandingPage.vue'),
-    meta: pub('public'),
+    meta: { ...pub('public'), redirectAuthenticated: true },
   },
   {
     path: '/privacy',

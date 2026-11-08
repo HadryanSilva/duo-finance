@@ -6,5 +6,8 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <PageHeader :title="t('pages.privacy')" />
+  <PageHeader :title="t('legal.privacy.title')" />
+  <div class="grid max-w-2xl gap-3 text-sm text-foreground">
+    <p v-for="(paragraph, i) in t('legal.privacy.body').split('\n\n')" :key="i">{{ paragraph }}</p>
+  </div>
 </template>

@@ -16,7 +16,8 @@ export function installGuards(router: Router, pinia: Pinia): void {
     const needsAuth = !!(to.meta.requiresAuth || to.meta.requiresAdmin)
 
     if (needsAuth && !user) return { path: '/login', query: { redirect: to.fullPath } }
-    if (user && (to.path === '/login' || to.path === '/register')) return '/dashboard'
+    if (user && (to.meta.redirectAuthenticated || to.path === '/login' || to.path === '/register'))
+      return '/dashboard'
     if (to.meta.requiresAdmin && !session.isAdmin) return '/dashboard'
 
     if (user && needsAuth && onboardingCheckedFor !== user.id) {

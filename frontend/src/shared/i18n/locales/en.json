@@ -161,5 +161,42 @@
     "confirmLabel": "Accept and delete my data",
     "notForThisAccount": "This invitation isn't for this account. Sign in with the email that received it.",
     "loading": "Loading invitation…"
+  },
+  "landing": {
+    "title": "Manage money together, as a couple",
+    "subtitle": "Duo Finance gives you and your partner one clear view of your shared finances.",
+    "highlights": {
+      "shared": {
+        "title": "One account for two",
+        "text": "Both of you see and record the same transactions."
+      },
+      "recurring": {
+        "title": "Automatic recurring entries",
+        "text": "Rent, salaries and subscriptions are posted for you."
+      },
+      "budgets": {
+        "title": "Budgets by category",
+        "text": "Set monthly limits and get warned before you go over."
+      }
+    },
+    "waitlist": {
+      "title": "Join the waitlist",
+      "subtitle": "Leave your email and we will let you know when there is a spot.",
+      "submit": "Join the waitlist",
+      "successTitle": "You are on the list",
+      "successMessage": "If a spot opens up, we will email you."
+    },
+    "createAccount": "Create account",
+    "footer": "Legal"
+  },
+  "legal": {
+    "privacy": {
+      "title": "Privacy policy",
+      "body": "[legal text to be provided]"
+    },
+    "terms": {
+      "title": "Terms of use",
+      "body": "[legal text to be provided]"
+    }
   }
 }
