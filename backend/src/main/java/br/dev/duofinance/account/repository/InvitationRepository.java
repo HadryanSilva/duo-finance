@@ -26,4 +26,18 @@ public interface InvitationRepository extends JpaRepository<Invitation, UUID> {
             + " i.acceptedAt = :now where i.id = :id"
             + " and i.status = br.dev.duofinance.account.model.InvitationStatus.PENDING")
     int markAccepted(@Param("id") UUID id, @Param("now") Instant now);
+
+    /** Cancels the account's pending invitation, if any; returns the number of rows changed. */
+    @Modifying(flushAutomatically = true)
+    @Query("update Invitation i set i.status = br.dev.duofinance.account.model.InvitationStatus.CANCELED"
+            + " where i.accountId = :accountId"
+            + " and i.status = br.dev.duofinance.account.model.InvitationStatus.PENDING")
+    int cancelPendingByAccount(@Param("accountId") UUID accountId);
+
+    /** Cancels every pending invitation created by the user; returns the number of rows changed. */
+    @Modifying(flushAutomatically = true)
+    @Query("update Invitation i set i.status = br.dev.duofinance.account.model.InvitationStatus.CANCELED"
+            + " where i.invitedBy = :userId"
+            + " and i.status = br.dev.duofinance.account.model.InvitationStatus.PENDING")
+    int cancelPendingByInviter(@Param("userId") UUID userId);
 }
