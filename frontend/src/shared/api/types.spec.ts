@@ -3,6 +3,7 @@ import type {
   AccountResponse,
   AuthResponse,
   BudgetResponse,
+  InvitationPreviewResponse,
   ErrorCode,
   PageResponseTransactionResponse,
   RecurringRuleResponse,
@@ -34,6 +35,10 @@ describe('generated API types', () => {
       AccountResponse['pendingInvitation']
     > | null>()
     expectTypeOf<undefined>().not.toExtend<TransactionResponse['createdBy']>()
+  })
+
+  it('invitation preview inviterName is string | null', () => {
+    expectTypeOf<InvitationPreviewResponse['inviterName']>().toEqualTypeOf<string | null>()
   })
 
   it('non-null fields stay non-null', () => {

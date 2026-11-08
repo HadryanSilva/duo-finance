@@ -1,5 +1,6 @@
 package br.dev.duofinance.shared.config;
 
+import br.dev.duofinance.shared.security.CurrentUser;
 import io.swagger.v3.oas.models.media.Schema;
 import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
@@ -8,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.springdoc.core.customizers.OpenApiCustomizer;
+import org.springdoc.core.utils.SpringDocUtils;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -19,6 +21,11 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration(proxyBeanMethods = false)
 public class OpenApiConfig {
+
+    static {
+        // Injected by an argument resolver from the JWT; never part of the request contract.
+        SpringDocUtils.getConfig().addRequestWrapperToIgnore(CurrentUser.class);
+    }
 
     @Bean
     OpenApiCustomizer responseNullability() {

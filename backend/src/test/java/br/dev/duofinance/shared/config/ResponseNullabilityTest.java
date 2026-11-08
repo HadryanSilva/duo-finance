@@ -64,7 +64,6 @@ class ResponseNullabilityTest {
             "DashboardResponse.upcoming",
             "InvitationPreviewResponse.accountName",
             "InvitationPreviewResponse.email",
-            "InvitationPreviewResponse.inviterName",
             "InvitationSummary.email",
             "InvitationSummary.expiresAt",
             "InvitationSummary.id",

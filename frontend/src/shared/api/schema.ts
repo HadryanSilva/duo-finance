@@ -664,14 +664,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        CurrentUser: {
-            /** Format: uuid */
-            userId?: string;
-            /** Format: uuid */
-            accountId?: string;
-            /** @enum {string} */
-            role?: "USER" | "ADMIN";
-        };
         TransactionRequest: {
             /** @enum {string} */
             kind: "INCOME" | "EXPENSE" | "TRANSFER";
@@ -1062,7 +1054,7 @@ export interface components {
             hasAccess: boolean;
         };
         InvitationPreviewResponse: {
-            inviterName: string;
+            inviterName: string | null;
             accountName: string;
             email: string;
             existingUser: boolean;
@@ -1081,9 +1073,7 @@ export type $defs = Record<string, never>;
 export interface operations {
     get: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1105,9 +1095,7 @@ export interface operations {
     };
     update: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1133,9 +1121,7 @@ export interface operations {
     };
     delete: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1155,9 +1141,7 @@ export interface operations {
     };
     get_1: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1179,9 +1163,7 @@ export interface operations {
     };
     update_1: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1207,9 +1189,7 @@ export interface operations {
     };
     delete_1: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1229,9 +1209,7 @@ export interface operations {
     };
     changePassword: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -1255,9 +1233,7 @@ export interface operations {
     };
     get_2: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1279,9 +1255,7 @@ export interface operations {
     };
     update_2: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1307,9 +1281,7 @@ export interface operations {
     };
     delete_2: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1329,8 +1301,7 @@ export interface operations {
     };
     get_3: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
+            query?: {
                 month?: string;
             };
             header?: never;
@@ -1354,9 +1325,7 @@ export interface operations {
     };
     update_3: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1382,9 +1351,7 @@ export interface operations {
     };
     delete_3: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1404,9 +1371,7 @@ export interface operations {
     };
     get_4: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1428,9 +1393,7 @@ export interface operations {
     };
     update_4: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1456,9 +1419,7 @@ export interface operations {
     };
     delete_4: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1478,8 +1439,7 @@ export interface operations {
     };
     list: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
+            query?: {
                 from?: string;
                 to?: string;
                 kind?: "INCOME" | "EXPENSE" | "TRANSFER";
@@ -1509,9 +1469,7 @@ export interface operations {
     };
     create: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -1535,9 +1493,7 @@ export interface operations {
     };
     list_1: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -1557,9 +1513,7 @@ export interface operations {
     };
     create_1: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -1583,9 +1537,7 @@ export interface operations {
     };
     deactivate: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1607,9 +1559,7 @@ export interface operations {
     };
     activate: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1653,8 +1603,7 @@ export interface operations {
     };
     list_2: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
+            query?: {
                 kind?: "INCOME" | "EXPENSE";
                 includeArchived?: boolean;
             };
@@ -1677,9 +1626,7 @@ export interface operations {
     };
     create_2: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -1703,9 +1650,7 @@ export interface operations {
     };
     unarchive: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1727,9 +1672,7 @@ export interface operations {
     };
     archive: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1751,8 +1694,7 @@ export interface operations {
     };
     list_3: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
+            query?: {
                 month?: string;
             };
             header?: never;
@@ -1774,9 +1716,7 @@ export interface operations {
     };
     create_3: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -1800,8 +1740,7 @@ export interface operations {
     };
     list_4: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
+            query?: {
                 includeArchived?: boolean;
             };
             header?: never;
@@ -1823,9 +1762,7 @@ export interface operations {
     };
     create_4: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -1849,9 +1786,7 @@ export interface operations {
     };
     unarchive_1: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1873,9 +1808,7 @@ export interface operations {
     };
     archive_1: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -1941,9 +1874,7 @@ export interface operations {
     };
     resendVerification: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -2069,9 +2000,7 @@ export interface operations {
     };
     reject: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -2093,9 +2022,7 @@ export interface operations {
     };
     approve: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -2117,9 +2044,7 @@ export interface operations {
     };
     list_5: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -2139,9 +2064,7 @@ export interface operations {
     };
     create_5: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -2165,9 +2088,7 @@ export interface operations {
     };
     revoke: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
@@ -2187,9 +2108,7 @@ export interface operations {
     };
     leave: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -2209,9 +2128,7 @@ export interface operations {
     };
     create_6: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -2235,9 +2152,7 @@ export interface operations {
     };
     accept: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 token: string;
@@ -2263,9 +2178,7 @@ export interface operations {
     };
     get_5: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -2285,9 +2198,7 @@ export interface operations {
     };
     delete_5: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -2309,9 +2220,7 @@ export interface operations {
     };
     update_5: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -2335,9 +2244,7 @@ export interface operations {
     };
     get_6: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -2357,9 +2264,7 @@ export interface operations {
     };
     rename: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -2403,8 +2308,7 @@ export interface operations {
     };
     dashboard: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
+            query?: {
                 month?: string;
             };
             header?: never;
@@ -2426,8 +2330,7 @@ export interface operations {
     };
     list_6: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
+            query?: {
                 status?: "PENDING" | "APPROVED" | "REJECTED";
                 page?: number;
                 size?: number;
@@ -2451,9 +2354,7 @@ export interface operations {
     };
     get_7: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -2495,9 +2396,7 @@ export interface operations {
     };
     cancel: {
         parameters: {
-            query: {
-                current: components["schemas"]["CurrentUser"];
-            };
+            query?: never;
             header?: never;
             path: {
                 id: string;
