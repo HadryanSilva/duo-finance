@@ -78,7 +78,11 @@ public class DashboardService {
 
         Map<UUID, Long> balances = balanceQuery.balances(accountId, balancesAsOf);
         List<AccountBalance> accounts = bankAccounts.list(accountId, false).stream()
-                .map(b -> new AccountBalance(b.getId(), b.getName(), b.getType(), balances.getOrDefault(b.getId(), 0L)))
+                .map(b -> new AccountBalance(
+                        b.getId(),
+                        b.getName(),
+                        b.getType(),
+                        balances.getOrDefault(b.getId(), b.getInitialBalanceCents())))
                 .toList();
         long totalBalance =
                 accounts.stream().mapToLong(AccountBalance::balanceCents).sum();
