@@ -13,6 +13,7 @@ CREATE TABLE access_codes (
     CONSTRAINT access_codes_used_count_check CHECK (used_count >= 0)
 );
 CREATE UNIQUE INDEX uq_access_codes_code_hash ON access_codes (code_hash);
+CREATE INDEX idx_access_codes_created_by ON access_codes (created_by);
 
 CREATE TABLE waitlist_entries (
     id              uuid PRIMARY KEY,

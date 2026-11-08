@@ -29,6 +29,7 @@ CREATE UNIQUE INDEX uq_invitations_token_hash ON invitations (token_hash);
 CREATE UNIQUE INDEX uq_invitations_pending_per_account ON invitations (account_id) WHERE status = 'PENDING';
 CREATE INDEX idx_invitations_account_id ON invitations (account_id);
 CREATE INDEX idx_invitations_email ON invitations (email);
+CREATE INDEX idx_invitations_invited_by ON invitations (invited_by);
 
 CREATE TABLE subscriptions (
     id                        uuid PRIMARY KEY,
@@ -60,3 +61,4 @@ CREATE TABLE categories (
     CONSTRAINT categories_kind_check CHECK (kind IN ('INCOME', 'EXPENSE'))
 );
 CREATE UNIQUE INDEX uq_categories_active_name ON categories (account_id, kind, name) WHERE archived_at IS NULL;
+CREATE INDEX idx_categories_account_id ON categories (account_id);
