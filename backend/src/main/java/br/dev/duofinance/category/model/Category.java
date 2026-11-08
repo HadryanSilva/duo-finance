@@ -8,10 +8,16 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.UuidGenerator;
 
+/**
+ * {@code @DynamicUpdate}: an unlocked PUT writes only the columns it changes, so it cannot undo a concurrent archive,
+ * unarchive or reference change committed between its read and its flush.
+ */
 @Entity
 @Table(name = "categories")
+@DynamicUpdate
 public class Category {
 
     @Id

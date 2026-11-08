@@ -9,10 +9,16 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.UuidGenerator;
 
+/**
+ * {@code @DynamicUpdate}: an unlocked PUT writes only the columns it changes, so it cannot write back a stale
+ * {@code recurring_rule_id} or {@code created_by} after a concurrent rule or user delete nulled it.
+ */
 @Entity
 @Table(name = "transactions")
+@DynamicUpdate
 public class Transaction {
 
     @Id
