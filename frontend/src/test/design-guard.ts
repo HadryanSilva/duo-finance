@@ -90,3 +90,23 @@ export function pagesMissingHeader(root: string = SRC): string[] {
     (f) => !/<PageHeader\b/.test(readFileSync(join(root, f), 'utf8')),
   )
 }
+
+/** Files under features/<a>/ that import from features/<b>/ (alias or relative path). */
+export function crossFeatureImports(root: string = SRC): string[] {
+  return guardedFiles(root)
+    .filter((f) => /\.(vue|ts|tsx)$/.test(f) && f.startsWith('features/'))
+    .flatMap((file) => {
+      const own = file.split('/')[1]
+      const text = readFileSync(join(root, file), 'utf8')
+      return [...text.matchAll(/(?:\bfrom\s*|\bimport\s*\(?\s*)['"]([^'"]+)['"]/g)].flatMap((m) => {
+        const spec = m[1] ?? ''
+        let target: string | undefined
+        if (spec.startsWith('@/features/')) target = spec.split('/')[2]
+        else if (spec.startsWith('.')) {
+          const parts = posix(join(dirname(file), spec)).split('/')
+          if (parts[0] === 'features') target = parts[1]
+        }
+        return target && target !== own ? [`${file}: ${spec}`] : []
+      })
+    })
+}

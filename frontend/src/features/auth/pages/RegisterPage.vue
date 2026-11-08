@@ -17,7 +17,7 @@ import { applyFieldErrors } from '@/shared/ui/FormErrors'
 import PageHeader from '@/shared/ui/PageHeader.vue'
 import { register } from '../api/auth-api'
 import PasswordField from '../components/PasswordField.vue'
-import TextField from '../components/TextField.vue'
+import TextField from '@/shared/ui/TextField.vue'
 import { registerSchema } from '../schemas'
 
 const { t } = useI18n()

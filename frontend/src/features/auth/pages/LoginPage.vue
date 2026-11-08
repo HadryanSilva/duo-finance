@@ -13,7 +13,7 @@ import { Button } from '@/shared/ui/button'
 import PageHeader from '@/shared/ui/PageHeader.vue'
 import { login } from '../api/auth-api'
 import PasswordField from '../components/PasswordField.vue'
-import TextField from '../components/TextField.vue'
+import TextField from '@/shared/ui/TextField.vue'
 import { loginSchema } from '../schemas'
 
 const { t } = useI18n()

@@ -4,7 +4,7 @@ import { useForm } from 'vee-validate'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { z } from 'zod'
-import TextField from '@/features/auth/components/TextField.vue'
+import TextField from '@/shared/ui/TextField.vue'
 import { useCreateBankAccount } from '@/shared/api/queries/bank-accounts'
 import { errorMessage } from '@/shared/i18n/error-codes'
 import { Button } from '@/shared/ui/button'
@@ -62,7 +62,6 @@ const submit = handleSubmit(async (values) => {
       name: values.name,
       type: values.type,
       initialBalanceCents: values.initialBalanceCents,
-      holderUserId: null,
     })
   } catch (e) {
     if (!applyFieldErrors(e, showFieldError)) formError.value = errorMessage(e)

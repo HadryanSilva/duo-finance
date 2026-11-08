@@ -86,7 +86,6 @@ describe('OnboardingPage', () => {
       name: 'Nubank',
       type: 'SAVINGS',
       initialBalanceCents: 125050,
-      holderUserId: null,
     })
     expect(isOnboarded(testUser.id)).toBe(true)
   })

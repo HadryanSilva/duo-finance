@@ -8,7 +8,7 @@ import { errorMessage } from '@/shared/i18n/error-codes'
 import { Button } from '@/shared/ui/button'
 import PageHeader from '@/shared/ui/PageHeader.vue'
 import { forgotPassword } from '../api/auth-api'
-import TextField from '../components/TextField.vue'
+import TextField from '@/shared/ui/TextField.vue'
 import { forgotPasswordSchema } from '../schemas'
 
 const { t } = useI18n()

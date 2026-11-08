@@ -6,6 +6,7 @@ import {
   ARBITRARY_SIZE,
   COLOR_LITERAL,
   PALETTE_CLASS,
+  crossFeatureImports,
   guardedFiles,
   inlineStyleOffenders,
   offenders,
@@ -37,6 +38,10 @@ describe('design guard', () => {
 
   it('every page under features/**/pages except landing, auth and onboarding uses PageHeader', () => {
     expect(pagesMissingHeader()).toEqual([])
+  })
+
+  it('no feature imports from another feature', () => {
+    expect(crossFeatureImports()).toEqual([])
   })
 
   it('actually scans the source tree', () => {
@@ -194,6 +199,28 @@ describe('design guard checkers', () => {
           'features/transactions/pages/TransactionsPage.vue',
         ])
         expect(pagesMissingHeader(root)).toEqual(['features/budgets/pages/BudgetsPage.vue'])
+      },
+    )
+  })
+
+  it('flags imports between features by alias and by relative path only', () => {
+    withFixture(
+      {
+        'features/a/X.vue': [
+          "import B from '@/features/b/B.vue'",
+          "import C from '../c/C.vue'",
+          "import S from '@/shared/ui/S.vue'",
+          "import L from './L.vue'",
+        ].join('\n'),
+        'features/b/B.vue': "import A from '../a/X.vue'",
+        'features/c/C.vue': "import L from '../c/L.vue'",
+      },
+      (root) => {
+        expect(crossFeatureImports(root).sort()).toEqual([
+          'features/a/X.vue: ../c/C.vue',
+          'features/a/X.vue: @/features/b/B.vue',
+          'features/b/B.vue: ../a/X.vue',
+        ])
       },
     )
   })
