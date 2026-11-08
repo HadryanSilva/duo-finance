@@ -9,10 +9,16 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.UuidGenerator;
 
+/**
+ * {@code @DynamicUpdate}: an UPDATE writes only the changed columns, so an unlocked edit (profile, e-mail verification)
+ * cannot overwrite a concurrent {@code failed_login_count} or {@code locked_until} change.
+ */
 @Entity
 @Table(name = "users")
+@DynamicUpdate
 public class User {
 
     @Id

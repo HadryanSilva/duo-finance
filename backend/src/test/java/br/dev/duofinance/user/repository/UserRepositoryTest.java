@@ -20,6 +20,10 @@ import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @IntegrationTest
 class UserRepositoryTest {
@@ -38,6 +42,12 @@ class UserRepositoryTest {
 
     @Autowired
     Clock clock;
+
+    @Autowired
+    PlatformTransactionManager txManager;
+
+    @Autowired
+    JdbcTemplate jdbc;
 
     private User newUser(String email) {
         return new User(email, "Ana", "pt-BR", "2026-11", Instant.now(clock));
@@ -79,5 +89,25 @@ class UserRepositoryTest {
         assertThat(identities.findAll()).isEmpty();
         assertThat(refreshTokens.findAll()).isEmpty();
         assertThat(userTokens.findAll()).isEmpty();
+    }
+
+    @Test
+    void updatingProfile_doesNotOverwriteConcurrentLoginFailureColumns() {
+        UUID id = users.saveAndFlush(newUser("ana@mail.com")).getId();
+        TransactionTemplate tx = new TransactionTemplate(txManager);
+        TransactionTemplate concurrent = new TransactionTemplate(txManager);
+        concurrent.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        tx.executeWithoutResult(s -> {
+            User loaded = users.findById(id).orElseThrow();
+            concurrent.executeWithoutResult(
+                    c -> jdbc.update("UPDATE users SET failed_login_count = 3, locked_until = now() WHERE id = ?", id));
+            loaded.setDisplayName("Ana Maria");
+        });
+
+        User stored = users.findById(id).orElseThrow();
+        assertThat(stored.getDisplayName()).isEqualTo("Ana Maria");
+        assertThat(stored.getFailedLoginCount()).isEqualTo(3);
+        assertThat(stored.getLockedUntil()).isNotNull();
     }
 }
