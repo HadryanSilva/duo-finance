@@ -24,6 +24,7 @@ import br.dev.duofinance.user.repository.UserIdentityRepository;
 import br.dev.duofinance.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.Instant;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class RegistrationService {
+
+    /** Unique constraint on {@code users.email} (V1__identity.sql). */
+    private static final String USERS_EMAIL_CONSTRAINT = "users_email_key";
 
     private final RegistrationGate gate;
     private final AccessCodeService accessCodes;
@@ -101,12 +105,25 @@ public class RegistrationService {
         return sessions.start(user);
     }
 
+    /** Only the e-mail unique constraint means a concurrent sign-up won; any other violation is a real error. */
     private User saveUser(User user) {
         try {
             return users.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
-            throw new ApiException(ErrorCode.EMAIL_ALREADY_REGISTERED);
+            if (violates(e, USERS_EMAIL_CONSTRAINT)) {
+                throw new ApiException(ErrorCode.EMAIL_ALREADY_REGISTERED);
+            }
+            throw e;
         }
+    }
+
+    private static boolean violates(Throwable e, String constraint) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof ConstraintViolationException cve && constraint.equalsIgnoreCase(cve.getConstraintName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

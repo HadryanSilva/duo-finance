@@ -16,6 +16,7 @@ import br.dev.duofinance.user.model.UserIdentity;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -46,8 +47,13 @@ class UserRepositoryTest {
     void duplicateEmail_violatesUniqueConstraint() {
         users.saveAndFlush(newUser("ana@mail.com"));
 
+        // RegistrationService maps only this constraint name to EMAIL_ALREADY_REGISTERED
         assertThatThrownBy(() -> users.saveAndFlush(newUser(" Ana@Mail.com ")))
-                .isInstanceOf(DataIntegrityViolationException.class);
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .cause()
+                .isInstanceOf(ConstraintViolationException.class)
+                .extracting(e -> ((ConstraintViolationException) e).getConstraintName())
+                .isEqualTo("users_email_key");
     }
 
     @Test

@@ -157,6 +157,17 @@ class RegisterTest {
         assertThat(result).bodyJson().extractingPath("$.errors[0].field").isEqualTo("acceptTerms");
     }
 
+    @Test
+    void register_overlongTermsVersion_returns400() {
+        String body = body("ana@mail.com", true, newCode(null)).replace("2026-11", "v".repeat(51));
+
+        var result = register(body).exchange();
+
+        assertThat(result).hasStatus(400);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("VALIDATION_FAILED");
+        assertThat(result).bodyJson().extractingPath("$.errors[0].field").isEqualTo("termsVersion");
+    }
+
     @Nested
     @TestPropertySource(properties = "app.registration.mode=OPEN")
     class OpenMode {

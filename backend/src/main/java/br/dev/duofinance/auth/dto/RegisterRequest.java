@@ -13,7 +13,7 @@ public record RegisterRequest(
         @NotBlank @Size(max = 60) String displayName,
         @NotNull @Pattern(regexp = "pt-BR|en") String locale,
         @AssertTrue boolean acceptTerms,
-        @NotBlank String termsVersion,
+        @NotBlank @Size(max = 50) String termsVersion,
         String accessCode,
         String invitationToken) {
 
