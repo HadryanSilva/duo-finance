@@ -211,6 +211,109 @@ describe('http client', () => {
     expect(refresh).toHaveBeenCalledTimes(2)
   })
 
+  it('recovers after a failed burst once the token moved off the failed one', async () => {
+    let token: string | null = 'X'
+    let hits = 0
+    server.use(rest.get(`${base}/data`, () => (hits++, problem(401, 'UNAUTHENTICATED'))))
+    const refresh = vi.fn(async () => false)
+    const http = createHttp({
+      getToken: () => token,
+      refresh,
+      onUnauthenticated: vi.fn(),
+      onSubscriptionInactive: vi.fn(),
+    })
+    await expect(http.get('/data')).rejects.toMatchObject({ status: 401 })
+    token = 'Y'
+    await expect(http.get('/data')).rejects.toMatchObject({ status: 401 })
+    expect(refresh).toHaveBeenCalledTimes(2)
+    expect(hits).toBe(2)
+  })
+
+  it('remembers the failed burst by the token the triggering request was sent with', async () => {
+    let token: string | null = 'X'
+    let releaseFirst: () => void = () => {}
+    let releaseLate: () => void = () => {}
+    const first = new Promise<void>((resolve) => (releaseFirst = resolve))
+    const late = new Promise<void>((resolve) => (releaseLate = resolve))
+    server.use(
+      rest.get(`${base}/first`, async () => (await first, problem(401, 'UNAUTHENTICATED'))),
+      rest.get(`${base}/late`, async () => (await late, problem(401, 'UNAUTHENTICATED'))),
+    )
+    const refresh = vi.fn(async () => false)
+    const http = createHttp({
+      getToken: () => token,
+      refresh,
+      onUnauthenticated: vi.fn(),
+      onSubscriptionInactive: vi.fn(),
+    })
+    const a = http.get('/first')
+    const b = http.get('/late')
+    await new Promise((resolve) => setTimeout(resolve, 20)) // both sent with X
+    token = null // e.g. cleared before the 401s land
+    releaseFirst()
+    await expect(a).rejects.toMatchObject({ status: 401 })
+    releaseLate()
+    await expect(b).rejects.toMatchObject({ status: 401 })
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('a 401 on a request from an older session epoch fails SESSION_STALE without retry', async () => {
+    let token = 'old'
+    let epoch = 0
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const seen: (string | null)[] = []
+    server.use(
+      rest.get(`${base}/slow`, async ({ request }) => {
+        seen.push(request.headers.get('authorization'))
+        await gate
+        return problem(401, 'UNAUTHENTICATED')
+      }),
+    )
+    const refresh = vi.fn(async () => true)
+    const http = createHttp({
+      getToken: () => token,
+      getEpoch: () => epoch,
+      refresh,
+      onUnauthenticated: vi.fn(),
+      onSubscriptionInactive: vi.fn(),
+    })
+    const slow = http.get('/slow')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    token = 'other-account' // switchAccount: new token, new epoch
+    epoch = 1
+    release()
+    await expect(slow).rejects.toMatchObject({ status: 401, code: 'SESSION_STALE' })
+    expect(seen).toEqual(['Bearer old'])
+    expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it('a session switch during the refresh fails the waiting request SESSION_STALE', async () => {
+    let token = 'old'
+    let epoch = 0
+    const seen: (string | null)[] = []
+    server.use(
+      rest.get(`${base}/data`, ({ request }) => {
+        seen.push(request.headers.get('authorization'))
+        return problem(401, 'UNAUTHENTICATED')
+      }),
+    )
+    const refresh = vi.fn(async () => {
+      token = 'other-account'
+      epoch = 1
+      return true
+    })
+    const http = createHttp({
+      getToken: () => token,
+      getEpoch: () => epoch,
+      refresh,
+      onUnauthenticated: vi.fn(),
+      onSubscriptionInactive: vi.fn(),
+    })
+    await expect(http.get('/data')).rejects.toMatchObject({ status: 401, code: 'SESSION_STALE' })
+    expect(seen).toEqual(['Bearer old'])
+  })
+
   it('failedRefresh_callsOnUnauthenticated', async () => {
     server.use(rest.get(`${base}/data`, () => problem(401, 'UNAUTHENTICATED')))
     const { http, deps } = setup({ refresh: vi.fn(async () => false) })

@@ -2,8 +2,20 @@ import { ApiError, type FieldError } from './problem'
 
 export interface HttpDeps {
   getToken(): string | null
+  /**
+   * Session epoch, bumped whenever the session is replaced or cleared (switchAccount, logout,
+   * onUnauthenticated). A 401 on a request sent in an older epoch is never retried: it fails
+   * with `401 SESSION_STALE`, so a request of the previous account never runs under the new
+   * account's token. Defaults to a constant epoch.
+   */
+  getEpoch?(): number
   /** Resolves true when a new access token is in place. */
   refresh(): Promise<boolean>
+  /**
+   * Called once per failed refresh burst. Contract: the handler must move the token off the one
+   * that failed (clear it). Late 401s of requests sent with the failed token are rejected
+   * without refreshing again, so a token left in place would never be able to refresh.
+   */
   onUnauthenticated(): void
   onSubscriptionInactive(): void
 }
@@ -37,20 +49,22 @@ async function toApiError(res: Response): Promise<ApiError> {
   return new ApiError({ status: res.status, code: 'UNKNOWN' })
 }
 
+const stale = () => new ApiError({ status: 401, code: 'SESSION_STALE' })
+
 export function createHttp(deps: HttpDeps): Http {
+  const epoch = () => deps.getEpoch?.() ?? 0
   let inflight: Promise<boolean> | null = null
-  // Token the last failed refresh started from: late 401s of that same burst must not refresh again.
+  // Token the requests of the last failed burst were sent with: their late 401s must not refresh again.
   let failedFrom: { token: string | null } | null = null
 
   // One refresh per burst: concurrent 401s await the same promise.
-  function sharedRefresh(): Promise<boolean> {
+  function sharedRefresh(triggeredBy: string | null): Promise<boolean> {
     inflight ??= (async () => {
-      const startedWith = deps.getToken()
       const ok = await deps.refresh().catch(() => false)
       if (ok) {
         failedFrom = null
       } else {
-        failedFrom = { token: startedWith }
+        failedFrom = { token: triggeredBy }
         deps.onUnauthenticated() // once per failed burst
       }
       return ok
@@ -65,13 +79,14 @@ export function createHttp(deps: HttpDeps): Http {
     path: string,
     query?: Query,
     body?: unknown,
-  ): Promise<{ res: Response; token: string | null }> {
+  ): Promise<{ res: Response; token: string | null; epoch: number }> {
     const url = new URL(`/api/v1${path}`, window.location.origin)
     for (const [k, v] of Object.entries(query ?? {})) {
       if (v !== undefined) url.searchParams.set(k, String(v))
     }
     const headers: Record<string, string> = {}
     const token = deps.getToken()
+    const sentIn = epoch()
     if (token) headers.Authorization = `Bearer ${token}`
     if (body !== undefined) headers['Content-Type'] = 'application/json'
     try {
@@ -81,7 +96,7 @@ export function createHttp(deps: HttpDeps): Http {
         credentials: 'same-origin',
         body: body === undefined ? undefined : JSON.stringify(body),
       })
-      return { res, token }
+      return { res, token, epoch: sentIn }
     } catch {
       throw new ApiError({ status: 0, code: 'NETWORK_ERROR' })
     }
@@ -96,17 +111,17 @@ export function createHttp(deps: HttpDeps): Http {
     const first = await send(method, path, query, body)
     let res = first.res
     if (res.status === 401 && !NO_REFRESH.includes(path)) {
+      if (epoch() !== first.epoch) throw stale()
       // A newer token means another request already refreshed after this one was sent.
       const current = deps.getToken()
       const alreadyRefreshed = current !== null && current !== first.token
       const lateFailure =
         failedFrom !== null && failedFrom.token === first.token && !alreadyRefreshed
       if (lateFailure) throw await toApiError(res)
-      if (alreadyRefreshed || (await sharedRefresh())) {
-        res = (await send(method, path, query, body)).res
-      } else {
-        throw await toApiError(res)
-      }
+      if (!alreadyRefreshed && !(await sharedRefresh(first.token))) throw await toApiError(res)
+      // The session was replaced while this request waited: never retry it under the new one.
+      if (epoch() !== first.epoch) throw stale()
+      res = (await send(method, path, query, body)).res
     }
     if (!res.ok) {
       const err = await toApiError(res)
