@@ -16,4 +16,10 @@ public record BankAccountRequest(
         @NotNull @Min(-FinanceValidation.MAX_AMOUNT_CENTS) @Max(FinanceValidation.MAX_AMOUNT_CENTS)
         Long initialBalanceCents,
 
-        UUID holderUserId) {}
+        UUID holderUserId) {
+
+    /** Surrounding whitespace is not an error; trim before validation runs. */
+    public BankAccountRequest {
+        name = FinanceValidation.trimToNull(name);
+    }
+}

@@ -10,6 +10,11 @@ public final class FinanceValidation {
 
     private FinanceValidation() {}
 
+    /** Trims a nullable string, keeping {@code null}. A blank result stays empty so {@code @NotBlank} rejects it. */
+    public static String trimToNull(String value) {
+        return value == null ? null : value.trim();
+    }
+
     /** Trims; a blank result becomes {@code null}. */
     public static String normalizeDescription(String description) {
         if (description == null) {

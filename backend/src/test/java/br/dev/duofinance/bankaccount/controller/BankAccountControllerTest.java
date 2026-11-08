@@ -86,6 +86,17 @@ class BankAccountControllerTest {
     }
 
     @Test
+    void create_paddedSixtyCharName_isAcceptedAndStoredTrimmed() {
+        TestSession s = testUsers.verified("ana@mail.com");
+        String name = "x".repeat(60);
+
+        var result = send("POST", s, BASE, body("  " + name + "  ", 0, null));
+
+        assertThat(result).hasStatus(HttpStatus.CREATED);
+        assertThat(result).bodyJson().extractingPath("$.name").isEqualTo(name);
+    }
+
+    @Test
     void list_hidesArchivedUnlessRequested() {
         TestSession s = testUsers.verified("ana@mail.com");
         UUID zeta = fixtures.bankAccount(s, "Zeta", 0);
@@ -223,6 +234,8 @@ class BankAccountControllerTest {
         assertThat(send("POST", s, BASE, body("   ", 0, null))).hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(send("POST", s, BASE, body("x".repeat(61), 0, null))).hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(send("POST", s, BASE, body("x".repeat(60), 0, null))).hasStatus(HttpStatus.CREATED);
+        assertThat(send("POST", s, BASE, body("  " + "x".repeat(61) + "  ", 0, null)))
+                .hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(send("POST", s, BASE, body("Y", 100_000_000_001L, null))).hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(send("POST", s, BASE, "{\"name\":\"Z\",\"type\":\"CASH\"}")).hasStatus(HttpStatus.BAD_REQUEST);
     }

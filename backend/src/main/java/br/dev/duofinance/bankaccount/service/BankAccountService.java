@@ -54,7 +54,7 @@ public class BankAccountService {
         requireMember(accountId, request.holderUserId());
         BankAccount account = new BankAccount(
                 accountId,
-                request.name().trim(),
+                request.name(),
                 request.type(),
                 request.initialBalanceCents(),
                 request.holderUserId(),
@@ -66,7 +66,7 @@ public class BankAccountService {
     public BankAccountResponse update(UUID accountId, UUID id, BankAccountRequest request) {
         BankAccount account = requireOwned(accountId, id);
         requireMember(accountId, request.holderUserId());
-        account.setName(request.name().trim());
+        account.setName(request.name());
         account.setType(request.type());
         account.setInitialBalanceCents(request.initialBalanceCents());
         account.setHolderUserId(request.holderUserId());
