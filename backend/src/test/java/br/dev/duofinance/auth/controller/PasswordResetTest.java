@@ -9,7 +9,6 @@ import br.dev.duofinance.support.TestUsers;
 import br.dev.duofinance.user.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
 import java.time.Duration;
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,11 +50,7 @@ class PasswordResetTest {
     }
 
     private String tokenSentTo(String email, String path) {
-        Awaitility.await().untilAsserted(() -> {
-            assertThat(emails.lastTo(email)).isNotNull();
-            assertThat(emails.extractLink(emails.lastTo(email), path)).isNotNull();
-        });
-        String link = emails.extractLink(emails.lastTo(email), path);
+        String link = emails.awaitLink(email, path);
         return link.substring(link.indexOf("token=") + 6);
     }
 

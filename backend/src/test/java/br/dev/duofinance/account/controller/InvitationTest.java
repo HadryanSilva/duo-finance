@@ -23,7 +23,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import org.assertj.core.groups.Tuple;
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -91,17 +90,7 @@ class InvitationTest {
     /** Invites and returns the raw token taken from the delivered e-mail. */
     private String inviteAndGetToken(TestSession inviter, String email) {
         assertThat(invite(inviter, email)).hasStatus(HttpStatus.CREATED);
-        String normalized = SecureTokens.normalizeEmail(email);
-        // registration also e-mails the invitee (async), so pick the invitation message, not just the latest one
-        java.util.function.Supplier<String> inviteLink = () -> emails.sent().stream()
-                .filter(m -> m.to().equalsIgnoreCase(normalized))
-                .map(m -> emails.extractLink(m, "/invite/"))
-                .filter(java.util.Objects::nonNull)
-                .reduce((first, second) -> second)
-                .orElse(null);
-        Awaitility.await().untilAsserted(() -> assertThat(inviteLink.get()).isNotNull());
-        String link = inviteLink.get();
-        return link.substring(link.indexOf("/invite/") + "/invite/".length());
+        return testUsers.invitationToken(SecureTokens.normalizeEmail(email));
     }
 
     private MvcTestResult preview(String token) {
@@ -135,15 +124,6 @@ class InvitationTest {
         assertThat(result).bodyJson().extractingPath("$.code").isEqualTo(code);
     }
 
-    /** Ana invites Bia and Bia accepts, leaving a full couple. */
-    private TestSession[] couple(String first, String second) {
-        TestSession a = testUsers.verified(first);
-        TestSession b = testUsers.registered(second);
-        String token = inviteAndGetToken(a, second);
-        assertThat(accept(b, token, false)).hasStatus(HttpStatus.OK);
-        return new TestSession[] {a, b};
-    }
-
     // --- create ---
 
     @Test
@@ -162,9 +142,7 @@ class InvitationTest {
         assertThat(result).hasStatus(HttpStatus.CREATED);
         assertThat(result).bodyJson().extractingPath("$.email").isEqualTo("rui@mail.com");
         assertThat(result).bodyJson().extractingPath("$.id").isNotNull();
-        Awaitility.await()
-                .untilAsserted(() -> assertThat(emails.lastTo("rui@mail.com")).isNotNull());
-        EmailMessage message = emails.lastTo("rui@mail.com");
+        EmailMessage message = emails.awaitMessageWithLink("rui@mail.com", "/invite/");
         assertThat(message.subject()).contains("convidou você");
         assertThat(message.html()).contains("/invite/");
         assertThat(emails.extractLink(message, "/invite/")).startsWith("http://localhost:5173/invite/");
@@ -202,7 +180,7 @@ class InvitationTest {
 
     @Test
     void invite_whenCoupleIsFull_returns409AccountFull() {
-        TestSession[] pair = couple("ana@mail.com", "rui@mail.com");
+        TestSession[] pair = testUsers.couple("ana@mail.com", "rui@mail.com");
 
         assertError(invite(pair[0], "bia@mail.com"), HttpStatus.CONFLICT, "ACCOUNT_FULL");
     }
@@ -354,7 +332,7 @@ class InvitationTest {
 
     @Test
     void accept_whileInFullCouple_returns409AlreadyInCouple() {
-        TestSession[] pair = couple("ana@mail.com", "bia@mail.com");
+        TestSession[] pair = testUsers.couple("ana@mail.com", "bia@mail.com");
         TestSession carl = testUsers.verified("carl@mail.com");
         String token = inviteAndGetToken(carl, "bia@mail.com");
         TestSession bia = pair[1];

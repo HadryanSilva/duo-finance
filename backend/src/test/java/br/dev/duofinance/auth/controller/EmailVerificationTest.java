@@ -15,7 +15,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,11 +47,7 @@ class EmailVerificationTest {
     }
 
     private String tokenSentTo(String email, String path) {
-        Awaitility.await().untilAsserted(() -> {
-            assertThat(emails.lastTo(email)).isNotNull();
-            assertThat(emails.extractLink(emails.lastTo(email), path)).isNotNull();
-        });
-        String link = emails.extractLink(emails.lastTo(email), path);
+        String link = emails.awaitLink(email, path);
         return link.substring(link.indexOf("token=") + 6);
     }
 

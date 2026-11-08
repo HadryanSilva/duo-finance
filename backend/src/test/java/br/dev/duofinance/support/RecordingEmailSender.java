@@ -3,9 +3,12 @@ package br.dev.duofinance.support;
 import br.dev.duofinance.shared.email.EmailMessage;
 import br.dev.duofinance.shared.email.EmailSender;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.awaitility.Awaitility;
 
 /** Thread-safe test sender that captures every e-mail (listeners are async). */
 public class RecordingEmailSender implements EmailSender {
@@ -34,6 +37,29 @@ public class RecordingEmailSender implements EmailSender {
             }
         }
         return last;
+    }
+
+    /**
+     * Waits for a message to the address (case-insensitive) that carries a link under the path prefix and returns the
+     * most recent such message. Filtering inside the wait keeps a late, unrelated e-mail (e.g. the async verification
+     * mail of a fresh sign-up) from being picked up instead.
+     */
+    public EmailMessage awaitMessageWithLink(String email, String pathPrefix) {
+        Supplier<EmailMessage> latest = () -> {
+            EmailMessage match = null;
+            for (EmailMessage m : sent) {
+                if (m.to().equalsIgnoreCase(email) && extractLink(m, pathPrefix) != null) {
+                    match = m;
+                }
+            }
+            return match;
+        };
+        return Awaitility.await().until(latest::get, Objects::nonNull);
+    }
+
+    /** The link under the path prefix from {@link #awaitMessageWithLink}. */
+    public String awaitLink(String email, String pathPrefix) {
+        return extractLink(awaitMessageWithLink(email, pathPrefix), pathPrefix);
     }
 
     /** First http(s) link in the HTML whose path starts with the prefix, e.g. "/verify-email". */

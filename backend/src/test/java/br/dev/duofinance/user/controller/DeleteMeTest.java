@@ -8,7 +8,6 @@ import br.dev.duofinance.account.model.InvitationStatus;
 import br.dev.duofinance.account.repository.AccountRepository;
 import br.dev.duofinance.account.repository.InvitationRepository;
 import br.dev.duofinance.category.repository.CategoryRepository;
-import br.dev.duofinance.shared.email.EmailMessage;
 import br.dev.duofinance.shared.token.SecureTokens;
 import br.dev.duofinance.subscription.repository.SubscriptionRepository;
 import br.dev.duofinance.support.MutableClock;
@@ -19,7 +18,6 @@ import br.dev.duofinance.user.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
 import java.time.Duration;
 import java.time.Instant;
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -73,36 +71,6 @@ class DeleteMeTest {
                 .exchange();
     }
 
-    /** Ana invites Rui and Rui accepts. */
-    private TestSession[] couple() throws Exception {
-        TestSession ana = testUsers.verified("ana@mail.com");
-        TestSession rui = testUsers.registered("rui@mail.com");
-        assertThat(mvc.post()
-                        .uri("/api/v1/account/invitations")
-                        .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(ana))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"rui@mail.com\"}")
-                        .exchange())
-                .hasStatus(HttpStatus.CREATED);
-        Awaitility.await().untilAsserted(() -> {
-            EmailMessage m = emails.lastTo("rui@mail.com");
-            assertThat(m).isNotNull();
-            assertThat(emails.extractLink(m, "/invite/")).isNotNull();
-        });
-        String link = emails.extractLink(emails.lastTo("rui@mail.com"), "/invite/");
-        String token = link.substring(link.indexOf("/invite/") + "/invite/".length());
-        var accepted = mvc.post()
-                .uri("/api/v1/account/invitations/" + token + "/accept")
-                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(rui))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"confirmDiscard\":false}")
-                .exchange();
-        assertThat(accepted).hasStatus(HttpStatus.OK);
-        String fresh =
-                accepted.getResponse().getContentAsString().replaceFirst(".*\"accessToken\":\"([^\"]+)\".*", "$1");
-        return new TestSession[] {ana, new TestSession(rui.userId(), ana.accountId(), fresh, rui.refreshCookie())};
-    }
-
     @Test
     void deleteMe_wrongPassword_returns401() {
         TestSession ana = testUsers.verified("ana@mail.com");
@@ -141,7 +109,7 @@ class DeleteMeTest {
 
     @Test
     void deleteMe_inCouple_keepsAccountForPartner() throws Exception {
-        TestSession[] pair = couple();
+        TestSession[] pair = testUsers.couple("ana@mail.com", "rui@mail.com");
         TestSession ana = pair[0];
         TestSession rui = pair[1];
 
@@ -164,7 +132,7 @@ class DeleteMeTest {
 
     @Test
     void deleteMe_inCouple_cancelsPendingInvitationsTheUserCreated() throws Exception {
-        TestSession[] pair = couple();
+        TestSession[] pair = testUsers.couple("ana@mail.com", "rui@mail.com");
         TestSession ana = pair[0];
         invitations.saveAndFlush(new Invitation(
                 ana.accountId(),

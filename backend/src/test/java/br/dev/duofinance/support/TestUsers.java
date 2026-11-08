@@ -11,6 +11,7 @@ import org.springframework.boot.test.context.TestComponent;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -26,6 +27,7 @@ public class TestUsers {
     private final JdbcTemplate jdbc;
     private final UserRepository users;
     private final AuthSessionService sessions;
+    private final RecordingEmailSender emails;
     private final Clock clock;
     private final JsonMapper json = JsonMapper.builder().build();
 
@@ -35,12 +37,14 @@ public class TestUsers {
             JdbcTemplate jdbc,
             UserRepository users,
             AuthSessionService sessions,
+            RecordingEmailSender emails,
             Clock clock) {
         this.mvc = mvc;
         this.accessCodes = accessCodes;
         this.jdbc = jdbc;
         this.users = users;
         this.sessions = sessions;
+        this.emails = emails;
         this.clock = clock;
     }
 
@@ -61,18 +65,7 @@ public class TestUsers {
             throw new IllegalStateException(
                     "Registration failed: " + result.getResponse().getStatus());
         }
-        try {
-            JsonNode root = json.readTree(result.getResponse().getContentAsString());
-            String setCookie = result.getResponse().getHeader(HttpHeaders.SET_COOKIE);
-            String refresh = setCookie.substring(setCookie.indexOf('=') + 1, setCookie.indexOf(';'));
-            return new TestSession(
-                    UUID.fromString(root.path("user").path("id").asString()),
-                    UUID.fromString(root.path("user").path("accountId").asString()),
-                    root.path("accessToken").asString(),
-                    refresh);
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
+        return sessionOf(result.getResponse());
     }
 
     public TestSession verified(String email) {
@@ -94,7 +87,59 @@ public class TestUsers {
                 session.userId(), session.accountId(), fresh.access().token(), fresh.rawRefreshToken());
     }
 
+    /**
+     * A full couple: {@code first} (verified) invites {@code second} (registered) and {@code second} accepts. Returns
+     * both sessions; the second one is the session issued by the accept, so it already carries the shared account.
+     */
+    public TestSession[] couple(String first, String second) {
+        TestSession inviter = verified(first);
+        TestSession invitee = registered(second);
+        var invited = mvc.post()
+                .uri("/api/v1/account/invitations")
+                .header(HttpHeaders.AUTHORIZATION, bearer(inviter))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"" + second + "\"}")
+                .exchange();
+        if (invited.getResponse().getStatus() != 201) {
+            throw new IllegalStateException(
+                    "Invitation failed: " + invited.getResponse().getStatus());
+        }
+        String token = invitationToken(second);
+        var accepted = mvc.post()
+                .uri("/api/v1/account/invitations/" + token + "/accept")
+                .header(HttpHeaders.AUTHORIZATION, bearer(invitee))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"confirmDiscard\":false}")
+                .exchange();
+        if (accepted.getResponse().getStatus() != 200) {
+            throw new IllegalStateException(
+                    "Accept failed: " + accepted.getResponse().getStatus());
+        }
+        return new TestSession[] {inviter, sessionOf(accepted.getResponse())};
+    }
+
+    /** Waits for the invitation e-mail to the address and returns the raw token from its /invite/ link. */
+    public String invitationToken(String email) {
+        String link = emails.awaitLink(email, "/invite/");
+        return link.substring(link.indexOf("/invite/") + "/invite/".length());
+    }
+
     public static String bearer(TestSession session) {
         return "Bearer " + session.accessToken();
+    }
+
+    private TestSession sessionOf(MockHttpServletResponse response) {
+        try {
+            JsonNode root = json.readTree(response.getContentAsString());
+            String setCookie = response.getHeader(HttpHeaders.SET_COOKIE);
+            String refresh = setCookie.substring(setCookie.indexOf('=') + 1, setCookie.indexOf(';'));
+            return new TestSession(
+                    UUID.fromString(root.path("user").path("id").asString()),
+                    UUID.fromString(root.path("user").path("accountId").asString()),
+                    root.path("accessToken").asString(),
+                    refresh);
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 }
