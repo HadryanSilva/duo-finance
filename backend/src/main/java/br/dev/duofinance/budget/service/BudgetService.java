@@ -59,6 +59,12 @@ public class BudgetService {
     /** Budgets ordered by category name (case-insensitive): one query each for budgets, categories and spending. */
     @Transactional(readOnly = true)
     public List<BudgetResponse> list(UUID accountId, YearMonth month) {
+        return list(accountId, month, null);
+    }
+
+    /** As {@link #list(UUID, YearMonth)} for a caller that already has the month's spending; null loads it. */
+    @Transactional(readOnly = true)
+    public List<BudgetResponse> list(UUID accountId, YearMonth month, Map<UUID, Long> knownSpent) {
         List<Budget> all = budgets.findByAccountId(accountId);
         if (all.isEmpty()) {
             return List.of();
@@ -66,7 +72,7 @@ public class BudgetService {
         Set<UUID> categoryIds = all.stream().map(Budget::getCategoryId).collect(Collectors.toSet());
         Map<UUID, Category> categoryById = categories.findByAccountIdAndIdIn(accountId, categoryIds).stream()
                 .collect(Collectors.toMap(Category::getId, Function.identity()));
-        Map<UUID, Long> spent = progress.spentByCategory(accountId, month);
+        Map<UUID, Long> spent = knownSpent != null ? knownSpent : progress.spentByCategory(accountId, month);
         return all.stream()
                 .map(b -> respond(b, categoryById.get(b.getCategoryId()), month, spent))
                 .sorted(Comparator.comparing((BudgetResponse r) -> r.category().name(), String.CASE_INSENSITIVE_ORDER)

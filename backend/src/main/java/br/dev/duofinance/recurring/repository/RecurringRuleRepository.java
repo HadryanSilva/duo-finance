@@ -39,6 +39,9 @@ public interface RecurringRuleRepository extends JpaRepository<RecurringRule, UU
             """)
     List<RecurringRule> list(UUID accountId);
 
+    @Query("select r from RecurringRule r where r.accountId = :accountId and r.active = true")
+    List<RecurringRule> findActive(UUID accountId);
+
     /** An active, not finished rule uses the category. */
     @Query("""
             select count(r) > 0 from RecurringRule r
