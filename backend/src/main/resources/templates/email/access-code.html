@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><title>Duo Finance</title></head>
+<body style="margin:0;padding:24px;background:#F5F5FA;font-family:Arial,Helvetica,sans-serif;color:#1F2937;">
+  <div style="max-width:480px;margin:0 auto;background:#FFFFFF;border-radius:12px;padding:32px;">
+    <div style="font-size:22px;font-weight:bold;color:#4F46E5;margin-bottom:24px;">Duo Finance</div>
+    <p th:text="#{access-code.body}">body</p>
+    <p style="font-size:24px;font-weight:bold;letter-spacing:2px;text-align:center;background:#EEF2FF;border-radius:8px;padding:12px;" th:text="${code}">CODE</p>
+    <p style="margin:24px 0;"><a th:href="${link}" th:text="#{access-code.cta}" style="display:inline-block;background:#4F46E5;color:#FFFFFF;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:bold;">Open</a></p>
+    <p style="font-size:13px;color:#6B7280;" th:text="#{common.linkHint}">link</p>
+    <p style="font-size:13px;word-break:break-all;"><a th:href="${link}" th:text="${link}" style="color:#4F46E5;">link</a></p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,4 @@
+app:
+  email:
+    provider: LOG
+  public-base-url: http://localhost:5173

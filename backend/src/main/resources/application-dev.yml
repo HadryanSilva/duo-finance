@@ -1,0 +1,16 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/duofinance
+    username: duofinance
+    password: duofinance
+
+app:
+  email:
+    provider: LOG
+  public-base-url: http://localhost:5173
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
