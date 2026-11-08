@@ -39,10 +39,22 @@ async function toApiError(res: Response): Promise<ApiError> {
 
 export function createHttp(deps: HttpDeps): Http {
   let inflight: Promise<boolean> | null = null
+  // Token the last failed refresh started from: late 401s of that same burst must not refresh again.
+  let failedFrom: { token: string | null } | null = null
 
   // One refresh per burst: concurrent 401s await the same promise.
   function sharedRefresh(): Promise<boolean> {
-    inflight ??= deps.refresh().finally(() => {
+    inflight ??= (async () => {
+      const startedWith = deps.getToken()
+      const ok = await deps.refresh().catch(() => false)
+      if (ok) {
+        failedFrom = null
+      } else {
+        failedFrom = { token: startedWith }
+        deps.onUnauthenticated() // once per failed burst
+      }
+      return ok
+    })().finally(() => {
       inflight = null
     })
     return inflight
@@ -53,7 +65,7 @@ export function createHttp(deps: HttpDeps): Http {
     path: string,
     query?: Query,
     body?: unknown,
-  ): Promise<Response> {
+  ): Promise<{ res: Response; token: string | null }> {
     const url = new URL(`/api/v1${path}`, window.location.origin)
     for (const [k, v] of Object.entries(query ?? {})) {
       if (v !== undefined) url.searchParams.set(k, String(v))
@@ -63,12 +75,13 @@ export function createHttp(deps: HttpDeps): Http {
     if (token) headers.Authorization = `Bearer ${token}`
     if (body !== undefined) headers['Content-Type'] = 'application/json'
     try {
-      return await fetch(url, {
+      const res = await fetch(url, {
         method,
         headers,
         credentials: 'same-origin',
         body: body === undefined ? undefined : JSON.stringify(body),
       })
+      return { res, token }
     } catch {
       throw new ApiError({ status: 0, code: 'NETWORK_ERROR' })
     }
@@ -80,14 +93,19 @@ export function createHttp(deps: HttpDeps): Http {
     query?: Query,
     body?: unknown,
   ): Promise<T> {
-    let res = await send(method, path, query, body)
+    const first = await send(method, path, query, body)
+    let res = first.res
     if (res.status === 401 && !NO_REFRESH.includes(path)) {
-      if (await sharedRefresh()) {
-        res = await send(method, path, query, body)
+      // A newer token means another request already refreshed after this one was sent.
+      const current = deps.getToken()
+      const alreadyRefreshed = current !== null && current !== first.token
+      const lateFailure =
+        failedFrom !== null && failedFrom.token === first.token && !alreadyRefreshed
+      if (lateFailure) throw await toApiError(res)
+      if (alreadyRefreshed || (await sharedRefresh())) {
+        res = (await send(method, path, query, body)).res
       } else {
-        const err = await toApiError(res)
-        deps.onUnauthenticated()
-        throw err
+        throw await toApiError(res)
       }
     }
     if (!res.ok) {

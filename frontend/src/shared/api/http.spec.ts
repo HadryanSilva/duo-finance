@@ -98,13 +98,29 @@ describe('http client', () => {
 
   it('refreshRace_retriesOnceWithoutLogout', async () => {
     server.use(guarded())
+    let refreshHits = 0
+    server.use(
+      rest.post(`${base}/auth/refresh`, () => {
+        refreshHits++
+        return refreshHits === 1
+          ? problem(401, 'REFRESH_RACE')
+          : HttpResponse.json({ accessToken: 'new' })
+      }),
+    )
     let token = 'old'
-    let attempts = 0
-    // Reproduces the session refresh(): first attempt hits REFRESH_RACE, the retry succeeds.
+    // Mirrors the session refresh(): on REFRESH_RACE wait 300 ms and try once more.
+    const callRefresh = async () => {
+      const res = await fetch(`${base}/auth/refresh`, { method: 'POST' })
+      return { res, body: (await res.json()) as { code?: string; accessToken?: string } }
+    }
     const refresh = vi.fn(async () => {
-      attempts++
-      if (attempts === 1) await Promise.resolve() // REFRESH_RACE: retried inside refresh()
-      token = 'new'
+      let r = await callRefresh()
+      if (r.res.status === 401 && r.body.code === 'REFRESH_RACE') {
+        await new Promise((resolve) => setTimeout(resolve, 300))
+        r = await callRefresh()
+      }
+      if (!r.res.ok || !r.body.accessToken) return false
+      token = r.body.accessToken
       return true
     })
     const onUnauthenticated = vi.fn()
@@ -115,8 +131,59 @@ describe('http client', () => {
       onSubscriptionInactive: vi.fn(),
     })
     await expect(http.get('/data')).resolves.toEqual({ ok: true })
-    expect(attempts).toBe(1)
+    expect(refreshHits).toBe(2)
+    expect(refresh).toHaveBeenCalledTimes(1)
     expect(onUnauthenticated).not.toHaveBeenCalled()
+  })
+
+  it('a 401 landing after the refresh settled reuses the new token without refreshing again', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    server.use(
+      guarded(),
+      rest.get(`${base}/slow`, async ({ request }) => {
+        const auth = request.headers.get('authorization')
+        if (auth === 'Bearer new') return HttpResponse.json({ slow: true })
+        await gate // answer 401 only after the other request's refresh is done
+        return problem(401, 'UNAUTHENTICATED')
+      }),
+    )
+    const { http, deps } = setup()
+    const slow = http.get('/slow')
+    await expect(http.get('/data')).resolves.toEqual({ ok: true })
+    expect(deps.refresh).toHaveBeenCalledTimes(1)
+    release()
+    await expect(slow).resolves.toEqual({ slow: true })
+    expect(deps.refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('a rejecting refresh is a failed refresh: ApiError for callers, one logout', async () => {
+    server.use(rest.get(`${base}/data`, () => problem(401, 'UNAUTHENTICATED')))
+    const { http, deps } = setup({
+      refresh: vi.fn(async () => {
+        throw new TypeError('boom')
+      }),
+    })
+    const results = await Promise.allSettled([http.get('/data'), http.get('/data')])
+    for (const r of results) {
+      expect(r.status).toBe('rejected')
+      expect((r as PromiseRejectedResult).reason).toBeInstanceOf(ApiError)
+      expect((r as PromiseRejectedResult).reason).toMatchObject({ status: 401 })
+    }
+    expect(deps.onUnauthenticated).toHaveBeenCalledTimes(1)
+  })
+
+  it('onUnauthenticated fires once per failed burst, not per waiting request', async () => {
+    server.use(rest.get(`${base}/data`, () => problem(401, 'UNAUTHENTICATED')))
+    const { http, deps } = setup({ refresh: vi.fn(async () => false) })
+    const results = await Promise.allSettled([
+      http.get('/data'),
+      http.get('/data'),
+      http.get('/data'),
+    ])
+    expect(results.every((r) => r.status === 'rejected')).toBe(true)
+    expect(deps.refresh).toHaveBeenCalledTimes(1)
+    expect(deps.onUnauthenticated).toHaveBeenCalledTimes(1)
   })
 
   it('retries a request at most once', async () => {
