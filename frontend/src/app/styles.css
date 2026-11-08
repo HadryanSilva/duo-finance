@@ -1,0 +1,105 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark, .dark *));
+
+/*
+ * Design tokens. This is the only file allowed to contain raw colors and sizes.
+ * Contrast (WCAG): text on surface >= 4.5:1 in both modes; brand-foreground on brand >= 4.5:1.
+ */
+@theme {
+  /* Brand and surfaces */
+  --color-brand: #4f46e5;
+  --color-brand-foreground: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f3f4f9;
+  --color-border: #e1e4ee;
+  --color-text: #111827;
+  --color-text-muted: #4b5563;
+  --color-overlay: rgb(17 24 39 / 0.6);
+
+  /* Money semantics: green and red only for income and expense, amber for budget alerts */
+  --color-income: #15803d;
+  --color-expense: #b91c1c;
+  --color-warning: #92400e;
+
+  /* shadcn-vue semantic aliases */
+  --color-background: var(--color-surface-muted);
+  --color-foreground: var(--color-text);
+  --color-card: var(--color-surface);
+  --color-card-foreground: var(--color-text);
+  --color-popover: var(--color-surface);
+  --color-popover-foreground: var(--color-text);
+  --color-primary: var(--color-brand);
+  --color-primary-foreground: var(--color-brand-foreground);
+  --color-secondary: #e8eaf4;
+  --color-secondary-foreground: var(--color-text);
+  --color-muted: var(--color-surface-muted);
+  --color-muted-foreground: var(--color-text-muted);
+  --color-accent: #e8eaf4;
+  --color-accent-foreground: var(--color-text);
+  --color-destructive: var(--color-expense);
+  --color-destructive-foreground: #ffffff;
+  --color-input: #8a90a2;
+  --color-ring: var(--color-brand);
+
+  /* Typography */
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 2.25rem;
+
+  /* Radii */
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+:root {
+  --dialog-max-w: calc(100% - 2rem);
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+  --color-brand: #818cf8;
+  --color-brand-foreground: #0f1117;
+  --color-surface: #171a23;
+  --color-surface-muted: #0f1117;
+  --color-border: #2a2f3e;
+  --color-text: #f3f4f6;
+  --color-text-muted: #a1a8b8;
+  --color-overlay: rgb(0 0 0 / 0.7);
+  --color-income: #4ade80;
+  --color-expense: #f87171;
+  --color-warning: #fbbf24;
+  --color-secondary: #232838;
+  --color-accent: #232838;
+  --color-destructive-foreground: #0f1117;
+  --color-input: #6b7288;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    font-family: var(--font-sans);
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
