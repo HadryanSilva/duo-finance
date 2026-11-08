@@ -72,6 +72,10 @@ class TransactionCrudTest {
         return body;
     }
 
+    private int transactionCount() {
+        return jdbc.queryForObject("SELECT count(*) FROM transactions", Integer.class);
+    }
+
     private UUID seeded(TestSession s, String kind) {
         return jdbc.queryForObject(
                 "SELECT id FROM categories WHERE account_id = ? AND kind = ? LIMIT 1", UUID.class, s.accountId(), kind);
@@ -249,6 +253,7 @@ class TransactionCrudTest {
 
         assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("NOT_FOUND");
+        assertThat(transactionCount()).isZero();
     }
 
     @Test
@@ -257,12 +262,34 @@ class TransactionCrudTest {
         TestSession bia = testUsers.verified("bia@mail.com");
         UUID foreign = fixtures.bankAccount(bia, "Hers", 0);
 
-        assertThat(send(HttpMethod.POST, ana, BASE, expense(seeded(ana, "EXPENSE"), foreign)))
-                .hasStatus(HttpStatus.NOT_FOUND);
+        var viaExpense = send(HttpMethod.POST, ana, BASE, expense(seeded(ana, "EXPENSE"), foreign));
+        assertThat(viaExpense).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(viaExpense).bodyJson().extractingPath("$.code").isEqualTo("NOT_FOUND");
 
         UUID mine = fixtures.bankAccount(ana, "Mine", 0);
-        assertThat(send(HttpMethod.POST, ana, BASE, transfer(mine, foreign, null)))
-                .hasStatus(HttpStatus.NOT_FOUND);
+        var viaTransfer = send(HttpMethod.POST, ana, BASE, transfer(mine, foreign, null));
+        assertThat(viaTransfer).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(viaTransfer).bodyJson().extractingPath("$.code").isEqualTo("NOT_FOUND");
+        assertThat(transactionCount()).isZero();
+    }
+
+    @Test
+    void update_withOtherAccountsCategory_returns404_andLeavesRowUnchanged() {
+        TestSession ana = testUsers.verified("ana@mail.com");
+        TestSession bia = testUsers.verified("bia@mail.com");
+        UUID original = seeded(ana, "EXPENSE");
+        UUID id = fixtures.transaction(ana, expense(original, null));
+
+        Map<String, Object> body = expense(seeded(bia, "EXPENSE"), null);
+        body.put("amountCents", 4242);
+        var result = send(HttpMethod.PUT, ana, BASE + "/" + id, body);
+
+        assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("NOT_FOUND");
+        assertThat(jdbc.queryForObject("SELECT category_id FROM transactions WHERE id = ?", UUID.class, id))
+                .isEqualTo(original);
+        assertThat(jdbc.queryForObject("SELECT amount_cents FROM transactions WHERE id = ?", Long.class, id))
+                .isEqualTo(1250L);
     }
 
     @Test
