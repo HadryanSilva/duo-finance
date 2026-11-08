@@ -29,7 +29,6 @@ onMounted(async () => {
   }
   try {
     await verifyEmail(http, token)
-    if (session.user) session.user = { ...session.user, emailVerified: true }
     state.value = 'success'
   } catch (e) {
     error.value = errorMessage(e)

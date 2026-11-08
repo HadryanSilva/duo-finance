@@ -44,22 +44,42 @@ describe('LoginPage', () => {
     await waitFor(() => expect(r.router.currentRoute.value.fullPath).toBe('/dashboard'))
   })
 
-  it('login_failure_showsGenericError', async () => {
+  async function failWith(res: () => Response) {
     const r = await renderRoute({
       route: '/login',
-      handlers: [
-        http.post(`${api}/auth/login`, () =>
-          HttpResponse.json(
-            { status: 500, code: 'INTERNAL_ERROR', detail: 'raw detail' },
-            { status: 500 },
-          ),
-        ),
-      ],
+      handlers: [http.post(`${api}/auth/login`, res)],
     })
     await fillAndSubmit(r)
-    const alert = await screen.findByRole('alert')
-    expect(alert.textContent).toContain('E-mail ou senha incorretos')
+    return (await screen.findByRole('alert')).textContent
+  }
+
+  it('login_401_showsGenericInvalidCredentials', async () => {
+    const text = await failWith(() =>
+      HttpResponse.json(
+        { status: 401, code: 'INVALID_CREDENTIALS', detail: 'raw detail' },
+        { status: 401 },
+      ),
+    )
+    expect(text).toContain('E-mail ou senha incorretos')
     expect(document.body.textContent).not.toContain('raw detail')
+  })
+
+  it('login_serverError_showsItsOwnMessage', async () => {
+    const text = await failWith(() =>
+      HttpResponse.json(
+        { status: 500, code: 'INTERNAL_ERROR', detail: 'raw detail' },
+        { status: 500 },
+      ),
+    )
+    expect(text).toContain('Algo deu errado do nosso lado')
+    expect(text).not.toContain('incorretos')
+    expect(document.body.textContent).not.toContain('raw detail')
+  })
+
+  it('login_networkError_showsItsOwnMessage', async () => {
+    const text = await failWith(() => HttpResponse.error())
+    expect(text).not.toContain('incorretos')
+    expect(text).toContain('conexão')
   })
 
   it('login_afterPasswordReset_showsNotice', async () => {

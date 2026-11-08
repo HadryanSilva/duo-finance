@@ -5,6 +5,8 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useHttp } from '@/app/providers'
+import { isApiError } from '@/shared/api/problem'
+import { errorMessage } from '@/shared/i18n/error-codes'
 import { safeRedirect } from '@/shared/session/safe-redirect'
 import { useSession } from '@/shared/session/session-store'
 import { Button } from '@/shared/ui/button'
@@ -26,15 +28,16 @@ const { defineField, handleSubmit, errors, isSubmitting } = useForm({
 const [email, emailAttrs] = defineField('email')
 const [password, passwordAttrs] = defineField('password')
 
-const failed = ref(false)
+const formError = ref<string | null>(null)
 
 const submit = handleSubmit(async (values) => {
-  failed.value = false
+  formError.value = null
   try {
     session.applyAuth(await login(http, values))
-  } catch {
-    // Whatever went wrong, the message is the same: it must not reveal which part was wrong.
-    failed.value = true
+  } catch (e) {
+    // A 401 never says which part was wrong; network and server failures reveal nothing, so they show their own message.
+    formError.value =
+      isApiError(e) && e.status === 401 ? t('errors.INVALID_CREDENTIALS') : errorMessage(e)
     return
   }
   await router.push(safeRedirect(route.query.redirect))
@@ -51,8 +54,8 @@ const submit = handleSubmit(async (values) => {
     {{ t('auth.login.resetDone') }}
   </p>
   <form class="grid gap-4" novalidate @submit.prevent="submit">
-    <p v-if="failed" role="alert" class="rounded-md bg-muted p-3 text-sm text-destructive">
-      {{ t('errors.INVALID_CREDENTIALS') }}
+    <p v-if="formError" role="alert" class="rounded-md bg-muted p-3 text-sm text-destructive">
+      {{ formError }}
     </p>
     <TextField
       v-model="email"
