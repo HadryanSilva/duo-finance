@@ -3,11 +3,12 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { useHttp } from '@/app/providers'
+import { useResendVerification } from '@/shared/api/queries/me'
 import { errorMessage } from '@/shared/i18n/error-codes'
 import { useSession } from '@/shared/session/session-store'
 import { Button } from '@/shared/ui/button'
 import PageHeader from '@/shared/ui/PageHeader.vue'
-import { resendVerification, verifyEmail } from '../api/auth-api'
+import { verifyEmail } from '../api/auth-api'
 
 const { t } = useI18n()
 const http = useHttp()
@@ -18,7 +19,7 @@ const state = ref<'loading' | 'success' | 'error'>('loading')
 const error = ref('')
 const resent = ref(false)
 const resendError = ref('')
-const resending = ref(false)
+const resendMutation = useResendVerification()
 
 onMounted(async () => {
   const token = route.query.token
@@ -37,16 +38,13 @@ onMounted(async () => {
 })
 
 async function resend() {
-  resending.value = true
   resendError.value = ''
   resent.value = false
   try {
-    await resendVerification(http)
+    await resendMutation.mutateAsync()
     resent.value = true
   } catch (e) {
     resendError.value = errorMessage(e)
-  } finally {
-    resending.value = false
   }
 }
 </script>
@@ -68,7 +66,7 @@ async function resend() {
   <div v-else class="grid gap-4">
     <p role="alert" class="rounded-md bg-muted p-3 text-sm text-destructive">{{ error }}</p>
     <template v-if="session.status === 'authenticated'">
-      <Button variant="outline" :disabled="resending" @click="resend">
+      <Button variant="outline" :disabled="resendMutation.isPending.value" @click="resend">
         {{ t('auth.verify.resend') }}
       </Button>
       <p v-if="resent" role="status" class="text-sm text-muted-foreground">

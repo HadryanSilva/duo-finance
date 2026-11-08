@@ -53,7 +53,9 @@
     "logout": "Sair",
     "signIn": "Entrar",
     "cancel": "Cancelar",
-    "continue": "Continuar"
+    "continue": "Continuar",
+    "skip": "Pular",
+    "back": "Voltar"
   },
   "nav": {
     "main": "Navegação principal",
@@ -198,5 +200,37 @@
       "title": "Termos de uso",
       "body": "[texto jurídico a ser fornecido]"
     }
+  },
+  "onboarding": {
+    "progress": "Progresso da configuração",
+    "couple": {
+      "title": "Como vocês querem chamar a conta?",
+      "subtitle": "Esse nome aparece para os dois. Dá para mudar depois.",
+      "name": "Nome do casal"
+    },
+    "invite": {
+      "title": "Convide seu parceiro",
+      "subtitle": "Enviaremos um convite por e-mail para dividir esta conta.",
+      "email": "E-mail do parceiro",
+      "send": "Enviar convite",
+      "sent": "Convite enviado para {email}",
+      "resend": "Reenviar verificação",
+      "resent": "Enviamos um novo link de confirmação para o seu e-mail."
+    },
+    "bank": {
+      "title": "Adicione sua primeira conta bancária",
+      "subtitle": "Informe o saldo de hoje para começar com os números certos.",
+      "name": "Nome da conta",
+      "type": "Tipo",
+      "balance": "Saldo inicial",
+      "submit": "Concluir"
+    },
+    "stepOf": "Passo {current} de {total}"
+  },
+  "bankAccountType": {
+    "CHECKING": "Conta corrente",
+    "SAVINGS": "Poupança",
+    "CASH": "Dinheiro",
+    "OTHER": "Outra"
   }
 }

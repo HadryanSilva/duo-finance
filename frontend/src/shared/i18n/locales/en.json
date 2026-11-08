@@ -53,7 +53,9 @@
     "logout": "Sign out",
     "signIn": "Sign in",
     "cancel": "Cancel",
-    "continue": "Continue"
+    "continue": "Continue",
+    "skip": "Skip",
+    "back": "Back"
   },
   "nav": {
     "main": "Main navigation",
@@ -198,5 +200,37 @@
       "title": "Terms of use",
       "body": "[legal text to be provided]"
     }
+  },
+  "onboarding": {
+    "progress": "Setup progress",
+    "couple": {
+      "title": "What should the account be called?",
+      "subtitle": "Both of you will see this name. You can change it later.",
+      "name": "Couple name"
+    },
+    "invite": {
+      "title": "Invite your partner",
+      "subtitle": "We will email an invitation to share this account.",
+      "email": "Partner email",
+      "send": "Send invitation",
+      "sent": "Invitation sent to {email}",
+      "resend": "Resend verification",
+      "resent": "We sent a new confirmation link to your email."
+    },
+    "bank": {
+      "title": "Add your first bank account",
+      "subtitle": "Enter today's balance to start with the right numbers.",
+      "name": "Account name",
+      "type": "Type",
+      "balance": "Initial balance",
+      "submit": "Finish"
+    },
+    "stepOf": "Step {current} of {total}"
+  },
+  "bankAccountType": {
+    "CHECKING": "Checking",
+    "SAVINGS": "Savings",
+    "CASH": "Cash",
+    "OTHER": "Other"
   }
 }

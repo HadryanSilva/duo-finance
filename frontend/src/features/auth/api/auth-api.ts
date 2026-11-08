@@ -10,8 +10,6 @@ export const register = (http: Http, body: RegisterRequest) =>
 export const verifyEmail = (http: Http, token: string) =>
   http.post<void>('/auth/verify-email', { token })
 
-export const resendVerification = (http: Http) => http.post<void>('/auth/resend-verification')
-
 export const forgotPassword = (http: Http, email: string) =>
   http.post<void>('/auth/forgot-password', { email })
 

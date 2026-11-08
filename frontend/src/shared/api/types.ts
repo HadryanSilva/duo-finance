@@ -23,3 +23,7 @@ export type RegistrationMode = Schemas['RegistrationModeResponse']['mode']
 
 export type { ErrorCode } from '../i18n/error-codes'
 export type JoinWaitlistRequest = Schemas['JoinWaitlistRequest']
+/** The generated type models holderUserId as optional; the API also accepts an explicit null (joint account). */
+export type BankAccountRequest = Omit<Schemas['BankAccountRequest'], 'holderUserId'> & {
+  holderUserId?: string | null
+}
