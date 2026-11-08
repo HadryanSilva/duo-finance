@@ -1,6 +1,7 @@
 package br.dev.duofinance;
 
 import br.dev.duofinance.support.DatabaseCleanupExtension;
+import br.dev.duofinance.support.FinanceFixtures;
 import br.dev.duofinance.support.TestClockConfiguration;
 import br.dev.duofinance.support.TestEmailConfiguration;
 import br.dev.duofinance.support.TestUsers;
@@ -20,7 +21,12 @@ import org.springframework.test.context.ActiveProfiles;
 @Documented
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import({TestcontainersConfiguration.class, TestClockConfiguration.class, TestEmailConfiguration.class, TestUsers.class
+@Import({
+    TestcontainersConfiguration.class,
+    TestClockConfiguration.class,
+    TestEmailConfiguration.class,
+    TestUsers.class,
+    FinanceFixtures.class
 })
 @ActiveProfiles("test")
 @ExtendWith(DatabaseCleanupExtension.class)

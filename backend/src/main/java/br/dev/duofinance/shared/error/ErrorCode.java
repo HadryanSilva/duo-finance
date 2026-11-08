@@ -26,6 +26,8 @@ public enum ErrorCode {
     NOT_IN_COUPLE(HttpStatus.CONFLICT),
     EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN),
     TOKEN_INVALID(HttpStatus.BAD_REQUEST),
+    BANK_ACCOUNT_ARCHIVED(HttpStatus.CONFLICT),
+    BANK_ACCOUNT_IN_USE(HttpStatus.CONFLICT),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final HttpStatus status;
