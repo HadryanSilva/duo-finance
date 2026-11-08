@@ -38,6 +38,7 @@ public class SecurityConfig {
         "/api/v1/auth/reset-password"
     };
 
+    /** OpenAPI docs and Swagger UI; open only under the {@code dev} profile (springdoc is disabled elsewhere). */
     private static final String[] API_DOCS_PATHS = {"/v3/api-docs/**", "/swagger-ui/**"};
 
     /** Throwaway controllers used by integration tests; open only under the {@code test} profile. */
@@ -47,7 +48,7 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, Environment environment) throws Exception {
-        boolean prod = environment.acceptsProfiles(Profiles.of("prod"));
+        boolean dev = environment.acceptsProfiles(Profiles.of("dev"));
         boolean test = environment.acceptsProfiles(Profiles.of("test"));
         AuthenticationEntryPoint entryPoint =
                 (request, response, ex) -> writeProblem(response, ErrorCode.UNAUTHENTICATED, "Authentication required");
@@ -60,7 +61,7 @@ public class SecurityConfig {
                     auth.requestMatchers(PUBLIC_PATHS).permitAll();
                     auth.requestMatchers(HttpMethod.GET, "/api/v1/account/invitations/*")
                             .permitAll();
-                    if (!prod) {
+                    if (dev) {
                         auth.requestMatchers(API_DOCS_PATHS).permitAll();
                     }
                     if (test) {

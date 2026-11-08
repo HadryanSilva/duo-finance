@@ -31,3 +31,9 @@ app:
     provider: RESEND
   auth:
     cookie-secure: true
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

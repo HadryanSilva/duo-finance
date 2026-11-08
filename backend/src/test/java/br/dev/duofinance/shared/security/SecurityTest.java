@@ -74,6 +74,12 @@ class SecurityTest {
     }
 
     @Test
+    void apiDocs_areClosedOutsideDevProfile() {
+        assertThat(mvc.get().uri("/v3/api-docs")).hasStatus(401);
+        assertThat(mvc.get().uri("/swagger-ui/index.html")).hasStatus(401);
+    }
+
+    @Test
     void noToken_onProtectedRoute_returns401ProblemFromEntryPoint() {
         var result = mvc.get().uri("/api/v1/admin/__test");
         assertThat(result).hasStatus(401).hasContentType("application/problem+json");
