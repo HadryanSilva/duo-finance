@@ -1,7 +1,6 @@
 package br.dev.duofinance.access.service;
 
 import br.dev.duofinance.account.model.Invitation;
-import br.dev.duofinance.account.model.InvitationStatus;
 import br.dev.duofinance.account.repository.InvitationRepository;
 import br.dev.duofinance.auth.dto.RegisterRequest;
 import br.dev.duofinance.shared.config.AppProperties;
@@ -47,12 +46,22 @@ public class RegistrationGate {
         throw new ApiException(ErrorCode.ACCESS_CODE_INVALID);
     }
 
+    /**
+     * Same mapping as preview and accept: unknown, cancelled, accepted or addressed to another e-mail → INVITE_INVALID;
+     * EXPIRED or past {@code expires_at} → INVITE_EXPIRED. Read without a lock: sign-up re-checks PENDING under lock.
+     */
     private Invitation requireValidInvitation(String token, String normalizedEmail) {
         Invitation invitation = invitations
                 .findByTokenHash(SecureTokens.sha256Hex(token.trim()))
-                .filter(i -> i.getStatus() == InvitationStatus.PENDING)
-                .filter(i -> i.getEmail().equals(normalizedEmail))
                 .orElseThrow(() -> new ApiException(ErrorCode.INVITE_INVALID));
+        switch (invitation.getStatus()) {
+            case EXPIRED -> throw new ApiException(ErrorCode.INVITE_EXPIRED);
+            case CANCELED, ACCEPTED -> throw new ApiException(ErrorCode.INVITE_INVALID);
+            case PENDING -> {}
+        }
+        if (!invitation.getEmail().equals(normalizedEmail)) {
+            throw new ApiException(ErrorCode.INVITE_INVALID);
+        }
         if (!invitation.getExpiresAt().isAfter(Instant.now(clock))) {
             throw new ApiException(ErrorCode.INVITE_EXPIRED);
         }

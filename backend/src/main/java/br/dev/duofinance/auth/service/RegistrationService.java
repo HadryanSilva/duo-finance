@@ -8,9 +8,9 @@ import br.dev.duofinance.access.service.RegistrationGate.RegistrationGrant;
 import br.dev.duofinance.account.model.Account;
 import br.dev.duofinance.account.model.AccountMember;
 import br.dev.duofinance.account.model.Invitation;
-import br.dev.duofinance.account.model.InvitationStatus;
 import br.dev.duofinance.account.repository.AccountMemberRepository;
 import br.dev.duofinance.account.repository.AccountRepository;
+import br.dev.duofinance.account.repository.InvitationRepository;
 import br.dev.duofinance.account.service.AccountProvisioningService;
 import br.dev.duofinance.auth.dto.RegisterRequest;
 import br.dev.duofinance.auth.service.AuthSessionService.SessionTokens;
@@ -39,6 +39,7 @@ public class RegistrationService {
     private final PasswordEncoder passwordEncoder;
     private final AccountRepository accounts;
     private final AccountMemberRepository members;
+    private final InvitationRepository invitations;
     private final AccountProvisioningService provisioning;
     private final EmailVerificationService emailVerification;
     private final AuthSessionService sessions;
@@ -52,6 +53,7 @@ public class RegistrationService {
             PasswordEncoder passwordEncoder,
             AccountRepository accounts,
             AccountMemberRepository members,
+            InvitationRepository invitations,
             AccountProvisioningService provisioning,
             EmailVerificationService emailVerification,
             AuthSessionService sessions,
@@ -63,6 +65,7 @@ public class RegistrationService {
         this.passwordEncoder = passwordEncoder;
         this.accounts = accounts;
         this.members = members;
+        this.invitations = invitations;
         this.provisioning = provisioning;
         this.emailVerification = emailVerification;
         this.sessions = sessions;
@@ -106,16 +109,21 @@ public class RegistrationService {
         }
     }
 
-    /** The invitation link came from the inbox, so the e-mail counts as verified. */
+    /**
+     * The invitation link came from the inbox, so the e-mail counts as verified. The gate read the invitation without a
+     * lock; the conditional update re-checks that it is still PENDING, so a concurrent cancel or replace wins. The
+     * managed {@code invitation} entity is left untouched so dirty checking cannot overwrite that status.
+     */
     private void joinInvitedAccount(User user, Invitation invitation, Instant now) {
         accounts.findByIdForUpdate(invitation.getAccountId())
                 .orElseThrow(() -> new ApiException(ErrorCode.INVITE_INVALID));
+        if (invitations.markAccepted(invitation.getId(), now) == 0) {
+            throw new ApiException(ErrorCode.INVITE_INVALID);
+        }
         if (members.countByAccountId(invitation.getAccountId()) >= Account.MAX_MEMBERS) {
             throw new ApiException(ErrorCode.ACCOUNT_FULL);
         }
         members.save(new AccountMember(invitation.getAccountId(), user.getId(), now));
-        invitation.setStatus(InvitationStatus.ACCEPTED);
-        invitation.setAcceptedAt(now);
         user.setEmailVerifiedAt(now);
     }
 }

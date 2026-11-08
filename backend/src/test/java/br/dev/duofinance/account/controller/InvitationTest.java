@@ -436,6 +436,32 @@ class InvitationTest {
         assertThat(invitations.findAll().getFirst().getStatus()).isEqualTo(InvitationStatus.PENDING);
     }
 
+    @Test
+    void register_withCanceledInvitation_returns400InviteInvalid() {
+        TestSession ana = testUsers.verified("ana@mail.com");
+        String token = inviteAndGetToken(ana, "rui@mail.com");
+        UUID id = invitations.findAll().getFirst().getId();
+        assertThat(mvc.delete()
+                        .uri(BASE + "/" + id)
+                        .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(ana))
+                        .exchange())
+                .hasStatus(HttpStatus.NO_CONTENT);
+
+        assertError(registerWithInvitation("rui@mail.com", token), HttpStatus.BAD_REQUEST, "INVITE_INVALID");
+        assertThat(invitations.findById(id).orElseThrow().getStatus()).isEqualTo(InvitationStatus.CANCELED);
+        assertThat(users.findByEmail("rui@mail.com")).isEmpty();
+    }
+
+    @Test
+    void register_withInvitationMarkedExpired_returns410() {
+        TestSession ana = testUsers.verified("ana@mail.com");
+        String token = inviteAndGetToken(ana, "rui@mail.com");
+        jdbc.update("UPDATE invitations SET status = 'EXPIRED'");
+
+        assertError(registerWithInvitation("rui@mail.com", token), HttpStatus.GONE, "INVITE_EXPIRED");
+        assertThat(users.findByEmail("rui@mail.com")).isEmpty();
+    }
+
     private MvcTestResult registerWithInvitation(String email, String token) {
         String body = """
                 {"email":"%s","password":"s3cret-pass","displayName":"Rui","locale":"en",
