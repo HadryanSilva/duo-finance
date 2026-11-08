@@ -117,12 +117,9 @@ public class InvitationService {
     /** Only a PENDING invitation of the caller's own account can be cancelled; anything else is NOT_FOUND. */
     @Transactional
     public void cancel(CurrentUser current, UUID invitationId) {
-        Invitation invitation = invitations
-                .findById(invitationId)
-                .filter(i -> i.getAccountId().equals(current.accountId()))
-                .filter(i -> i.getStatus() == InvitationStatus.PENDING)
-                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
-        invitation.setStatus(InvitationStatus.CANCELED);
+        if (invitations.cancelPending(invitationId, current.accountId()) == 0) {
+            throw new ApiException(ErrorCode.NOT_FOUND);
+        }
     }
 
     /**

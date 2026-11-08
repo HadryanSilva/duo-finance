@@ -39,7 +39,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     ResponseEntity<ProblemDetail> handleApiException(ApiException ex) {
         ErrorCode code = ex.code();
         String detail = ex.getMessage();
-        return ResponseEntity.status(code.status()).body(problem(code, detail));
+        ProblemDetail problem = problem(code, detail);
+        if (!ex.fieldErrors().isEmpty()) {
+            problem.setProperty(
+                    "errors",
+                    ex.fieldErrors().stream()
+                            .map(e -> Map.of("field", e.field(), "code", e.code()))
+                            .toList());
+        }
+        return ResponseEntity.status(code.status()).body(problem);
     }
 
     @Override

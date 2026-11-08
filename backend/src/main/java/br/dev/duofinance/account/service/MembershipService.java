@@ -6,6 +6,7 @@ import br.dev.duofinance.account.repository.AccountRepository;
 import br.dev.duofinance.account.repository.InvitationRepository;
 import br.dev.duofinance.auth.service.AuthSessionService;
 import br.dev.duofinance.auth.service.AuthSessionService.SessionTokens;
+import br.dev.duofinance.bankaccount.repository.BankAccountRepository;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ErrorCode;
 import br.dev.duofinance.shared.security.CurrentUser;
@@ -21,6 +22,7 @@ public class MembershipService {
     private final AccountMemberRepository members;
     private final InvitationRepository invitations;
     private final UserRepository users;
+    private final BankAccountRepository bankAccounts;
     private final AccountProvisioningService provisioning;
     private final AuthSessionService sessions;
 
@@ -29,19 +31,22 @@ public class MembershipService {
             AccountMemberRepository members,
             InvitationRepository invitations,
             UserRepository users,
+            BankAccountRepository bankAccounts,
             AccountProvisioningService provisioning,
             AuthSessionService sessions) {
         this.accounts = accounts;
         this.members = members;
         this.invitations = invitations;
         this.users = users;
+        this.bankAccounts = bankAccounts;
         this.provisioning = provisioning;
         this.sessions = sessions;
     }
 
     /**
      * Moves the caller out of a couple into a fresh solo account; data and subscription stay with the partner. The
-     * account row is locked before counting so two partners leaving at once cannot both see two members.
+     * account row is locked before counting so two partners leaving at once cannot both see two members. The leaver
+     * stops being holder of the account's bank accounts, since a holder must be a current member.
      */
     @Transactional
     public SessionTokens leave(CurrentUser current) {
@@ -51,6 +56,7 @@ public class MembershipService {
             throw new ApiException(ErrorCode.NOT_IN_COUPLE);
         }
         invitations.cancelPendingByAccount(current.accountId());
+        bankAccounts.clearHolder(current.accountId(), user.getId());
         members.deleteById(new AccountMember.Key(current.accountId(), user.getId()));
         members.flush();
         provisioning.createSoloAccount(user);

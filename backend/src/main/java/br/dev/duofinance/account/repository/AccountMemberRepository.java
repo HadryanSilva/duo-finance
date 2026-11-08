@@ -14,5 +14,7 @@ public interface AccountMemberRepository extends JpaRepository<AccountMember, Ac
 
     long countByAccountId(UUID accountId);
 
+    boolean existsByAccountIdAndUserId(UUID accountId, UUID userId);
+
     List<AccountMember> findByAccountId(UUID accountId);
 }
