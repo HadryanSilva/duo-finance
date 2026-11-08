@@ -44,12 +44,16 @@ public class SecurityConfig {
     /** Throwaway controllers used by integration tests; open only under the {@code test} profile. */
     private static final String TEST_PATHS = "/api/v1/__test/**";
 
+    /** In-memory e-mail outbox for browser end-to-end runs; open only under the {@code e2e} profile. */
+    private static final String E2E_PATHS = "/api/v1/__e2e/**";
+
     private final JacksonJsonHttpMessageConverter problemConverter = new JacksonJsonHttpMessageConverter();
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, Environment environment) throws Exception {
         boolean dev = environment.acceptsProfiles(Profiles.of("dev"));
         boolean test = environment.acceptsProfiles(Profiles.of("test"));
+        boolean e2e = environment.acceptsProfiles(Profiles.of("e2e"));
         AuthenticationEntryPoint entryPoint =
                 (request, response, ex) -> writeProblem(response, ErrorCode.UNAUTHENTICATED, "Authentication required");
         AccessDeniedHandler accessDeniedHandler =
@@ -66,6 +70,9 @@ public class SecurityConfig {
                     }
                     if (test) {
                         auth.requestMatchers(TEST_PATHS).permitAll();
+                    }
+                    if (e2e) {
+                        auth.requestMatchers(E2E_PATHS).permitAll();
                     }
                     auth.requestMatchers("/api/v1/admin/**").hasRole("ADMIN");
                     auth.anyRequest().authenticated();

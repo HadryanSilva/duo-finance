@@ -1,13 +1,12 @@
 package br.dev.duofinance.support;
 
+import br.dev.duofinance.shared.email.EmailLinks;
 import br.dev.duofinance.shared.email.EmailMessage;
 import br.dev.duofinance.shared.email.EmailSender;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.awaitility.Awaitility;
 
 /** Thread-safe test sender that captures every e-mail (listeners are async). */
@@ -64,9 +63,7 @@ public class RecordingEmailSender implements EmailSender {
 
     /** First http(s) link in the HTML whose path starts with the prefix, e.g. "/verify-email". */
     public String extractLink(EmailMessage message, String pathPrefix) {
-        Matcher m = Pattern.compile("https?://[^\\s\"'<>]+").matcher(message.html());
-        while (m.find()) {
-            String link = m.group().replace("&amp;", "&");
+        for (String link : EmailLinks.extract(message.html())) {
             String path = java.net.URI.create(link).getPath();
             if (path != null && path.startsWith(pathPrefix)) {
                 return link;
