@@ -6,6 +6,7 @@ import br.dev.duofinance.bankaccount.dto.BankAccountResponse;
 import br.dev.duofinance.bankaccount.model.BankAccount;
 import br.dev.duofinance.bankaccount.repository.BankAccountBalanceQuery;
 import br.dev.duofinance.bankaccount.repository.BankAccountRepository;
+import br.dev.duofinance.recurring.repository.RecurringRuleRepository;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ErrorCode;
 import java.time.Clock;
@@ -23,16 +24,19 @@ public class BankAccountService {
     private final BankAccountRepository bankAccounts;
     private final BankAccountBalanceQuery balances;
     private final AccountMemberRepository members;
+    private final RecurringRuleRepository rules;
     private final Clock clock;
 
     public BankAccountService(
             BankAccountRepository bankAccounts,
             BankAccountBalanceQuery balances,
             AccountMemberRepository members,
+            RecurringRuleRepository rules,
             Clock clock) {
         this.bankAccounts = bankAccounts;
         this.balances = balances;
         this.members = members;
+        this.rules = rules;
         this.clock = clock;
     }
 
@@ -74,10 +78,14 @@ public class BankAccountService {
         return respond(bankAccounts.saveAndFlush(account));
     }
 
+    /** An active, not finished recurring rule using the account in any slot blocks archiving (IN_USE_BY_ACTIVE_RULE). */
     @Transactional
     public BankAccountResponse archive(UUID accountId, UUID id) {
         BankAccount account = requireOwned(accountId, id);
         if (!account.isArchived()) {
+            if (rules.activeRuleUsesBankAccount(id)) {
+                throw new ApiException(ErrorCode.IN_USE_BY_ACTIVE_RULE);
+            }
             Instant now = Instant.now(clock);
             account.setArchivedAt(now);
             account.setUpdatedAt(now);

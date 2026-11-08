@@ -6,6 +6,7 @@ import br.dev.duofinance.category.dto.UpdateCategoryRequest;
 import br.dev.duofinance.category.model.Category;
 import br.dev.duofinance.category.model.CategoryKind;
 import br.dev.duofinance.category.repository.CategoryRepository;
+import br.dev.duofinance.recurring.repository.RecurringRuleRepository;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ErrorCode;
 import java.time.Clock;
@@ -23,10 +24,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class CategoryService {
 
     private final CategoryRepository categories;
+    private final RecurringRuleRepository rules;
     private final Clock clock;
 
-    public CategoryService(CategoryRepository categories, Clock clock) {
+    public CategoryService(CategoryRepository categories, RecurringRuleRepository rules, Clock clock) {
         this.categories = categories;
+        this.rules = rules;
         this.clock = clock;
     }
 
@@ -59,10 +62,14 @@ public class CategoryService {
         return CategoryResponse.of(categories.saveAndFlush(category));
     }
 
+    /** An active, not finished recurring rule using the category blocks archiving (IN_USE_BY_ACTIVE_RULE). */
     @Transactional
     public CategoryResponse archive(UUID accountId, UUID id) {
         Category category = requireOwned(accountId, id);
         if (category.getArchivedAt() == null) {
+            if (rules.activeRuleUsesCategory(id)) {
+                throw new ApiException(ErrorCode.IN_USE_BY_ACTIVE_RULE);
+            }
             Instant now = Instant.now(clock);
             category.setArchivedAt(now);
             category.setUpdatedAt(now);
