@@ -7,12 +7,17 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-/** Truncates every table in the public schema (except Flyway history) before each test. */
+/**
+ * Before each test: resets the shared {@link MutableClock} to a fresh microsecond instant and truncates every table in
+ * the public schema (except Flyway history).
+ */
 public class DatabaseCleanupExtension implements BeforeEachCallback {
 
     @Override
     public void beforeEach(ExtensionContext context) {
-        JdbcTemplate jdbc = SpringExtension.getApplicationContext(context).getBean(JdbcTemplate.class);
+        var spring = SpringExtension.getApplicationContext(context);
+        spring.getBean(MutableClock.class).reset();
+        JdbcTemplate jdbc = spring.getBean(JdbcTemplate.class);
         List<String> tables = jdbc.queryForList(
                 "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'flyway_schema_history'",
                 String.class);

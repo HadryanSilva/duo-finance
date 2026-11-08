@@ -92,12 +92,15 @@ class InvitationTest {
     private String inviteAndGetToken(TestSession inviter, String email) {
         assertThat(invite(inviter, email)).hasStatus(HttpStatus.CREATED);
         String normalized = SecureTokens.normalizeEmail(email);
-        Awaitility.await().untilAsserted(() -> {
-            EmailMessage message = emails.lastTo(normalized);
-            assertThat(message).isNotNull();
-            assertThat(emails.extractLink(message, "/invite/")).isNotNull();
-        });
-        String link = emails.extractLink(emails.lastTo(normalized), "/invite/");
+        // registration also e-mails the invitee (async), so pick the invitation message, not just the latest one
+        java.util.function.Supplier<String> inviteLink = () -> emails.sent().stream()
+                .filter(m -> m.to().equalsIgnoreCase(normalized))
+                .map(m -> emails.extractLink(m, "/invite/"))
+                .filter(java.util.Objects::nonNull)
+                .reduce((first, second) -> second)
+                .orElse(null);
+        Awaitility.await().untilAsserted(() -> assertThat(inviteLink.get()).isNotNull());
+        String link = inviteLink.get();
         return link.substring(link.indexOf("/invite/") + "/invite/".length());
     }
 
