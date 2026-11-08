@@ -715,13 +715,12 @@ export interface components {
             amountCents: number;
             /** Format: date */
             date: string;
-            description?: string;
-            category?: components["schemas"]["CategoryRef"];
-            bankAccount: components["schemas"]["BankAccountRef"];
-            destinationBankAccount?: components["schemas"]["BankAccountRef"];
-            createdBy?: components["schemas"]["AuthorRef"];
-            /** Format: uuid */
-            recurringRuleId?: string;
+            description: string | null;
+            category: components["schemas"]["CategoryRef"] | null;
+            bankAccount: components["schemas"]["BankAccountRef"] | null;
+            destinationBankAccount: components["schemas"]["BankAccountRef"] | null;
+            createdBy: components["schemas"]["AuthorRef"] | null;
+            recurringRuleId: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -747,21 +746,20 @@ export interface components {
             kind: "INCOME" | "EXPENSE" | "TRANSFER";
             /** Format: int64 */
             amountCents: number;
-            description?: string;
-            category?: components["schemas"]["CategoryRef"];
-            bankAccount: components["schemas"]["BankAccountRef"];
-            destinationBankAccount?: components["schemas"]["BankAccountRef"];
+            description: string | null;
+            category: components["schemas"]["CategoryRef"] | null;
+            bankAccount: components["schemas"]["BankAccountRef"] | null;
+            destinationBankAccount: components["schemas"]["BankAccountRef"] | null;
             /** @enum {string} */
             frequency: "WEEKLY" | "MONTHLY" | "YEARLY";
             /** Format: date */
             startDate: string;
-            /** Format: date */
-            endDate?: string;
+            endDate: string | null;
             /** Format: date */
             nextRunDate: string;
             active: boolean;
             finished: boolean;
-            createdBy?: components["schemas"]["AuthorRef"];
+            createdBy: components["schemas"]["AuthorRef"] | null;
         };
         ChangePasswordRequest: {
             currentPassword: string;
@@ -838,8 +836,7 @@ export interface components {
             initialBalanceCents: number;
             /** Format: int64 */
             balanceCents: number;
-            /** Format: uuid */
-            holderUserId?: string;
+            holderUserId: string | null;
             archived: boolean;
             /** Format: date-time */
             createdAt: string;
@@ -918,8 +915,7 @@ export interface components {
             status: "PENDING" | "APPROVED" | "REJECTED";
             /** Format: date-time */
             createdAt: string;
-            /** Format: date-time */
-            decidedAt?: string;
+            decidedAt: string | null;
         };
         CreateAccessCodeRequest: {
             /** Format: email */
@@ -933,16 +929,14 @@ export interface components {
         AccessCodeResponse: {
             /** Format: uuid */
             id: string;
-            email?: string;
+            email: string | null;
             /** Format: int32 */
             maxUses: number;
             /** Format: int32 */
             usedCount: number;
-            /** Format: date-time */
-            expiresAt?: string;
-            /** Format: date-time */
-            revokedAt?: string;
-            note?: string;
+            expiresAt: string | null;
+            revokedAt: string | null;
+            note: string | null;
             /** Format: date-time */
             createdAt: string;
         };
@@ -977,7 +971,7 @@ export interface components {
             name: string;
             currency: string;
             members: components["schemas"]["MemberResponse"][];
-            pendingInvitation?: components["schemas"]["InvitationSummary"];
+            pendingInvitation: components["schemas"]["InvitationSummary"] | null;
         };
         MemberResponse: {
             /** Format: uuid */
@@ -1045,9 +1039,8 @@ export interface components {
             kind: "INCOME" | "EXPENSE" | "TRANSFER";
             /** Format: int64 */
             amountCents: number;
-            description?: string;
-            /** Format: uuid */
-            categoryId?: string;
+            description: string | null;
+            categoryId: string | null;
         };
         WaitlistPageResponse: {
             content: components["schemas"]["WaitlistEntryResponse"][];
@@ -1065,8 +1058,7 @@ export interface components {
             plan: "BETA";
             /** @enum {string} */
             status: "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELED" | "EXPIRED";
-            /** Format: date-time */
-            currentPeriodEnd?: string;
+            currentPeriodEnd: string | null;
             hasAccess: boolean;
         };
         InvitationPreviewResponse: {
