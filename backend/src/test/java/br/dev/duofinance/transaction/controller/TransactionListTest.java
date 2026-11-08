@@ -256,31 +256,60 @@ class TransactionListTest {
     }
 
     @Test
-    void list_queryCountIsBoundedRegardlessOfRows() throws Exception {
-        TestSession s = testUsers.verified("ana@mail.com");
-        UUID category = seeded(s, "EXPENSE");
-        UUID bank = fixtures.bankAccount(s, "Main", 0);
+    void list_queryCountIsFixedAndIndependentOfRows() throws Exception {
+        TestSession[] couple = testUsers.couple("ana@mail.com", "bia@mail.com");
+        List<UUID> categories = List.of(
+                fixtures.category(couple[0], "C1", CategoryKind.EXPENSE),
+                fixtures.category(couple[0], "C2", CategoryKind.EXPENSE),
+                fixtures.category(couple[0], "C3", CategoryKind.EXPENSE),
+                fixtures.category(couple[0], "C4", CategoryKind.EXPENSE));
+        List<UUID> banks = List.of(
+                fixtures.bankAccount(couple[0], "B1", 0),
+                fixtures.bankAccount(couple[0], "B2", 0),
+                fixtures.bankAccount(couple[0], "B3", 0));
         for (int i = 1; i <= 12; i++) {
-            expense(s, "2026-11-%02d".formatted(i), "row" + i, category, bank);
+            TestSession author = couple[i % 2];
+            String date = "2026-11-%02d".formatted(i);
+            if (i % 3 == 0) {
+                Map<String, Object> transfer = new HashMap<>();
+                transfer.put("kind", "TRANSFER");
+                transfer.put("amountCents", 100);
+                transfer.put("date", date);
+                transfer.put("bankAccountId", banks.get(i % 3));
+                transfer.put("destinationBankAccountId", banks.get((i + 1) % 3));
+                clock.advance(Duration.ofSeconds(1));
+                fixtures.transaction(author, transfer);
+            } else {
+                expense(author, date, "row" + i, categories.get(i % 4), banks.get(i % 3));
+            }
         }
         var statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
         statistics.setStatisticsEnabled(true);
         try {
-            // Warm-up resolves the lazy per-request work (auth lookups) that is not part of the listing itself.
-            get(s, "?size=50");
-            statistics.clear();
+            get(couple[0], "?size=10"); // warm-up
+            // An empty result runs only the page query (count and assembler are skipped): the rest is auth overhead.
+            assertThat(statementsFor(statistics, couple[0], "?categoryId=" + UUID.randomUUID(), 0))
+                    .isEqualTo(1 + AUTH_STATEMENTS);
+            long small = statementsFor(statistics, couple[0], "?size=3", 12);
+            long large = statementsFor(statistics, couple[0], "?size=10", 12);
 
-            JsonNode page = body(get(s, "?size=50"));
-            long statements = statistics.getPrepareStatementCount();
-
-            assertThat(page.path("content").size()).isEqualTo(12);
-            // page + count + categories + bank accounts + users, plus the auth/entitlement lookups of the filter chain.
-            assertThat(statements).isLessThanOrEqualTo(5 + AUTH_QUERY_ALLOWANCE);
+            // Measured: 2 auth/entitlement + page + count + categories + banks + users = 7.
+            assertThat(small).isEqualTo(EXPECTED_STATEMENTS);
+            assertThat(large).isEqualTo(small);
         } finally {
             statistics.setStatisticsEnabled(false);
         }
     }
 
-    /** Authentication and entitlement checks run before the controller; row count must not scale them. */
-    private static final int AUTH_QUERY_ALLOWANCE = 3;
+    private long statementsFor(org.hibernate.stat.Statistics statistics, TestSession s, String query, long total)
+            throws Exception {
+        statistics.clear();
+        JsonNode page = body(get(s, query));
+        assertThat(page.path("totalElements").asLong()).isEqualTo(total);
+        assertThat(page.path("content").size()).isLessThan(12);
+        return statistics.getPrepareStatementCount();
+    }
+
+    private static final long AUTH_STATEMENTS = 2;
+    private static final long EXPECTED_STATEMENTS = 7;
 }
