@@ -174,6 +174,16 @@ class AdminAccessTest {
     }
 
     @Test
+    void admin_listWaitlist_unknownStatus_returns400WithCode() {
+        TestSession admin = testUsers.admin("admin@mail.com");
+
+        var result = adminGet(admin, "/api/v1/admin/waitlist?status=FOO");
+
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
     void admin_createCode_returnsPlainCodeOnce() throws Exception {
         TestSession admin = testUsers.admin("admin@mail.com");
 

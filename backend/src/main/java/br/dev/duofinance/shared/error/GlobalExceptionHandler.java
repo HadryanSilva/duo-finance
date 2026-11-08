@@ -59,6 +59,34 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.badRequest().body(problem(ErrorCode.VALIDATION_FAILED, "Malformed request body"));
     }
 
+    /**
+     * Every other Spring MVC exception (type mismatch, missing parameter, unknown route, 405, 415, method validation,
+     * ...) gets a stable {@code code} derived from its status.
+     */
+    @Override
+    protected ResponseEntity<Object> handleExceptionInternal(
+            Exception ex, Object body, HttpHeaders headers, HttpStatusCode statusCode, WebRequest request) {
+        ResponseEntity<Object> response = super.handleExceptionInternal(ex, body, headers, statusCode, request);
+        if (response != null
+                && response.getBody() instanceof ProblemDetail problem
+                && (problem.getProperties() == null || !problem.getProperties().containsKey("code"))) {
+            ErrorCode code = codeFor(statusCode);
+            problem.setType(URI.create(TYPE_BASE + code.kebab()));
+            problem.setProperty("code", code.name());
+        }
+        return response;
+    }
+
+    /** No dedicated codes exist for 405, 415 and similar client errors, so they report VALIDATION_FAILED. */
+    private static ErrorCode codeFor(HttpStatusCode status) {
+        return switch (status.value()) {
+            case 401 -> ErrorCode.UNAUTHENTICATED;
+            case 403 -> ErrorCode.FORBIDDEN;
+            case 404 -> ErrorCode.NOT_FOUND;
+            default -> status.is4xxClientError() ? ErrorCode.VALIDATION_FAILED : ErrorCode.INTERNAL_ERROR;
+        };
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     ResponseEntity<ProblemDetail> handleAccessDenied(AccessDeniedException ex) {
         return ResponseEntity.status(ErrorCode.FORBIDDEN.status()).body(problem(ErrorCode.FORBIDDEN, "Access denied"));

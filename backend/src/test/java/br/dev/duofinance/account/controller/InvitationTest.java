@@ -284,6 +284,18 @@ class InvitationTest {
     }
 
     @Test
+    void cancel_malformedId_returns400ValidationFailed() {
+        TestSession ana = testUsers.verified("ana@mail.com");
+
+        var result = mvc.delete()
+                .uri(BASE + "/not-a-uuid")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(ana))
+                .exchange();
+
+        assertError(result, HttpStatus.BAD_REQUEST, "VALIDATION_FAILED");
+    }
+
+    @Test
     void cancel_withoutToken_returns401() {
         assertThat(mvc.delete().uri(BASE + "/" + UUID.randomUUID()).exchange()).hasStatus(HttpStatus.UNAUTHORIZED);
     }

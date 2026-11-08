@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @IntegrationTest
@@ -97,6 +98,29 @@ class GlobalExceptionHandlerTest {
                 .satisfies(json -> json.assertThat().extractingPath("$.code").isEqualTo("VALIDATION_FAILED"));
     }
 
+    @Test
+    void springHandledExceptions_carryCodeDerivedFromStatus() {
+        assertThat(mvc.get().uri("/api/v1/__test/errors/no-such-route"))
+                .hasStatus(404)
+                .bodyJson()
+                .satisfies(json -> json.assertThat().extractingPath("$.code").isEqualTo("NOT_FOUND"));
+        assertThat(mvc.delete().uri("/api/v1/__test/errors/account-full"))
+                .hasStatus(405)
+                .bodyJson()
+                .satisfies(json -> json.assertThat().extractingPath("$.code").isEqualTo("VALIDATION_FAILED"));
+        assertThat(mvc.post()
+                        .uri("/api/v1/__test/errors/validate")
+                        .contentType("text/plain")
+                        .content("x"))
+                .hasStatus(415)
+                .bodyJson()
+                .satisfies(json -> json.assertThat().extractingPath("$.code").isEqualTo("VALIDATION_FAILED"));
+        assertThat(mvc.get().uri("/api/v1/__test/errors/required-param"))
+                .hasStatus(400)
+                .bodyJson()
+                .satisfies(json -> json.assertThat().extractingPath("$.code").isEqualTo("VALIDATION_FAILED"));
+    }
+
     record Payload(@NotBlank String name) {}
 
     @RestController
@@ -130,5 +154,8 @@ class GlobalExceptionHandlerTest {
 
         @PostMapping("/validate")
         void validate(@Valid @RequestBody Payload payload) {}
+
+        @GetMapping("/required-param")
+        void requiredParam(@RequestParam String q) {}
     }
 }
