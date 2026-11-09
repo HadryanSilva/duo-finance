@@ -163,12 +163,47 @@ dumps() { find "$BK/daily" -maxdepth 1 -name 'duofinance-*.dump' 2>/dev/null; }
   grep -q " mv s3://bkt/daily/.partial/duofinance-" "$STUB_LOG"
 }
 
-@test "restore_stopApiFlagStopsAndStartsApi" {
+@test "backup_s3UploadFailure_leavesNoFinalObjectAndRemovesPartial" {
   cd "$WORK"
-  bash ./backup.sh
-  bin="$BATS_TEST_TMPDIR/bin"
+  export STUB_S3_ROOT="$BATS_TEST_TMPDIR/s3"
+  export STUB_LOG="$BATS_TEST_TMPDIR/aws.log"
+  export STUB_FAIL=mv
+  mkdir -p "$STUB_S3_ROOT/bkt/daily"
+  sed -i '/^BACKUP_TARGET=/d' .env
+  printf '%s\n' 'BACKUP_S3_BUCKET=bkt' >>.env
+  mkdir -p "$BATS_TEST_TMPDIR/awsbin" && cp "$HELPERS/bin/aws" "$BATS_TEST_TMPDIR/awsbin/aws"
+  PATH="$BATS_TEST_TMPDIR/awsbin:$PATH" run bash ./backup.sh
+  echo "$output"
+  [ "$status" -ne 0 ]
+  [ -z "$(find "$STUB_S3_ROOT/bkt" -type f -name 'duofinance-*.dump')" ]
+  [ -z "$(find "$STUB_S3_ROOT/bkt" -path '*.partial*')" ]
+  grep -q " cp .* s3://bkt/daily/.partial/duofinance-" "$STUB_LOG"
+  grep -q " rm s3://bkt/daily/.partial/duofinance-" "$STUB_LOG"
+}
+
+@test "backup_s3UnparsableLastModified_isLoggedAndSkipped" {
+  cd "$WORK"
+  export STUB_S3_ROOT="$BATS_TEST_TMPDIR/s3"
+  export STUB_LOG="$BATS_TEST_TMPDIR/aws.log"
+  export STUB_BAD_DATE=1
+  mkdir -p "$STUB_S3_ROOT/bkt/daily"
+  touch -d "40 days ago" "$STUB_S3_ROOT/bkt/daily/duofinance-old.dump"
+  sed -i '/^BACKUP_TARGET=/d' .env
+  printf '%s\n' 'BACKUP_S3_BUCKET=bkt' >>.env
+  mkdir -p "$BATS_TEST_TMPDIR/awsbin" && cp "$HELPERS/bin/aws" "$BATS_TEST_TMPDIR/awsbin/aws"
+  PATH="$BATS_TEST_TMPDIR/awsbin:$PATH" run bash ./backup.sh
+  echo "$output"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"cannot parse LastModified"*"daily/duofinance-old.dump"* ]]
+  [ -e "$STUB_S3_ROOT/bkt/daily/duofinance-old.dump" ]
+}
+
+# docker wrapper (first on PATH) that only logs and fakes `stop api` / `start api` (the test stack
+# has no api service); everything else goes to the real docker. FAIL_RESTORE_CALL=1 makes the
+# pg_restore --single-transaction call fail.
+api_wrapper() {
+  local bin="$BATS_TEST_TMPDIR/bin"
   mkdir -p "$bin"
-  # docker wrapper that logs stop/start of api and does not touch the real (absent) api service.
   cat >"$bin/docker" <<'STUB'
 #!/usr/bin/env bash
 case " $* " in
@@ -180,25 +215,78 @@ STUB
   export STUB_LOG="$BATS_TEST_TMPDIR/docker.log"
   REAL_DOCKER="$(type -P docker)"
   export REAL_DOCKER
-  PATH="$bin:$PATH" run bash ./restore.sh "$(dumps)" --yes --stop-api
+  PATH="$bin:$PATH"
+}
+
+teardown() {
+  psql_db -c "DROP VIEW IF EXISTS v_users; DROP TABLE IF EXISTS newer_only; DELETE FROM transactions WHERE id > 40; DELETE FROM users WHERE id > 5" >/dev/null 2>&1 || true
+}
+
+@test "restore_stopApiFlagStopsAndStartsApi" {
+  cd "$WORK"
+  bash ./backup.sh
+  api_wrapper
+  run bash ./restore.sh "$(dumps)" --yes --stop-api
   echo "$output"
   [ "$status" -eq 0 ]
   [ "$(sed -n '1p' "$STUB_LOG" | grep -c ' stop api')" -eq 1 ]
   [ "$(sed -n '2p' "$STUB_LOG" | grep -c ' start api')" -eq 1 ]
 }
 
+@test "restore_failureRollsBackAndStillRestartsApi" {
+  cd "$WORK"
+  bash ./backup.sh
+  # State that makes the restore's DROP TABLE fail (dependent view), plus a row newer than the dump.
+  psql_db -c "CREATE VIEW v_users AS SELECT * FROM users; INSERT INTO users VALUES (6, 'newer')"
+  api_wrapper
+  run bash ./restore.sh "$(dumps)" --yes --stop-api
+  echo "$output"
+  [ "$status" -ne 0 ]
+  [ "$(grep -c ' start api' "$STUB_LOG")" -eq 1 ]
+  # Rolled back: the DB is exactly as before the restore (new row and view still there).
+  [ "$(psql_db -c "SELECT count(*) FROM users")" = "6" ]
+  [ "$(psql_db -c "SELECT count(*) FROM pg_views WHERE viewname='v_users'")" = "1" ]
+  [ "$(psql_db -c "SELECT count(*) FROM transactions")" = "40" ]
+}
+
+@test "restore_dropSchema_restoresOlderDumpOverNewerSchema" {
+  cd "$WORK"
+  bash ./backup.sh
+  psql_db -c "CREATE TABLE newer_only (id int); CREATE VIEW v_users AS SELECT * FROM users; INSERT INTO users VALUES (6, 'newer')"
+  run bash ./restore.sh "$(dumps)" --yes --drop-schema
+  echo "$output"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"public is DROPPED"* ]]
+  [ "$(psql_db -c "SELECT count(*) FROM information_schema.tables WHERE table_name IN ('newer_only','v_users')")" = "0" ]
+  [ "$(psql_db -c "SELECT count(*) FROM users")" = "5" ]
+  [ "$(psql_db -c "SELECT count(*) FROM transactions")" = "40" ]
+  # Without --yes the plan mentions it and nothing runs.
+  run bash ./restore.sh "$(dumps)" --drop-schema
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"public is DROPPED"* ]]
+}
+
 @test "installCron_isIdempotent" {
-  export CRON_DIR="$BATS_TEST_TMPDIR/cron.d" CRON_USER=deploy DEPLOY_PATH=/opt/duo-finance
+  me="$(id -un)"
+  export CRON_DIR="$BATS_TEST_TMPDIR/cron.d" CRON_USER="$me" DEPLOY_PATH=/opt/duo-finance
+  export BACKUP_LOG="$BATS_TEST_TMPDIR/backup.log"
   mkdir -p "$CRON_DIR"
   run bash "$WORK/install-cron.sh"
   [ "$status" -eq 0 ]
+  echo "keep" >"$BACKUP_LOG"
   first="$(cat "$CRON_DIR/duo-finance-backup")"
   run bash "$WORK/install-cron.sh"
   [ "$status" -eq 0 ]
   [ "$(cat "$CRON_DIR/duo-finance-backup")" = "$first" ]
   [ "$(grep -c 'backup.sh' "$CRON_DIR/duo-finance-backup")" -eq 1 ]
-  grep -qxF '30 3 * * * deploy cd /opt/duo-finance && ./backup.sh >> /var/log/duo-finance-backup.log 2>&1' \
+  grep -qxF "30 3 * * * $me cd /opt/duo-finance && ./backup.sh >> $BACKUP_LOG 2>&1" \
     "$CRON_DIR/duo-finance-backup"
   [ "$(stat -c %a "$CRON_DIR/duo-finance-backup")" = "644" ]
   [ "$(find "$CRON_DIR" -type f | wc -l)" -eq 1 ]
+  # Log file: created once, never truncated, 0640, owned by CRON_USER.
+  [ "$(cat "$BACKUP_LOG")" = "keep" ]
+  # Windows file systems (Git Bash) cannot represent 0640: only assert the mode where chmod sticks.
+  touch "$BATS_TEST_TMPDIR/probe" && chmod 0640 "$BATS_TEST_TMPDIR/probe"
+  if [ "$(stat -c %a "$BATS_TEST_TMPDIR/probe")" = "640" ]; then [ "$(stat -c %a "$BACKUP_LOG")" = "640" ]; fi
+  [ "$(stat -c %U "$BACKUP_LOG")" = "$me" ]
 }

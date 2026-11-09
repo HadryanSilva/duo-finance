@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Usage: restore.sh <dump-file | s3-uri> --yes [--stop-api]
+# Usage: restore.sh <dump-file | s3-uri> --yes [--stop-api] [--drop-schema]
 #
 # Restores a backup.sh dump into the running postgres service, in DEPLOY_PATH next to
 # docker-compose.yml and .env. Prints the plan and refuses to run without --yes.
-# Runs `pg_restore --clean --if-exists --no-owner -d $POSTGRES_DB` inside the postgres container,
-# reading the dump from stdin. Existing objects of the dump are dropped and recreated.
+# Runs `pg_restore --clean --if-exists --no-owner --single-transaction -d $POSTGRES_DB` inside the
+# postgres container, reading the dump from stdin. A failure rolls the database back untouched.
+# Existing objects of the dump are dropped and recreated.
+# --drop-schema: drops and recreates schema public first (restore an older dump over a newer schema,
+# where Flyway objects would otherwise clash); same single transaction, via psql.
 # The api should be stopped first (the restore drops tables it is using): pass --stop-api to stop
 # it before and start it again afterwards, or run `docker compose stop api` yourself.
 # An s3:// source is downloaded with the aws CLI (same .env settings as backup.sh).
@@ -15,7 +18,7 @@ env_file=.env
 
 log() { printf '%s restore: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 usage() {
-  echo "usage: $0 <dump-file | s3://bucket/key> --yes [--stop-api]" >&2
+  echo "usage: $0 <dump-file | s3://bucket/key> --yes [--stop-api] [--drop-schema]" >&2
   exit 64
 }
 
@@ -31,10 +34,12 @@ env_value() {
 source_arg=""
 yes=false
 stop_api=false
+drop_schema=false
 for arg in "$@"; do
   case "$arg" in
     --yes) yes=true ;;
     --stop-api) stop_api=true ;;
+    --drop-schema) drop_schema=true ;;
     -*) usage ;;
     *)
       [ -z "$source_arg" ] || usage
@@ -59,6 +64,9 @@ if $stop_api; then
   echo "  api:      will be stopped before and started after the restore"
 else
   echo "  api:      NOT stopped; stopping it first is recommended (use --stop-api)"
+fi
+if $drop_schema; then
+  echo "  schema:   public is DROPPED and recreated first, in the same transaction as the restore"
 fi
 if ! $yes; then
   echo "Refusing to run without --yes." >&2
@@ -104,6 +112,19 @@ if $stop_api; then
   compose stop api
 fi
 
-log "restoring into $pg_db"
-compose exec -T postgres pg_restore -U "$pg_user" --clean --if-exists --no-owner -d "$pg_db" <"$dump"
+# Everything below runs in ONE transaction: a failure rolls back to the pre-restore state.
+if $drop_schema; then
+  # pg_restore cannot run a statement of its own in its transaction, so the dump is rendered to SQL
+  # first (a failure there leaves the database untouched), then psql applies "drop schema + dump"
+  # as a single transaction.
+  log "rendering dump to SQL"
+  compose exec -T postgres pg_restore --no-owner -f - <"$dump" >"$work/restore.sql"
+  log "restoring into $pg_db (dropping schema public first)"
+  { echo "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"; cat "$work/restore.sql"; } |
+    compose exec -T postgres psql -U "$pg_user" -d "$pg_db" -q -v ON_ERROR_STOP=1 --single-transaction >/dev/null
+else
+  log "restoring into $pg_db"
+  compose exec -T postgres pg_restore -U "$pg_user" --clean --if-exists --no-owner --single-transaction \
+    -d "$pg_db" <"$dump"
+fi
 log "done"

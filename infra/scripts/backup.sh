@@ -119,7 +119,11 @@ case "$target" in
       --query 'Contents[].[Key,LastModified]' --output text)"
     while IFS=$'\t' read -r key modified; do
       case "$key" in daily/duofinance-*.dump) ;; *) continue ;; esac
-      if [ "$(date -d "$modified" +%s)" -lt "$cutoff" ]; then
+      if ! modified_epoch="$(date -d "$modified" +%s 2>/dev/null)"; then
+        log "cannot parse LastModified '$modified' of $key: not pruned"
+        continue
+      fi
+      if [ "$modified_epoch" -lt "$cutoff" ]; then
         aws_s3 s3api delete-object --bucket "$bucket" --key "$key"
         log "pruned $key"
       fi

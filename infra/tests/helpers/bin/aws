@@ -21,6 +21,8 @@ path() { # s3://bucket/key -> local path; anything else unchanged
   case "$1" in s3://*) printf '%s/%s' "$STUB_S3_ROOT" "${1#s3://}" ;; *) printf '%s' "$1" ;; esac
 }
 
+[ -z "${STUB_FAIL:-}" ] || [ "${2:-}" != "$STUB_FAIL" ] || { echo "aws stub: $2 failed" >&2; exit 1; } # STUB_FAIL=cp|mv|rm
+
 case "$1 $2" in
   "s3 cp")
     mkdir -p "$(dirname "$(path "$4")")"
@@ -31,7 +33,10 @@ case "$1 $2" in
     mv "$(path "$3")" "$(path "$4")"
     rmdir "$(dirname "$(path "$3")")" 2>/dev/null || true # S3 has no directories
     ;;
-  "s3 rm") rm -f "$(path "$3")" ;;
+  "s3 rm")
+    rm -f "$(path "$3")"
+    rmdir "$(dirname "$(path "$3")")" 2>/dev/null || true # S3 has no directories
+    ;;
   "s3api list-objects-v2")
     bucket="" prefix=""
     shift 2
@@ -45,6 +50,7 @@ case "$1 $2" in
     root="$STUB_S3_ROOT/$bucket"
     [ -d "$root" ] || exit 0
     (cd "$root" && find "$prefix" -type f 2>/dev/null) | while IFS= read -r key; do
+      if [ -n "${STUB_BAD_DATE:-}" ]; then printf '%s\tnot-a-date\n' "$key"; continue; fi
       printf '%s\t%s\n' "$key" "$(date -u -d "@$(stat -c %Y "$root/$key")" +%Y-%m-%dT%H:%M:%S+00:00)"
     done
     ;;
