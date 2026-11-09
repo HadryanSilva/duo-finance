@@ -168,15 +168,31 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - name: Install bats and shellcheck
+      - name: Install bats
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends bats shellcheck
+          sudo apt-get install -y --no-install-recommends bats
+      # Pinned release binary, checksum-verified: apt's shellcheck is older (0.9.0 on 24.04).
+      # The scripts stay clean on 0.9.0 too.
+      - name: Install shellcheck v0.11.0
+        env:
+          SHELLCHECK_VERSION: v0.11.0
+          SHELLCHECK_SHA256: 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
+        run: |
+          archive="shellcheck-$SHELLCHECK_VERSION.linux.x86_64.tar.xz"
+          curl -fsSLo "$RUNNER_TEMP/$archive" \
+            "https://github.com/koalaman/shellcheck/releases/download/$SHELLCHECK_VERSION/$archive"
+          echo "$SHELLCHECK_SHA256  $RUNNER_TEMP/$archive" | sha256sum -c -
+          tar -xJf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+          sudo install -m 0755 "$RUNNER_TEMP/shellcheck-$SHELLCHECK_VERSION/shellcheck" /usr/local/bin/shellcheck
+          shellcheck --version
       - name: shellcheck
-        run: shellcheck infra/scripts/*.sh
+        run: |
+          shellcheck infra/scripts/*.sh infra/nginx/entrypoint.sh infra/tests/helpers/bin/* \
+            infra/tests/helpers/flock/flock
       - name: bats (light, no Docker work)
         run: bats --filter-tags '!docker' infra/tests/*.bats
       - name: bats (Docker)
         run: bats --filter-tags docker infra/tests/*.bats
       - name: actionlint
-        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7

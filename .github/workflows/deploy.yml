@@ -1,8 +1,11 @@
 # Continuous deployment. Trigger: workflow_run of "CI" (ci.yml), chosen over duplicating CI's jobs
 # as `needs`: it runs only after CI finished green on a push to main, so every deployed commit
 # passed the same required checks as its pull request.
-#   images: builds api (backend/Dockerfile) and nginx (frontend/Dockerfile), both from the repo
-#           root, and pushes ghcr.io/hadryansilva/duo-finance-{api,nginx}:sha-<12> and :main.
+#   images: builds api (context backend/, backend/Dockerfile) and nginx (context: the repo root,
+#           frontend/Dockerfile, trimmed by frontend/Dockerfile.dockerignore) and pushes
+#           ghcr.io/hadryansilva/duo-finance-{api,nginx}:sha-<12> and :main. The context/file
+#           pairs must match docker-compose.local.yml and the image tests (infra/tests/config.bats).
+#           Every action is pinned to a full commit SHA (version in the trailing comment).
 #   deploy: stages the compose file and scripts in DEPLOY_PATH/.incoming/ and runs the staged
 #           .incoming/deploy.sh sha-<12>. Under its lock it backs up the live files, swaps the
 #           staged ones in and rolls files and tag back together on failure; the job fails with
@@ -46,7 +49,7 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
@@ -55,16 +58,16 @@ jobs:
         env:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: echo "tag=sha-${HEAD_SHA:0:12}" >> "$GITHUB_OUTPUT"
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push api
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
-          context: .
+          context: backend
           file: backend/Dockerfile
           push: true
           tags: |
@@ -73,7 +76,7 @@ jobs:
           cache-from: type=gha,scope=api
           cache-to: type=gha,scope=api,mode=max
       - name: Build and push nginx
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: frontend/Dockerfile
@@ -101,7 +104,7 @@ jobs:
       DEPLOY_USER: ${{ vars.DEPLOY_USER }}
       DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
@@ -194,7 +197,7 @@ jobs:
             aws lightsail open-instance-public-ports --instance-name "$INSTANCE" --port-info "$reassert"
           fi
           current="$(aws lightsail get-instance-port-states --instance-name "$INSTANCE" --output json |
-            jq -r '[.portStates[] | select(.fromPort == 22 and .protocol == "tcp") | .cidrs[]] | join(",")')"
+            jq -r '[.portStates[] | select(.fromPort == 22 and .protocol == "tcp") | (.cidrs // [])[]] | join(",")')"
           case ",$current," in
             *",$RUNNER_CIDR,"*)
               echo "::error::port 22 is still open to $RUNNER_CIDR"
