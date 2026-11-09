@@ -96,7 +96,7 @@ class JwtKeyConfigTest {
 
         String[][] variants = {
             {privateReal.replace("\n", ""), publicReal.replace("\n", "")},
-            {privateReal.replace("\n", "\n"), publicReal.replace("\n", "\n")},
+            {privateReal.replace("\n", "\\n"), publicReal.replace("\n", "\\n")},
             {privateReal, publicReal},
         };
         for (String[] variant : variants) {
