@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { useHttp } from '@/app/providers'
-import { useResendVerification } from '@/shared/api/queries/me'
+import { useFetchMe, useResendVerification } from '@/shared/api/queries/me'
 import { errorMessage } from '@/shared/i18n/error-codes'
 import { useSession } from '@/shared/session/session-store'
 import { Button } from '@/shared/ui/button'
@@ -20,6 +20,7 @@ const error = ref('')
 const resent = ref(false)
 const resendError = ref('')
 const resendMutation = useResendVerification()
+const fetchMe = useFetchMe()
 
 onMounted(async () => {
   const token = route.query.token
@@ -34,6 +35,15 @@ onMounted(async () => {
   } catch (e) {
     error.value = errorMessage(e)
     state.value = 'error'
+    return
+  }
+  // The session was restored before this call; /me always describes the token's own user.
+  if (session.status === 'authenticated') {
+    try {
+      session.updateUser(await fetchMe())
+    } catch {
+      // the verification itself succeeded; the next session restore picks up the flag
+    }
   }
 })
 

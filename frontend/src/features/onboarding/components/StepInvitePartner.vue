@@ -7,7 +7,7 @@ import { z } from 'zod'
 import TextField from '@/shared/ui/TextField.vue'
 import { isApiError } from '@/shared/api/problem'
 import { useCreateInvitation } from '@/shared/api/queries/account'
-import { useResendVerification } from '@/shared/api/queries/me'
+import { useMe, useResendVerification } from '@/shared/api/queries/me'
 import { errorMessage } from '@/shared/i18n/error-codes'
 import { useSession } from '@/shared/session/session-store'
 import { Button } from '@/shared/ui/button'
@@ -17,6 +17,7 @@ const emit = defineEmits<{ done: [] }>()
 
 const { t } = useI18n()
 const session = useSession()
+const me = useMe()
 const invite = useCreateInvitation()
 const resendMutation = useResendVerification()
 
@@ -39,7 +40,11 @@ const serverUnverified = ref(false)
 const resent = ref(false)
 const resendError = ref<string | null>(null)
 
-const unverified = computed(() => serverUnverified.value || session.user?.emailVerified === false)
+// /me is fresher than the session, which was restored before any verification in another tab.
+const emailVerified = computed(
+  () => me.data.value?.emailVerified ?? session.user?.emailVerified ?? false,
+)
+const unverified = computed(() => serverUnverified.value || !emailVerified.value)
 
 function showFieldError(field: string, message: string) {
   if (field === 'email') setFieldError(field, message)

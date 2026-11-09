@@ -21,6 +21,14 @@ export function useMe() {
   return useQuery({ queryKey: ME_KEY, queryFn: () => http.get<MeResponse>('/me') })
 }
 
+/** Reads `/me` from the server now (ignoring the cache) and stores it under the `me` query. */
+export function useFetchMe() {
+  const http = useHttp()
+  const qc = useQueryClient()
+  return () =>
+    qc.fetchQuery({ queryKey: ME_KEY, queryFn: () => http.get<MeResponse>('/me'), staleTime: 0 })
+}
+
 export function useUpdateMe() {
   const http = useHttp()
   const qc = useQueryClient()
