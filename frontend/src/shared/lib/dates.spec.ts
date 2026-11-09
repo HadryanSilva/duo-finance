@@ -3,6 +3,7 @@ import {
   addMonths,
   currentMonth,
   formatBusinessDate,
+  formatInstant,
   formatMonth,
   groupByDate,
   todayIso,
@@ -58,5 +59,14 @@ describe('business dates', () => {
       { date: '2026-03-01', rows: [rows[1]] },
     ])
     expect(groupByDate([])).toEqual([])
+  })
+})
+
+describe('formatInstant', () => {
+  it('shows date and time in the requested locale', () => {
+    const iso = '2026-11-09T15:30:00Z'
+    const parts = new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' })
+    expect(formatInstant(iso, 'en')).toBe(parts.format(new Date(iso)))
+    expect(formatInstant(iso, 'pt-BR')).toMatch(/2026/)
   })
 })

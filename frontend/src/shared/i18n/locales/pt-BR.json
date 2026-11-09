@@ -551,5 +551,73 @@
       "deleted": "Sua conta foi excluída.",
       "wrongPassword": "A senha está incorreta."
     }
+  },
+  "admin": {
+    "title": "Administração",
+    "tabs": {
+      "waitlist": "Lista de espera",
+      "codes": "Códigos de acesso"
+    },
+    "status": {
+      "label": "Status",
+      "PENDING": "Pendente",
+      "APPROVED": "Aprovada",
+      "REJECTED": "Rejeitada"
+    },
+    "waitlist": {
+      "empty": "Nenhuma entrada com esse status.",
+      "locale": "Idioma",
+      "requested": "Pedido em {date}",
+      "approve": "Aprovar",
+      "resend": "Reenviar código",
+      "reject": "Rejeitar",
+      "approved": "Convite enviado para {email}.",
+      "resent": "Novo código enviado para {email}; o anterior foi revogado.",
+      "rejected": "Entrada de {email} rejeitada.",
+      "rejectTitle": "Rejeitar esta entrada?",
+      "rejectMessage": "O código já enviado para {email} será revogado e deixará de funcionar.",
+      "pager": "Paginação",
+      "previous": "Anterior",
+      "next": "Próxima",
+      "page": "Página {page} de {total}"
+    },
+    "codes": {
+      "empty": "Nenhum código de acesso ainda.",
+      "generate": "Gerar código",
+      "linkedEmail": "E-mail vinculado",
+      "anyone": "Qualquer pessoa",
+      "uses": "Usos",
+      "expires": "Validade",
+      "never": "Sem validade",
+      "note": "Nota",
+      "revoke": "Revogar",
+      "revokeTitle": "Revogar este código?",
+      "revokeMessage": "O código deixará de funcionar imediatamente.",
+      "revoked": "Código revogado.",
+      "status": {
+        "ACTIVE": "Ativo",
+        "REVOKED": "Revogado",
+        "EXPIRED": "Expirado",
+        "EXHAUSTED": "Esgotado"
+      }
+    },
+    "form": {
+      "title": "Gerar código de acesso",
+      "email": "E-mail (opcional)",
+      "emailHint": "Se informado, só esse e-mail pode usar o código.",
+      "maxUses": "Usos",
+      "maxUsesRange": "Informe um número inteiro entre 1 e 1000.",
+      "expiresAt": "Validade (opcional)",
+      "note": "Nota (opcional)",
+      "submit": "Gerar"
+    },
+    "plain": {
+      "title": "Código gerado",
+      "description": "Copie o código e envie para quem vai usá-lo.",
+      "warning": "Este código não será mostrado de novo. Copie agora.",
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "manual": "Não foi possível copiar. Copie manualmente o texto selecionado."
+    }
   }
 }

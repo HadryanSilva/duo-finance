@@ -49,3 +49,10 @@ export function groupByDate<T extends { date: string }>(rows: T[]): { date: stri
   }
   return [...groups].map(([date, grouped]) => ({ date, rows: grouped }))
 }
+
+/** A real moment in time (an ISO Instant), shown as date and time in the viewer's zone. */
+export function formatInstant(iso: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(
+    new Date(iso),
+  )
+}

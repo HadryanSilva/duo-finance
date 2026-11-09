@@ -551,5 +551,73 @@
       "deleted": "Your account was deleted.",
       "wrongPassword": "The password is incorrect."
     }
+  },
+  "admin": {
+    "title": "Administration",
+    "tabs": {
+      "waitlist": "Waitlist",
+      "codes": "Access codes"
+    },
+    "status": {
+      "label": "Status",
+      "PENDING": "Pending",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected"
+    },
+    "waitlist": {
+      "empty": "No entries with this status.",
+      "locale": "Language",
+      "requested": "Requested {date}",
+      "approve": "Approve",
+      "resend": "Resend code",
+      "reject": "Reject",
+      "approved": "Invite sent to {email}.",
+      "resent": "New code sent to {email}; the previous one was revoked.",
+      "rejected": "Entry for {email} rejected.",
+      "rejectTitle": "Reject this entry?",
+      "rejectMessage": "The code already sent to {email} will be revoked and stop working.",
+      "pager": "Pagination",
+      "previous": "Previous",
+      "next": "Next",
+      "page": "Page {page} of {total}"
+    },
+    "codes": {
+      "empty": "No access codes yet.",
+      "generate": "Generate code",
+      "linkedEmail": "Linked email",
+      "anyone": "Anyone",
+      "uses": "Uses",
+      "expires": "Expires",
+      "never": "No expiry",
+      "note": "Note",
+      "revoke": "Revoke",
+      "revokeTitle": "Revoke this code?",
+      "revokeMessage": "The code will stop working immediately.",
+      "revoked": "Code revoked.",
+      "status": {
+        "ACTIVE": "Active",
+        "REVOKED": "Revoked",
+        "EXPIRED": "Expired",
+        "EXHAUSTED": "Exhausted"
+      }
+    },
+    "form": {
+      "title": "Generate access code",
+      "email": "Email (optional)",
+      "emailHint": "If set, only this email can use the code.",
+      "maxUses": "Uses",
+      "maxUsesRange": "Enter a whole number between 1 and 1000.",
+      "expiresAt": "Expires (optional)",
+      "note": "Note (optional)",
+      "submit": "Generate"
+    },
+    "plain": {
+      "title": "Code generated",
+      "description": "Copy the code and send it to whoever will use it.",
+      "warning": "This code won't be shown again. Copy it now.",
+      "copy": "Copy",
+      "copied": "Copied",
+      "manual": "Could not copy. Copy the selected text manually."
+    }
   }
 }
