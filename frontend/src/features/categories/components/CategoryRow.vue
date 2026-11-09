@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import type { CategoryResponse } from '@/shared/api/types'
+import { swatchInkClass } from '@/shared/lib/contrast'
 import ArchivedBadge from '@/shared/ui/ArchivedBadge.vue'
 import CategoryIcon from '@/shared/ui/CategoryIcon.vue'
-import { swatchInkClass } from '../lib/contrast'
 import RowActions from '@/shared/ui/RowActions.vue'
 
 const props = defineProps<{ category: CategoryResponse }>()
