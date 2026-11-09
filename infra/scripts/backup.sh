@@ -9,9 +9,12 @@
 #      so the final key never holds a partial object.
 #   3. Deletes daily/duofinance-*.dump objects older than 30 days.
 # Target: BACKUP_TARGET=file:///dir (tests, manual use), otherwise s3://$BACKUP_S3_BUCKET using the
-# aws CLI (with --endpoint-url "$BACKUP_S3_ENDPOINT" when set; AWS_* come from .env).
-# Settings are read from .env without sourcing it (its values are not shell-safe); an environment
-# variable of the same name wins for the BACKUP_* settings.
+# aws CLI (with --endpoint-url "$BACKUP_S3_ENDPOINT" when set).
+# Files, read without sourcing them (their values are not shell-safe):
+#   .env        POSTGRES_USER and POSTGRES_DB;
+#   backup.env  BACKUP_* and AWS_* (chmod 600; never handed to a container, see backup.env.example).
+# An environment variable of the same name wins for the BACKUP_* and AWS_* settings; backup.env
+# may be absent when BACKUP_TARGET comes from the environment.
 # Exit codes: 0 ok; non-zero on any failure, with nothing partial left at the target.
 # Env overrides (tests): COMPOSE_FILES (compose arguments, default "-f docker-compose.yml"),
 #   BACKUP_NOW (epoch seconds used as "now" for retention).
@@ -19,22 +22,25 @@ set -euo pipefail
 
 readonly RETENTION_DAYS=30
 env_file=.env
+backup_env_file=backup.env
 
 log() { printf '%s backup: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 
-# Value of a single key of the env file, without sourcing it (values are not shell-safe).
+# Value of a single key of a file (default .env; empty when the file is absent), without sourcing
+# it (values are not shell-safe).
 env_value() {
-  local value
-  value="$(grep -m 1 "^$1=" "$env_file" | cut -d= -f2- | tr -d '\r')" || true
+  local value file="${2:-$env_file}"
+  [ -f "$file" ] || return 0
+  value="$(grep -m 1 "^$1=" "$file" | cut -d= -f2- | tr -d '\r')" || true
   value="${value#\"}"
   value="${value%\"}"
   printf '%s' "$value"
 }
 
-# Setting: environment first, then the env file.
+# Backup setting: environment first, then backup.env.
 setting() {
   local current="${!1:-}"
-  if [ -n "$current" ]; then printf '%s' "$current"; else env_value "$1"; fi
+  if [ -n "$current" ]; then printf '%s' "$current"; else env_value "$1" "$backup_env_file"; fi
 }
 
 read -ra compose_args <<<"${COMPOSE_FILES:--f docker-compose.yml}"
@@ -43,13 +49,23 @@ pg() { docker compose "${compose_args[@]}" exec -T postgres "$@"; }
 [ -f "$env_file" ] || { log "$env_file not found (run from the deploy directory)"; exit 2; }
 pg_user="$(env_value POSTGRES_USER)"
 pg_db="$(env_value POSTGRES_DB)"
-[ -n "$pg_user" ] && [ -n "$pg_db" ] || { log "POSTGRES_USER/POSTGRES_DB missing in $env_file"; exit 2; }
+if [ -z "$pg_user" ] || [ -z "$pg_db" ]; then
+  log "POSTGRES_USER/POSTGRES_DB missing in $env_file"
+  exit 2
+fi
 
 target="$(setting BACKUP_TARGET)"
 endpoint="$(setting BACKUP_S3_ENDPOINT)"
 if [ -z "$target" ]; then
   bucket="$(setting BACKUP_S3_BUCKET)"
-  [ -n "$bucket" ] || { log "set BACKUP_S3_BUCKET (or BACKUP_TARGET=file://dir)"; exit 2; }
+  if [ -z "$bucket" ]; then
+    if [ -f "$backup_env_file" ]; then
+      log "set BACKUP_S3_BUCKET in $backup_env_file (or BACKUP_TARGET=file://dir)"
+    else
+      log "$backup_env_file not found: create it from backup.env.example (chmod 600)"
+    fi
+    exit 2
+  fi
   target="s3://$bucket"
   for key in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION; do
     value="$(setting "$key")"

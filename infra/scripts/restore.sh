@@ -10,11 +10,14 @@
 # where Flyway objects would otherwise clash); same single transaction, via psql.
 # The api should be stopped first (the restore drops tables it is using): pass --stop-api to stop
 # it before and start it again afterwards, or run `docker compose stop api` yourself.
-# An s3:// source is downloaded with the aws CLI (same .env settings as backup.sh).
+# POSTGRES_USER and POSTGRES_DB come from .env. An s3:// source is downloaded with the aws CLI,
+# with BACKUP_S3_ENDPOINT and AWS_* from backup.env, as in backup.sh (an environment variable of the
+# same name wins).
 # Env overrides (tests): COMPOSE_FILES (default "-f docker-compose.yml").
 set -euo pipefail
 
 env_file=.env
+backup_env_file=backup.env
 
 log() { printf '%s restore: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 usage() {
@@ -22,13 +25,21 @@ usage() {
   exit 64
 }
 
-# Value of a single key of the env file, without sourcing it (values are not shell-safe).
+# Value of a single key of a file (default .env; empty when the file is absent), without sourcing
+# it (values are not shell-safe).
 env_value() {
-  local value
-  value="$(grep -m 1 "^$1=" "$env_file" | cut -d= -f2- | tr -d '\r')" || true
+  local value file="${2:-$env_file}"
+  [ -f "$file" ] || return 0
+  value="$(grep -m 1 "^$1=" "$file" | cut -d= -f2- | tr -d '\r')" || true
   value="${value#\"}"
   value="${value%\"}"
   printf '%s' "$value"
+}
+
+# Backup setting: environment first, then backup.env.
+setting() {
+  local current="${!1:-}"
+  if [ -n "$current" ]; then printf '%s' "$current"; else env_value "$1" "$backup_env_file"; fi
 }
 
 source_arg=""
@@ -55,7 +66,10 @@ compose() { docker compose "${compose_args[@]}" "$@"; }
 [ -f "$env_file" ] || { log "$env_file not found (run from the deploy directory)"; exit 2; }
 pg_db="$(env_value POSTGRES_DB)"
 pg_user="$(env_value POSTGRES_USER)"
-[ -n "$pg_db" ] && [ -n "$pg_user" ] || { log "POSTGRES_USER/POSTGRES_DB missing in $env_file"; exit 2; }
+if [ -z "$pg_db" ] || [ -z "$pg_user" ]; then
+  log "POSTGRES_USER/POSTGRES_DB missing in $env_file"
+  exit 2
+fi
 
 echo "Restore plan:"
 echo "  source:   $source_arg"
@@ -87,9 +101,9 @@ trap cleanup EXIT
 dump="$source_arg"
 case "$source_arg" in
   s3://*)
-    endpoint="$(env_value BACKUP_S3_ENDPOINT)"
+    endpoint="$(setting BACKUP_S3_ENDPOINT)"
     for key in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION; do
-      value="$(env_value "$key")"
+      value="$(setting "$key")"
       [ -z "$value" ] || export "$key=$value"
     done
     dump="$work/restore.dump"

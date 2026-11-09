@@ -6,8 +6,8 @@
 # setup_file starts only the postgres service of docker-compose.yml + docker-compose.local.yml
 # (own compose project, no published ports, temp env file with a random password outside the repo)
 # and teardown_file always runs `down -v`. Each test runs the scripts from a temp "deploy dir" with
-# its own .env and BACKUP_TARGET=file://<tmp>. The S3 path runs against a stubbed aws
-# (helpers/bin/aws); real S3 is never contacted.
+# its own .env (POSTGRES_*) and backup.env (BACKUP_TARGET=file://<tmp>, or the S3 settings). The S3
+# path runs against a stubbed aws (helpers/bin/aws); real S3 is never contacted.
 
 # Each @test runs in its own subshell, so per-test exports are intended.
 # shellcheck disable=SC2030,SC2031
@@ -73,13 +73,25 @@ setup() {
   {
     cat "$ENV_FILE"
     echo 'EMAIL_NOTE=p$w`d"x'"'"'y'
-    echo "BACKUP_TARGET=file://$BK"
   } >"$WORK/.env"
+  echo "BACKUP_TARGET=file://$BK" >"$WORK/backup.env"
   export COMPOSE_FILES="-p $RUN_ID --env-file $ENV_FILE -f $REPO_ROOT/infra/docker-compose.yml -f $REPO_ROOT/infra/docker-compose.local.yml"
   export DUO_ENV_FILE="$ENV_FILE"
 }
 
 dumps() { find "$BK/daily" -maxdepth 1 -name 'duofinance-*.dump' 2>/dev/null; }
+
+# S3 settings in backup.env only (.env has none) and a stubbed aws first on PATH (only aws:
+# helpers/bin also stubs docker).
+use_s3_stub() {
+  export STUB_S3_ROOT="$BATS_TEST_TMPDIR/s3"
+  export STUB_LOG="$BATS_TEST_TMPDIR/aws.log"
+  mkdir -p "$STUB_S3_ROOT/bkt/daily" "$BATS_TEST_TMPDIR/awsbin"
+  cp "$HELPERS/bin/aws" "$BATS_TEST_TMPDIR/awsbin/aws"
+  printf '%s\n' 'BACKUP_S3_BUCKET=bkt' 'BACKUP_S3_ENDPOINT=https://s3.stub.test' \
+    'AWS_ACCESS_KEY_ID=AKIDFROMBACKUPENV' 'AWS_SECRET_ACCESS_KEY=secret-from-backup-env' \
+    'AWS_DEFAULT_REGION=us-east-1' >"$WORK/backup.env"
+}
 
 @test "backup_writesValidDump" {
   cd "$WORK"
@@ -143,14 +155,9 @@ dumps() { find "$BK/daily" -maxdepth 1 -name 'duofinance-*.dump' 2>/dev/null; }
 
 @test "backup_s3Path_usesPartialThenRenameAndPrunes" {
   cd "$WORK"
-  export STUB_S3_ROOT="$BATS_TEST_TMPDIR/s3"
-  export STUB_LOG="$BATS_TEST_TMPDIR/aws.log"
-  mkdir -p "$STUB_S3_ROOT/bkt/daily"
+  use_s3_stub
   touch -d "31 days ago" "$STUB_S3_ROOT/bkt/daily/duofinance-old.dump"
   touch -d "29 days ago" "$STUB_S3_ROOT/bkt/daily/duofinance-recent.dump"
-  sed -i '/^BACKUP_TARGET=/d' .env
-  printf '%s\n' 'BACKUP_S3_BUCKET=bkt' 'BACKUP_S3_ENDPOINT=https://s3.stub.test' >>.env
-  mkdir -p "$BATS_TEST_TMPDIR/awsbin" && cp "$HELPERS/bin/aws" "$BATS_TEST_TMPDIR/awsbin/aws" # only aws: helpers/bin also stubs docker
   PATH="$BATS_TEST_TMPDIR/awsbin:$PATH" run bash ./backup.sh
   echo "$output"
   [ "$status" -eq 0 ]
@@ -161,17 +168,26 @@ dumps() { find "$BK/daily" -maxdepth 1 -name 'duofinance-*.dump' 2>/dev/null; }
   grep -q -- "--endpoint-url https://s3.stub.test" "$STUB_LOG"
   grep -q " cp .* s3://bkt/daily/.partial/duofinance-" "$STUB_LOG"
   grep -q " mv s3://bkt/daily/.partial/duofinance-" "$STUB_LOG"
+  # Credentials come from backup.env.
+  grep -qx "aws-env AWS_ACCESS_KEY_ID=AKIDFROMBACKUPENV" "$STUB_LOG"
+}
+
+@test "backup_withoutBackupEnv_failsWithHint" {
+  cd "$WORK"
+  rm backup.env
+  # S3 settings left in .env (the old layout) are ignored.
+  printf '%s\n' 'BACKUP_S3_BUCKET=bkt' 'AWS_ACCESS_KEY_ID=AKIDINDOTENV' >>.env
+  run bash ./backup.sh
+  echo "$output"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"backup.env not found"* ]]
+  [ -z "$(find "$BK" -type f)" ]
 }
 
 @test "backup_s3UploadFailure_leavesNoFinalObjectAndRemovesPartial" {
   cd "$WORK"
-  export STUB_S3_ROOT="$BATS_TEST_TMPDIR/s3"
-  export STUB_LOG="$BATS_TEST_TMPDIR/aws.log"
+  use_s3_stub
   export STUB_FAIL=mv
-  mkdir -p "$STUB_S3_ROOT/bkt/daily"
-  sed -i '/^BACKUP_TARGET=/d' .env
-  printf '%s\n' 'BACKUP_S3_BUCKET=bkt' >>.env
-  mkdir -p "$BATS_TEST_TMPDIR/awsbin" && cp "$HELPERS/bin/aws" "$BATS_TEST_TMPDIR/awsbin/aws"
   PATH="$BATS_TEST_TMPDIR/awsbin:$PATH" run bash ./backup.sh
   echo "$output"
   [ "$status" -ne 0 ]
@@ -183,19 +199,31 @@ dumps() { find "$BK/daily" -maxdepth 1 -name 'duofinance-*.dump' 2>/dev/null; }
 
 @test "backup_s3UnparsableLastModified_isLoggedAndSkipped" {
   cd "$WORK"
-  export STUB_S3_ROOT="$BATS_TEST_TMPDIR/s3"
-  export STUB_LOG="$BATS_TEST_TMPDIR/aws.log"
+  use_s3_stub
   export STUB_BAD_DATE=1
-  mkdir -p "$STUB_S3_ROOT/bkt/daily"
   touch -d "40 days ago" "$STUB_S3_ROOT/bkt/daily/duofinance-old.dump"
-  sed -i '/^BACKUP_TARGET=/d' .env
-  printf '%s\n' 'BACKUP_S3_BUCKET=bkt' >>.env
-  mkdir -p "$BATS_TEST_TMPDIR/awsbin" && cp "$HELPERS/bin/aws" "$BATS_TEST_TMPDIR/awsbin/aws"
   PATH="$BATS_TEST_TMPDIR/awsbin:$PATH" run bash ./backup.sh
   echo "$output"
   [ "$status" -eq 0 ]
   [[ "$output" == *"cannot parse LastModified"*"daily/duofinance-old.dump"* ]]
   [ -e "$STUB_S3_ROOT/bkt/daily/duofinance-old.dump" ]
+}
+
+@test "restore_s3Source_usesBackupEnv" {
+  cd "$WORK"
+  use_s3_stub
+  PATH="$BATS_TEST_TMPDIR/awsbin:$PATH" run bash ./backup.sh
+  [ "$status" -eq 0 ]
+  key="$(cd "$STUB_S3_ROOT/bkt" && find daily -name 'duofinance-2*.dump')"
+  [ -n "$key" ]
+  psql_db -c "DELETE FROM transactions WHERE id > 30"
+  : >"$STUB_LOG"
+  PATH="$BATS_TEST_TMPDIR/awsbin:$PATH" run bash ./restore.sh "s3://bkt/$key" --yes
+  echo "$output"
+  [ "$status" -eq 0 ]
+  [ "$(psql_db -c "SELECT count(*) FROM transactions")" = "40" ]
+  grep -q "^aws s3 cp --endpoint-url https://s3.stub.test s3://bkt/$key " "$STUB_LOG"
+  grep -qx "aws-env AWS_ACCESS_KEY_ID=AKIDFROMBACKUPENV" "$STUB_LOG"
 }
 
 # docker wrapper (first on PATH) that only logs and fakes `stop api` / `start api` (the test stack

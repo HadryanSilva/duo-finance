@@ -2,10 +2,12 @@
 # Test stub for aws (backup.bats). A bucket is a directory under $STUB_S3_ROOT; every call is
 # appended to $STUB_LOG. Supports what backup.sh uses: s3 cp, s3 mv, s3 rm, s3api list-objects-v2
 # (text "Key<TAB>LastModified" lines) and s3api delete-object. --endpoint-url, --only-show-errors,
-# --query and --output are accepted and ignored apart from being logged.
+# --query and --output are accepted and ignored apart from being logged. Also logs
+# "aws-env AWS_ACCESS_KEY_ID=<value>" (fake test values only), to check where credentials come from.
 set -euo pipefail
 
 echo "aws $*" >>"$STUB_LOG"
+echo "aws-env AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}" >>"$STUB_LOG"
 
 args=()
 while [ $# -gt 0 ]; do
