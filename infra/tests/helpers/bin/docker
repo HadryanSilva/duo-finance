@@ -2,7 +2,10 @@
 # Test stub for docker (deploy.bats). Appends every call to $STUB_LOG and fakes the subcommands
 # deploy.sh uses:
 #   compose ... pull      fails when DOCKER_PULL_FAIL is set
-#   compose ... up        records the IMAGE_TAG of ./.env in $STUB_STATE/running-tag ("deployed")
+#   compose ... up        "deploys": records the IMAGE_TAG of ./.env in $STUB_STATE/running-tag and
+#                         ./docker-compose.yml in $STUB_STATE/running-compose (and appends it to
+#                         $STUB_STATE/up-composes); deletes ./.env afterwards when
+#                         DOCKER_UP_DELETE_ENV is set (to make a later .env rewrite fail)
 #   image ls ... <repo>   prints the refs of <repo> listed (space-separated) in DOCKER_IMAGES
 #   image rm ...          succeeds
 set -euo pipefail
@@ -18,6 +21,9 @@ if [ "${1:-}" = compose ]; then
         ;;
       up)
         sed -n 's/^IMAGE_TAG=//p' .env | head -n 1 >"$STUB_STATE/running-tag"
+        cat docker-compose.yml >"$STUB_STATE/running-compose"
+        cat docker-compose.yml >>"$STUB_STATE/up-composes"
+        [ -z "${DOCKER_UP_DELETE_ENV:-}" ] || rm -f .env
         exit 0
         ;;
     esac

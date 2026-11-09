@@ -3,8 +3,10 @@
 # passed the same required checks as its pull request.
 #   images: builds api (backend/Dockerfile) and nginx (frontend/Dockerfile), both from the repo
 #           root, and pushes ghcr.io/hadryansilva/duo-finance-{api,nginx}:sha-<12> and :main.
-#   deploy: copies the compose file and scripts to the instance and runs deploy.sh sha-<12>,
-#           which rolls back by itself; the job fails with the script's exit code.
+#   deploy: stages the compose file and scripts in DEPLOY_PATH/.incoming/ and runs the staged
+#           .incoming/deploy.sh sha-<12>. Under its lock it backs up the live files, swaps the
+#           staged ones in and rolls files and tag back together on failure; the job fails with
+#           the script's exit code.
 # Settings (environment "production"): secrets DEPLOY_SSH_KEY (private key), DEPLOY_KNOWN_HOSTS
 # (ssh-keyscan output, verified by hand); variables DEPLOY_HOST, DEPLOY_USER, DEPLOY_PATH.
 name: Deploy
@@ -18,11 +20,10 @@ on:
 permissions:
   contents: read
 
-# Deploys never overlap and are never cancelled midway.
-concurrency:
-  group: deploy-production
-  cancel-in-progress: false
-
+# Concurrency is per job, not per workflow, so it only applies once a job's `if` passed: runs that
+# will be skipped (failed CI, fork branches) can never replace a pending good deploy. Separate
+# groups, so a pending images job and a pending deploy job never cancel each other. Never
+# cancel-in-progress; GitHub keeps one pending job per group, so the newest commit wins.
 jobs:
   images:
     # `branches` matches the head branch name only: also require a push in this repository, so a
@@ -33,6 +34,9 @@ jobs:
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    concurrency:
+      group: images-main
+      cancel-in-progress: false
     permissions:
       contents: read
       packages: write
@@ -42,6 +46,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
       - name: Compute image tag
         id: tag
         env:
@@ -81,6 +86,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     env:
       TAG: ${{ needs.images.outputs.tag }}
       DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
@@ -90,7 +98,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
-      - uses: webfactory/ssh-agent@v0.9.0
+          persist-credentials: false
+      - uses: webfactory/ssh-agent@dc588b651fe13675774614f8e6a936a468676387 # v0.9.0
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
       # Host keys come only from the secret; ssh and scp run with StrictHostKeyChecking=yes, so an
@@ -107,8 +116,12 @@ jobs:
           chmod 700 ~/.ssh
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
-      - name: Copy compose file and scripts
+      # Staging only: the live compose file and scripts are untouched until deploy.sh holds its lock.
+      - name: Stage compose file and scripts
         run: |
+          incoming="$DEPLOY_PATH/.incoming"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "rm -rf $(printf '%q' "$incoming") && mkdir -p $(printf '%q' "$incoming")"
           files=(infra/docker-compose.yml)
           for name in deploy smoke backup restore install-cron; do
             path="infra/scripts/$name.sh"
@@ -118,8 +131,8 @@ jobs:
               echo "skipping $path (not in this commit)"
             fi
           done
-          scp -p -o BatchMode=yes -o StrictHostKeyChecking=yes "${files[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
+          scp -p -o BatchMode=yes -o StrictHostKeyChecking=yes "${files[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$incoming/"
       - name: Deploy
         run: |
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
-            "cd $(printf '%q' "$DEPLOY_PATH") && ./deploy.sh $(printf '%q' "$TAG")"
+            "cd $(printf '%q' "$DEPLOY_PATH") && ./.incoming/deploy.sh $(printf '%q' "$TAG")"
