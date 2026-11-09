@@ -1,5 +1,6 @@
 package br.dev.duofinance.shared.email;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
@@ -9,9 +10,12 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import br.dev.duofinance.shared.config.AppProperties;
+import java.net.ServerSocket;
+import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 class ResendEmailSenderTest {
@@ -28,7 +32,7 @@ class ResendEmailSenderTest {
                 null,
                 null,
                 new AppProperties.Email("Duo <no-reply@duo.dev>", AppProperties.EmailProvider.RESEND, "re_test"));
-        sender = new ResendEmailSender(builder, props);
+        sender = new ResendEmailSender(builder, props, ResendEmailSender.BASE_URL);
     }
 
     @Test
@@ -52,5 +56,25 @@ class ResendEmailSenderTest {
 
         assertThatThrownBy(() -> sender.send(new EmailMessage("ana@mail.com", "s", "h")))
                 .isInstanceOf(org.springframework.web.client.HttpServerErrorException.class);
+    }
+
+    @Test
+    void resend_timesOutOnSlowServer() throws Exception {
+        try (ServerSocket silent = new ServerSocket(0)) {
+            var props = new AppProperties(
+                    null,
+                    null,
+                    null,
+                    new AppProperties.Email("Duo <no-reply@duo.dev>", AppProperties.EmailProvider.RESEND, "re_test"));
+            var slow = new ResendEmailSender(
+                    ResendEmailSender.withTimeouts(RestClient.builder()),
+                    props,
+                    "http://localhost:" + silent.getLocalPort());
+
+            long start = System.nanoTime();
+            assertThatThrownBy(() -> slow.send(new EmailMessage("ana@mail.com", "s", "h")))
+                    .isInstanceOf(ResourceAccessException.class);
+            assertThat(Duration.ofNanos(System.nanoTime() - start)).isLessThanOrEqualTo(Duration.ofSeconds(11));
+        }
     }
 }

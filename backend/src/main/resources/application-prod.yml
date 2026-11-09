@@ -1,0 +1,36 @@
+# Production profile (SPRING_PROFILES_ACTIVE=prod). Every value comes from the environment; see infra/.env.example.
+#
+# JWT_PRIVATE_KEY / JWT_PUBLIC_KEY format (what JwtKeyConfig parses): inline PEM text, NOT a file path.
+#   - JWT_PRIVATE_KEY: PKCS#8 RSA key, "-----BEGIN PRIVATE KEY----- ... -----END PRIVATE KEY-----"
+#   - JWT_PUBLIC_KEY:  X.509 SubjectPublicKeyInfo, "-----BEGIN PUBLIC KEY----- ... -----END PUBLIC KEY-----"
+#   The BEGIN/END markers are optional and all whitespace (real newlines or spaces) is ignored, but a literal
+#   backslash-n sequence is NOT interpreted. In a docker compose .env file, double-quote the value so compose
+#   expands "\n" into real newlines, e.g. JWT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIE...\n-----END PRIVATE KEY-----".
+#   Both keys must be set and must match, or startup fails.
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+
+app:
+  public-base-url: ${PUBLIC_BASE_URL}
+  auth:
+    jwt-private-key: ${JWT_PRIVATE_KEY}
+    jwt-public-key: ${JWT_PUBLIC_KEY}
+    cookie-secure: true
+  email:
+    provider: RESEND
+    resend-api-key: ${RESEND_API_KEY}
+    from: ${EMAIL_FROM}
+
+logging:
+  structured:
+    format:
+      console: ecs
+
+server:
+  # Behind nginx: honour X-Forwarded-For / X-Forwarded-Proto (Tomcat RemoteIpValve, internal proxies only).
+  forward-headers-strategy: native
