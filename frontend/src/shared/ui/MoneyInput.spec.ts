@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/dom'
 import { describe, expect, it } from 'vitest'
-import { defineComponent, h, ref } from 'vue'
+import { defineComponent, h, nextTick, ref } from 'vue'
 import { render } from '@/test/render'
 import MoneyInput from './MoneyInput.vue'
 
@@ -72,6 +72,29 @@ describe('MoneyInput', () => {
     expect(norm(input.value)).toBe('-€ 5,00')
     await r2.user.click(input)
     expect(input.value).toBe('-5,00')
+  })
+
+  it('moneyInput_selectAllOnFocus_survivesTheRawTextSwap', async () => {
+    // Tab focus (and Playwright's fill) selects the whole text; typing must replace "0,00".
+    const { C } = host(0)
+    await render(C)
+    const input = screen.getByLabelText('Saldo') as HTMLInputElement
+    input.focus()
+    input.select()
+    await nextTick()
+    expect(input.value).toBe('0,00')
+    expect([input.selectionStart, input.selectionEnd]).toEqual([0, input.value.length])
+  })
+
+  it('moneyInput_tabFocusWithFullSelection_keepsItSelected', async () => {
+    const { C } = host(123456)
+    await render(C)
+    const input = screen.getByLabelText('Saldo') as HTMLInputElement
+    input.setSelectionRange(0, input.value.length)
+    input.focus()
+    await nextTick()
+    expect(input.value).toBe('1234,56')
+    expect([input.selectionStart, input.selectionEnd]).toEqual([0, input.value.length])
   })
 
   it('moneyInput_showsExternalValueFormatted', async () => {

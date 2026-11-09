@@ -39,9 +39,22 @@ function onInput(value: string | number) {
   model.value = cents
 }
 
-function onFocus() {
+function onFocus(e: FocusEvent) {
   focused.value = true
-  if (model.value !== null) text.value = rawText(model.value)
+  const el = e.target
+  // Swap to the raw text once the focusing call is over (`select()` focuses before it selects),
+  // and keep a select-all made by tab focus or `select()`: writing the value collapses it, so
+  // typing would otherwise append to "0,00". Writing the DOM first keeps the render from
+  // writing it again.
+  queueMicrotask(() => {
+    if (!focused.value || model.value === null) return
+    const raw = rawText(model.value)
+    text.value = raw
+    if (!(el instanceof HTMLInputElement) || el.value === raw) return
+    const allSelected = el.selectionStart === 0 && el.selectionEnd === el.value.length
+    el.value = raw
+    if (allSelected) el.select()
+  })
 }
 
 function onBlur() {
