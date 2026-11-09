@@ -3,6 +3,7 @@ import { useI18n } from 'vue-i18n'
 import type { CategoryResponse } from '@/shared/api/types'
 import ArchivedBadge from '@/shared/ui/ArchivedBadge.vue'
 import CategoryIcon from '@/shared/ui/CategoryIcon.vue'
+import { swatchInkClass } from '../lib/contrast'
 import RowActions from '@/shared/ui/RowActions.vue'
 
 const props = defineProps<{ category: CategoryResponse }>()
@@ -17,7 +18,8 @@ const label = (action: 'edit' | 'archive' | 'unarchive' | 'delete') =>
   <li class="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
     <!-- the color comes from the API as data, not from the design tokens -->
     <span
-      class="flex size-9 shrink-0 items-center justify-center rounded-full text-surface"
+      class="flex size-9 shrink-0 items-center justify-center rounded-full"
+      :class="swatchInkClass(category.color)"
       :style="{ backgroundColor: category.color }"
     >
       <CategoryIcon :name="category.icon" />

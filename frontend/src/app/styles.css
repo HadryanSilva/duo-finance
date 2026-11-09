@@ -73,18 +73,22 @@
 
 /* Category palette: 12 hues readable on light and dark surfaces. ColorPicker reads these values. */
 @theme static {
-  --color-cat-1: #be123c;
+  /* Icon ink on a category swatch: fixed in both modes, picked per swatch by luminance */
+  --color-swatch-ink: #111827;
+  --color-swatch-paper: #ffffff;
+
+  --color-cat-1: #0ea5e9;
   --color-cat-2: #4f46e5;
   --color-cat-3: #2563eb;
   --color-cat-4: #ea580c;
   --color-cat-5: #14b8a6;
-  --color-cat-6: #f472b6;
+  --color-cat-6: #db2777;
   --color-cat-7: #7c3aed;
-  --color-cat-8: #5b7fbf;
+  --color-cat-8: #0e7490;
   --color-cat-9: #6b7280;
-  --color-cat-10: #d97706;
-  --color-cat-11: #0891b2;
-  --color-cat-12: #c026d3;
+  --color-cat-10: #c026d3;
+  --color-cat-11: #1e3a8a;
+  --color-cat-12: #f9a8d4;
 }
 
 :root {
