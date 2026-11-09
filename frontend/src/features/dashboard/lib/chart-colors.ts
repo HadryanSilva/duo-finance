@@ -8,8 +8,10 @@ export interface ChartColors {
   muted: string
   /** Axis lines and gridlines. */
   border: string
-  /** The gap between doughnut slices. */
+  /** The gap between doughnut slices; tooltip background. */
   surface: string
+  /** Tooltip text. */
+  text: string
 }
 
 const TOKENS: Record<keyof ChartColors, string> = {
@@ -18,6 +20,7 @@ const TOKENS: Record<keyof ChartColors, string> = {
   muted: '--color-text-muted',
   border: '--color-border',
   surface: '--color-surface',
+  text: '--color-text',
 }
 
 /** Resolves the design tokens to concrete colors: canvas charts cannot use CSS variables. */
@@ -30,6 +33,7 @@ function readColors(): ChartColors {
     muted: read(TOKENS.muted),
     border: read(TOKENS.border),
     surface: read(TOKENS.surface),
+    text: read(TOKENS.text),
   }
 }
 

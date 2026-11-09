@@ -217,8 +217,12 @@ describe('DashboardPage', () => {
         HttpResponse.json({ status: 500, code: 'INTERNAL_ERROR', detail: 'raw' }, { status: 500 }),
       ),
     ])
-    const alert = await screen.findByRole('alert')
+    const alert = await screen.findByText(
+      'Algo deu errado do nosso lado. Tente novamente em instantes.',
+    )
     expect(alert.textContent).not.toContain('raw')
-    expect(alert.textContent?.length).toBeGreaterThan(0)
+    // the recent card has its own query and state; nothing else is left loading
+    await screen.findByRole('link', { name: 'Ver todos' })
+    await waitFor(() => expect(document.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(0))
   })
 })

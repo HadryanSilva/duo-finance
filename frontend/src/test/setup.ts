@@ -7,7 +7,7 @@ import { cleanup } from './render'
 vi.mock('vue-echarts', () => import('./echarts-stub'))
 vi.mock('echarts/core', () => ({ use: () => {} }))
 vi.mock('echarts/charts', () => ({ BarChart: {}, PieChart: {} }))
-vi.mock('echarts/components', () => ({ TooltipComponent: {}, LegendComponent: {} }))
+vi.mock('echarts/components', () => ({ GridComponent: {}, TooltipComponent: {} }))
 vi.mock('echarts/renderers', () => ({ CanvasRenderer: {} }))
 
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))

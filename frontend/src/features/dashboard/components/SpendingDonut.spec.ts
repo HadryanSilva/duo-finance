@@ -47,6 +47,8 @@ describe('SpendingDonut', () => {
       { props: { data: { spendingByCategory: [] } as unknown as DashboardResponse } },
     )
     expect(screen.getByText('Nenhuma despesa neste mês.')).toBeTruthy()
+    const cta = screen.getByRole('link', { name: 'Registrar despesa' })
+    expect(cta.getAttribute('href')).toBe('/transactions?new=1')
     expect(wrapper.findComponent({ name: 'VChart' }).exists()).toBe(false)
   })
 

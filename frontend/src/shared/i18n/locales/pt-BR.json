@@ -452,6 +452,8 @@
     "spending": {
       "title": "Gastos por categoria",
       "empty": "Nenhuma despesa neste mês.",
+      "emptyDescription": "Registre uma despesa para ver para onde o dinheiro vai.",
+      "emptyCta": "Registrar despesa",
       "chartLabel": "Gráfico de rosca dos gastos do mês por categoria",
       "legendLabel": "Gastos por categoria"
     },

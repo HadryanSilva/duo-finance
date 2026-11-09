@@ -1,12 +1,9 @@
 <script setup lang="ts">
-// Only what the dashboard draws is registered, which keeps the ECharts chunk small.
-import { BarChart, PieChart } from 'echarts/charts'
-import { LegendComponent, TooltipComponent } from 'echarts/components'
 import { use, type EChartsCoreOption } from 'echarts/core'
-import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
+import { ECHARTS_MODULES } from '../lib/echarts-modules'
 
-use([BarChart, PieChart, TooltipComponent, LegendComponent, CanvasRenderer])
+use(ECHARTS_MODULES)
 
 defineProps<{ option: EChartsCoreOption }>()
 </script>

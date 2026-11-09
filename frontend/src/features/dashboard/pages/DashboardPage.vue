@@ -43,11 +43,14 @@ const dashboard = useDashboard(month)
   </p>
 
   <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-    <BalanceCard :data="dashboard.data.value" />
-    <IncomeExpenseChart class="lg:col-span-2" :data="dashboard.data.value" />
-    <SpendingDonut :data="dashboard.data.value" />
-    <BudgetsCard :data="dashboard.data.value" />
-    <UpcomingCard :data="dashboard.data.value" />
+    <!-- A failed dashboard request hides its cards instead of leaving them on skeletons. -->
+    <template v-if="!dashboard.isError.value">
+      <BalanceCard :data="dashboard.data.value" />
+      <IncomeExpenseChart class="lg:col-span-2" :data="dashboard.data.value" />
+      <SpendingDonut :data="dashboard.data.value" />
+      <BudgetsCard :data="dashboard.data.value" />
+      <UpcomingCard :data="dashboard.data.value" />
+    </template>
     <RecentTransactionsCard class="lg:col-span-3" />
   </div>
 </template>

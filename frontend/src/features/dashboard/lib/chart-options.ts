@@ -5,6 +5,15 @@ import type { ChartColors } from './chart-colors'
 
 type Tooltip = { name: string; value: number }
 
+/** The tooltip is drawn by ECharts, so it takes the theme colors explicitly. */
+const tooltip = (colors: ChartColors, formatter: (p: Tooltip) => string) => ({
+  trigger: 'item',
+  formatter,
+  backgroundColor: colors.surface,
+  borderColor: colors.border,
+  textStyle: { color: colors.text },
+})
+
 /** Income x expense bars; values stay in cents and are formatted for display only. */
 export function incomeExpenseOption(
   data: Pick<DashboardResponse, 'incomeCents' | 'expenseCents'>,
@@ -15,7 +24,7 @@ export function incomeExpenseOption(
   const money = (cents: number) => formatMoney(cents, locale)
   return {
     grid: { left: 8, right: 8, top: 16, bottom: 8, containLabel: true },
-    tooltip: { trigger: 'item', formatter: (p: Tooltip) => `${p.name}: ${money(p.value)}` },
+    tooltip: tooltip(colors, (p) => `${p.name}: ${money(p.value)}`),
     xAxis: {
       type: 'category',
       data: [labels.income, labels.expense],
@@ -48,10 +57,7 @@ export function spendingOption(
   locale: Locale,
 ): EChartsCoreOption {
   return {
-    tooltip: {
-      trigger: 'item',
-      formatter: (p: Tooltip) => `${p.name}: ${formatMoney(p.value, locale)}`,
-    },
+    tooltip: tooltip(colors, (p) => `${p.name}: ${formatMoney(p.value, locale)}`),
     series: [
       {
         type: 'pie',

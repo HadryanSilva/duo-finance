@@ -9,6 +9,7 @@ import MoneyText from '@/shared/ui/MoneyText.vue'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { useChartColors } from '../lib/chart-colors'
 import { spendingOption } from '../lib/chart-options'
+import CardEmpty from './CardEmpty.vue'
 import { LazyChart } from './lazy-chart'
 
 /** `undefined` while the dashboard loads. */
@@ -34,9 +35,13 @@ const option = computed<EChartsCoreOption>(() =>
         <Skeleton class="h-48 w-full" />
         <Skeleton class="h-5 w-full" />
       </div>
-      <p v-else-if="!spending.length" class="text-sm text-muted-foreground">
-        {{ t('dashboard.spending.empty') }}
-      </p>
+      <CardEmpty
+        v-else-if="!spending.length"
+        :title="t('dashboard.spending.empty')"
+        :description="t('dashboard.spending.emptyDescription')"
+        :cta="t('dashboard.spending.emptyCta')"
+        to="/transactions?new=1"
+      />
       <div v-else class="grid gap-4">
         <div role="img" :aria-label="t('dashboard.spending.chartLabel')" class="h-48 w-full">
           <LazyChart :option="option" />

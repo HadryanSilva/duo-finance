@@ -452,6 +452,8 @@
     "spending": {
       "title": "Spending by category",
       "empty": "No expenses in this month.",
+      "emptyDescription": "Record an expense to see where the money goes.",
+      "emptyCta": "Record an expense",
       "chartLabel": "Doughnut chart of the month's spending by category",
       "legendLabel": "Spending by category"
     },
