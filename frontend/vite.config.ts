@@ -14,6 +14,13 @@ export default defineConfig({
   server: {
     proxy: { '/api': 'http://localhost:8080' },
   },
+  build: {
+    // ECharts (with zrender) is ~520 kB minified even with only the bar and pie charts registered.
+    // It is its own chunk, loaded lazily by the dashboard charts (features/dashboard/components/
+    // lazy-chart.ts), never part of the entry chunk; the limit covers it and still flags anything
+    // larger.
+    chunkSizeWarningLimit: 600,
+  },
   test: {
     projects: [
       {
