@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+# bats file_tags=docker
 # Full local stack test. Run from the repo root (Git Bash on Windows, host Docker):
 #   npx --yes bats@latest infra/tests/stack.bats
 # Builds both images, starts docker-compose.yml + docker-compose.local.yml on host port 8088 with a

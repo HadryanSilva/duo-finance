@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+# bats file_tags=docker
 # nginx image tests. Run from the repo root (Git Bash on Windows, host Docker):
 #   npx --yes bats@latest infra/tests/nginx.bats
 # Builds the frontend image, starts it with an "api" stub (fixtures/nginx-stack.yml) on a random

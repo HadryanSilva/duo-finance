@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+# bats file_tags=docker
 # Image tests. Run from the repo root (Git Bash on Windows, host Docker):
 #   npx --yes bats@latest infra/tests/images.bats
 # Keys are generated at run time into a temp env file; nothing secret is committed.
