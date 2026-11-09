@@ -10,6 +10,9 @@ vi.mock('echarts/charts', () => ({ BarChart: {}, PieChart: {} }))
 vi.mock('echarts/components', () => ({ GridComponent: {}, TooltipComponent: {} }))
 vi.mock('echarts/renderers', () => ({ CanvasRenderer: {} }))
 
+// The router's scrollBehavior scrolls on every navigation; jsdom does not implement scrolling.
+window.scrollTo = () => {}
+
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 afterEach(() => {
   cleanup()
