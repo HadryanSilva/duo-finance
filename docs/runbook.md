@@ -5,7 +5,10 @@ Cada passo traz o comando exato e o resultado esperado. Referência de arquitetu
 seção 5 da [spec](superpowers/specs/2026-11-05-duo-finance-mvp-design.md).
 
 Convenções: os comandos rodam na instância, como o usuário `deploy`, salvo quando marcados
-"na sua máquina". Caminho de deploy: `/opt/duo-finance` (`DEPLOY_PATH`). O projeto do compose se chama
+"na sua máquina" ou "como `ubuntu`". O `deploy` não tem `sudo`: todo passo que precisa de root roda
+como `ubuntu` (o usuário padrão do Lightsail, com `sudo`), numa sessão
+`ssh -i <CHAVE_DO_LIGHTSAIL>.pem ubuntu@<IP_ESTATICO>` ou no terminal do console.
+Caminho de deploy: `/opt/duo-finance` (`DEPLOY_PATH`). O projeto do compose se chama
 `duo-finance`, então os volumes são `duo-finance_pgdata`, `duo-finance_certbot-etc` e
 `duo-finance_certbot-www`.
 
@@ -74,17 +77,17 @@ Conecte como o usuário padrão do Lightsail (`ubuntu`) e prepare o servidor.
 
    ```bash
    sudo adduser --disabled-password --gecos "" deploy
-   echo 'deploy ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/90-deploy
    sudo install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
    echo '<CONTEUDO_DA_CHAVE_PUBLICA>' | sudo tee /home/deploy/.ssh/authorized_keys
    sudo chown deploy:deploy /home/deploy/.ssh/authorized_keys
    sudo chmod 600 /home/deploy/.ssh/authorized_keys
-   sudo visudo -cf /etc/sudoers.d/90-deploy
+   sudo -l -U deploy
    ```
 
-   O `visudo` deve imprimir `/etc/sudoers.d/90-deploy: parsed OK`. Lembre que pertencer ao grupo
-   `docker` (passo 4) já equivale a root na máquina; o `sudo` sem senha do `deploy` não amplia o
-   risco, mas a chave SSH do `deploy` deve ser tratada como chave de root.
+   O `deploy` **não** recebe `sudo`: o último comando deve dizer que `deploy` não pode rodar `sudo`
+   ("User deploy is not allowed to run sudo"). Os passos de root deste runbook (pacotes, cron,
+   logrotate) rodam como `ubuntu`. Lembre que pertencer ao grupo `docker` (passo 4) já equivale a
+   root na máquina: trate a chave SSH do `deploy` como uma chave de root.
 
    Na sua máquina: `ssh deploy@<IP_ESTATICO> whoami` deve imprimir `deploy`.
 
@@ -133,9 +136,9 @@ Conecte como o usuário padrão do Lightsail (`ubuntu`) e prepare o servidor.
    ```
 
    Resultado esperado: `Docker Compose version v2.24.x` ou maior, e a mensagem "Hello from Docker!".
-   Se a versão for menor: `sudo apt-get install --only-upgrade docker-compose-plugin`.
+   Se a versão for menor, como `ubuntu`: `sudo apt-get install --only-upgrade docker-compose-plugin`.
 
-6. Diretório de deploy, com dono `deploy`:
+6. Diretório de deploy, com dono `deploy` (como `ubuntu`):
 
    ```bash
    sudo install -d -o deploy -g deploy -m 755 /opt/duo-finance
@@ -163,26 +166,33 @@ Resultado esperado: os dois primeiros imprimem `<IP_ESTATICO>`; o terceiro não 
 
 ## 5. Segredos
 
-O `.env` **nunca** vai para o git e **não** deve ser copiado do Windows: crie-o na instância, com finais
-de linha LF, `chmod 600` e dono `deploy`.
+Dois arquivos de segredos, ambos **fora do git**, criados na instância (não copiados do Windows), com
+finais de linha LF, `chmod 600` e dono `deploy`:
+
+- `.env`: configuração dos contêineres (o `api` recebe o arquivo inteiro via `env_file`);
+- `backup.env`: bucket e access key do backup, lidos só pelo `backup.sh` e pelo `restore.sh` no
+  host. **Nunca** vai para um contêiner; por isso as chaves `AWS_*` e `BACKUP_*` não ficam no `.env`.
 
 1. Copie os arquivos de infraestrutura (na sua máquina, na raiz do repositório):
 
    ```bash
-   scp infra/docker-compose.yml infra/.env.example infra/scripts/*.sh deploy@<IP_ESTATICO>:/opt/duo-finance/
+   scp infra/docker-compose.yml infra/.env.example infra/backup.env.example infra/scripts/*.sh \
+     deploy@<IP_ESTATICO>:/opt/duo-finance/
    ```
 
-2. Na instância, torne os scripts executáveis e crie o `.env` (o `sed` remove qualquer CR):
+2. Na instância, torne os scripts executáveis e crie o `.env` e o `backup.env` (o `sed` remove
+   qualquer CR; o `umask` faz os dois nascerem com modo 600):
 
    ```bash
    cd /opt/duo-finance
    chmod +x ./*.sh
-   sed 's/\r$//' .env.example > .env
-   chmod 600 .env
-   ls -l .env
+   (umask 077 && sed 's/\r$//' .env.example > .env && sed 's/\r$//' backup.env.example > backup.env)
+   chmod 600 .env backup.env
+   ls -l .env backup.env
    ```
 
-   Resultado esperado: `-rw------- 1 deploy deploy ... .env`.
+   Resultado esperado: `-rw------- 1 deploy deploy ... .env` e `-rw------- 1 deploy deploy ... backup.env`.
+   O `backup.env` é preenchido na seção 9.
 
 3. Gere as chaves JWT. O script imprime duas linhas (PEM em linha única) e não grava nada em disco:
 
@@ -213,21 +223,25 @@ de linha LF, `chmod 600` e dono `deploy`.
    | `RESEND_API_KEY` | a API key do Resend |
    | `EMAIL_FROM` | `Duo Finance <no-reply@duofinance.dev.br>` (remetente do domínio verificado) |
    | `PUBLIC_BASE_URL` | `https://duofinance.dev.br` |
-   | `BACKUP_S3_BUCKET`, `BACKUP_S3_ENDPOINT`, `AWS_*` | preenchidos na seção 9 |
 
-   Regras do arquivo: valores **sem aspas** (o `env_value` dos scripts de backup remove só aspas
-   duplas, e os valores JWT são de linha única, então aspas nunca são necessárias); sem espaços ao
-   redor do `=`. `POSTGRES_DB`, `POSTGRES_USER`, `DB_URL` e `DB_USER` já vêm corretos para o Postgres
+   As chaves do backup (`BACKUP_S3_*`, `AWS_*`) não existem no `.env`: ficam no `backup.env`
+   (seção 9). Nunca as acrescente ao `.env`, pois tudo o que está nele chega ao contêiner `api`.
+
+   Regras do arquivo (valem também para o `backup.env`): valores **sem aspas** (o `env_value` dos
+   scripts de backup remove só aspas duplas, e os valores JWT são de linha única, então aspas nunca
+   são necessárias); sem espaços ao redor do `=`. `POSTGRES_DB`, `POSTGRES_USER`, `DB_URL` e `DB_USER` já vêm corretos para o Postgres
    do compose.
 6. Verifique:
 
    ```bash
    grep -c $'\r' .env
    grep -E '^(IMAGE_TAG|POSTGRES_PASSWORD|DB_PASSWORD|PUBLIC_BASE_URL)=' .env | sed 's/=.*/=.../'
+   grep -cE '^(AWS_|BACKUP_)' .env
    docker compose config --quiet && echo ok
    ```
 
-   Resultado esperado: `0` (nenhum CR), as quatro variáveis listadas e `ok`.
+   Resultado esperado: `0` (nenhum CR), as quatro variáveis listadas, `0` (nenhuma chave de backup no
+   `.env`) e `ok`.
 
 ## 6. GHCR
 
@@ -411,17 +425,26 @@ aws $P open-instance-public-ports --instance-name <NOME_DA_INSTANCIA> --port-inf
 aws $P get-instance-port-states --instance-name <NOME_DA_INSTANCIA> --query "$Q" --output json
 aws $P close-instance-public-ports --instance-name <NOME_DA_INSTANCIA> --port-info \
   '{"fromPort":22,"toPort":22,"protocol":"tcp","cidrs":["203.0.113.7/32"]}'
+aws $P get-instance-port-states --instance-name <NOME_DA_INSTANCIA> --query "$Q" --output json
 aws $P open-instance-public-ports --instance-name <NOME_DA_INSTANCIA> --port-info \
   '{"fromPort":22,"toPort":22,"protocol":"tcp","cidrs":["<SEU_IP>/32"],"cidrListAliases":["lightsail-connect"]}'
 aws $P get-instance-port-states --instance-name <NOME_DA_INSTANCIA> --query "$Q" --output json
 ```
 
 Ajuste os dois JSON ao que o primeiro `get-instance-port-states` mostrou (inclua `ipv6Cidrs` se houver).
-Resultado esperado: a segunda leitura mostra a regra com o seu `/32`, o `203.0.113.7/32` e o alias; a
-terceira (depois de fechar e reafirmar) é idêntica à primeira, com o seu IP e o alias
-`lightsail-connect` intactos e sem o IP de teste. Se a regra mudar de outra forma (por exemplo, o
-alias sumir ou o `open` substituir em vez de mesclar de modo diferente do esperado), não faça o
-primeiro deploy: reveja o workflow.
+São quatro leituras:
+
+1. **Antes:** a regra atual (o seu `/32` e, se houver, o alias `lightsail-connect`).
+2. **Depois do `open`:** a regra com o seu `/32`, o `203.0.113.7/32` e o alias.
+3. **Depois do `close`:** mostra qual semântica a API tem. Os dois resultados são aceitáveis, porque
+   o workflow reafirma a regra original logo em seguida:
+   - **remoção por CIDR:** a regra continua com o seu `/32` e o alias, só sem o `203.0.113.7/32`;
+   - **remoção da regra inteira:** a porta 22 some da lista (`[]`). Nesse caso, durante o deploy o
+     seu acesso SSH fica fora por alguns segundos, entre o `close` e a reafirmação.
+4. **Depois de reafirmar:** idêntica à primeira, sem o IP de teste.
+
+Critério de falha: **se, na quarta leitura, o seu IP ou o alias `lightsail-connect` sumiu, não faça o
+deploy**: reveja o workflow antes. O mesmo vale se o `203.0.113.7/32` ainda aparecer.
 
 ### 8.3 Secrets e variáveis
 
@@ -512,19 +535,37 @@ echo 'sha-<12_DA_TAG_BOA>' > .last-good-tag
    O `aws configure` pergunta Access Key ID, Secret, região (`<regiao>`) e formato (`json`). Resultado
    esperado: nenhuma saída e exit code 0. Se o endpoint recusar a operação, mantenha só a
    poda do `backup.sh`.
-3. Na instância, instale o AWS CLI v2 em `/usr/local/bin` (o PATH do cron não inclui `/snap/bin`):
+3. Na instância, **como `ubuntu`**, instale o AWS CLI v2 em `/usr/local/bin` (o PATH do cron não
+   inclui `/snap/bin`):
 
    ```bash
    curl -fsSL https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /tmp/awscliv2.zip
    unzip -q /tmp/awscliv2.zip -d /tmp && sudo /tmp/aws/install
+   rm -rf /tmp/aws /tmp/awscliv2.zip
+   ```
+
+   Depois, como `deploy`:
+
+   ```bash
    aws --version
    aws configure --profile duo-backup   # mesma access key do bucket, só para conferir o upload
    ```
 
    Resultado esperado: `aws-cli/2.x.x`.
-4. Preencha no `.env` com `nano` (nunca com `echo`/`export` na linha de comando), sem aspas:
-   `BACKUP_S3_BUCKET=<BUCKET>`, `BACKUP_S3_ENDPOINT=https://s3.<regiao>.amazonaws.com`,
-   `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` e `AWS_DEFAULT_REGION=<regiao>`.
+4. Preencha o `/opt/duo-finance/backup.env` (criado na seção 5, `chmod 600`, dono `deploy`) com `nano`
+   (nunca com `echo`/`export` na linha de comando), sem aspas: `BACKUP_S3_BUCKET=<BUCKET>`,
+   `BACKUP_S3_ENDPOINT=https://s3.<regiao>.amazonaws.com`, `AWS_ACCESS_KEY_ID`,
+   `AWS_SECRET_ACCESS_KEY` e `AWS_DEFAULT_REGION=<regiao>`. Essas chaves **não** vão no `.env` (o
+   `.env` inteiro chega ao contêiner `api`). Confira:
+
+   ```bash
+   cd /opt/duo-finance
+   ls -l backup.env
+   grep -c $'\r' backup.env
+   grep -cE '^(AWS_|BACKUP_)' .env
+   ```
+
+   Resultado esperado: `-rw------- 1 deploy deploy ... backup.env`, `0` e `0`.
 5. Teste manual, com a stack no ar:
 
    ```bash
@@ -538,10 +579,12 @@ echo 'sha-<12_DA_TAG_BOA>' > .last-good-tag
    `duofinance-<AAAAMMDD-HHMMSS>.dump` listado. O `backup.sh` valida o dump com `pg_restore --list`,
    que confere **somente o índice (TOC)** do arquivo; só um restore de verdade prova que os dados
    voltam (passo 7).
-6. Instale o cron como **root** (grava `/etc/cron.d/duo-finance-backup`: todo dia às 03:30 UTC, com log
-   em `/var/log/duo-finance-backup.log`):
+6. Instale o cron como **root**, numa sessão **como `ubuntu`** (grava `/etc/cron.d/duo-finance-backup`:
+   todo dia às 03:30 UTC, com log em `/var/log/duo-finance-backup.log`; o job roda como root, que lê
+   o `.env` e o `backup.env`):
 
    ```bash
+   cd /opt/duo-finance
    sudo ./install-cron.sh
    cat /etc/cron.d/duo-finance-backup
    ```
@@ -568,8 +611,8 @@ echo 'sha-<12_DA_TAG_BOA>' > .last-good-tag
    Resultado esperado: o último comando imprime `42`.
 
    Para testar também o restore a partir do bucket, antes da limpeza rode
-   `./restore.sh s3://<BUCKET>/daily/<ARQUIVO>.dump --yes` nesse mesmo diretório de teste, com as
-   variáveis `BACKUP_S3_*` e `AWS_*` copiadas para o `.env` dele.
+   `./restore.sh s3://<BUCKET>/daily/<ARQUIVO>.dump --yes` nesse mesmo diretório de teste, com uma
+   cópia do backup.env: `(umask 077 && cp /opt/duo-finance/backup.env .)`.
 
    Limpeza:
 
@@ -603,7 +646,7 @@ tail -n 50 deploy.log
 ```
 
 Os logs dos contêineres são JSON no stdout, com rotação do driver do Docker (10 MB x 5 arquivos por
-serviço). Os dois arquivos de log do host precisam de rotação própria:
+serviço). Os dois arquivos de log do host precisam de rotação própria (como `ubuntu`):
 
 ```bash
 sudo tee /etc/logrotate.d/duo-finance <<'CONF'
