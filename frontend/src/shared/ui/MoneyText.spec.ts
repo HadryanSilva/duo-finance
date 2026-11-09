@@ -4,7 +4,7 @@ import MoneyText from './MoneyText.vue'
 
 type Kind = 'INCOME' | 'EXPENSE' | 'TRANSFER' | 'NEUTRAL'
 
-async function money(props: { cents: number; kind?: Kind }) {
+async function money(props: { cents: number; kind?: Kind; signed?: boolean }) {
   const { wrapper } = await render(MoneyText, {}, { props })
   return wrapper.get('span')
 }
@@ -25,5 +25,16 @@ describe('MoneyText', () => {
       expect(other.classes()).not.toContain('text-expense')
       expect(other.classes()).toContain('tabular-nums')
     }
+  })
+})
+
+describe('MoneyText signed', () => {
+  it('moneyText_signedNeutral_prefixesPositiveOnly', async () => {
+    const up = await money({ cents: 97450, kind: 'NEUTRAL', signed: true })
+    expect(up.text().replace(/\s/g, ' ')).toBe('+€ 974,50')
+    const down = await money({ cents: -1000, kind: 'NEUTRAL', signed: true })
+    expect(down.text().replace(/\s/g, ' ')).toBe('-€ 10,00')
+    const zero = await money({ cents: 0, kind: 'NEUTRAL', signed: true })
+    expect(zero.text().replace(/\s/g, ' ')).toBe('€ 0,00')
   })
 })

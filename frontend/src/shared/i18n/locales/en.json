@@ -319,5 +319,59 @@
       "paw-print": "Pet",
       "briefcase": "Briefcase"
     }
+  },
+  "author": {
+    "formerMember": "Former member"
+  },
+  "transactions": {
+    "subtitle": "The couple's income, expenses and transfers.",
+    "new": "New transaction",
+    "createTitle": "New transaction",
+    "editTitle": "Edit transaction",
+    "listLabel": "Transactions by day",
+    "emptyTitle": "No transactions here",
+    "emptyDescription": "Adjust the filters or record a new transaction.",
+    "loadMore": "Load more",
+    "loadingMore": "Loading more transactions…",
+    "filterRemoved": "The category or account filter no longer exists and was removed.",
+    "dayNet": "Day balance",
+    "transferRoute": "{from} → {to}",
+    "archivedOption": "{name} (archived)",
+    "kind": {
+      "EXPENSE": "Expense",
+      "INCOME": "Income",
+      "TRANSFER": "Transfer"
+    },
+    "filters": {
+      "label": "Filters",
+      "from": "From",
+      "to": "To",
+      "kind": "Type",
+      "allKinds": "All",
+      "category": "Category",
+      "allCategories": "All",
+      "bankAccount": "Account",
+      "allBankAccounts": "All",
+      "author": "Author",
+      "allAuthors": "All",
+      "search": "Search",
+      "searchPlaceholder": "Search descriptions"
+    },
+    "form": {
+      "kind": "Type",
+      "amount": "Amount",
+      "date": "Date",
+      "description": "Description",
+      "category": "Category",
+      "bankAccount": "Account",
+      "noBankAccount": "No account",
+      "origin": "From account",
+      "destination": "To account",
+      "choose": "Select",
+      "amountPositive": "Enter an amount greater than zero.",
+      "sameAccounts": "The destination account must differ from the origin."
+    },
+    "deleteTitle": "Delete transaction?",
+    "deleteMessage": "This permanently removes the transaction and updates the balances."
   }
 }

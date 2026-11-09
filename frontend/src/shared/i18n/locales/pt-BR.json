@@ -319,5 +319,59 @@
       "paw-print": "Pet",
       "briefcase": "Maleta"
     }
+  },
+  "author": {
+    "formerMember": "Ex-membro"
+  },
+  "transactions": {
+    "subtitle": "Receitas, despesas e transferências do casal.",
+    "new": "Novo lançamento",
+    "createTitle": "Novo lançamento",
+    "editTitle": "Editar lançamento",
+    "listLabel": "Lançamentos por dia",
+    "emptyTitle": "Nenhum lançamento aqui",
+    "emptyDescription": "Ajuste os filtros ou registre um novo lançamento.",
+    "loadMore": "Carregar mais",
+    "loadingMore": "Carregando mais lançamentos…",
+    "filterRemoved": "O filtro de categoria ou conta não existe mais e foi removido.",
+    "dayNet": "Saldo do dia",
+    "transferRoute": "{from} → {to}",
+    "archivedOption": "{name} (arquivada)",
+    "kind": {
+      "EXPENSE": "Despesa",
+      "INCOME": "Receita",
+      "TRANSFER": "Transferência"
+    },
+    "filters": {
+      "label": "Filtros",
+      "from": "De",
+      "to": "Até",
+      "kind": "Tipo",
+      "allKinds": "Todos",
+      "category": "Categoria",
+      "allCategories": "Todas",
+      "bankAccount": "Conta",
+      "allBankAccounts": "Todas",
+      "author": "Autor",
+      "allAuthors": "Todos",
+      "search": "Buscar",
+      "searchPlaceholder": "Buscar na descrição"
+    },
+    "form": {
+      "kind": "Tipo",
+      "amount": "Valor",
+      "date": "Data",
+      "description": "Descrição",
+      "category": "Categoria",
+      "bankAccount": "Conta",
+      "noBankAccount": "Sem conta",
+      "origin": "Conta de origem",
+      "destination": "Conta de destino",
+      "choose": "Selecione",
+      "amountPositive": "Informe um valor maior que zero.",
+      "sameAccounts": "A conta de destino precisa ser diferente da origem."
+    },
+    "deleteTitle": "Excluir lançamento?",
+    "deleteMessage": "Isso remove o lançamento definitivamente e atualiza os saldos."
   }
 }
