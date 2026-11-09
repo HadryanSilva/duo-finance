@@ -373,5 +373,64 @@
     },
     "deleteTitle": "Delete transaction?",
     "deleteMessage": "This permanently removes the transaction and updates the balances."
+  },
+  "monthSelector": {
+    "label": "Month",
+    "previous": "Previous month",
+    "next": "Next month"
+  },
+  "budgets": {
+    "subtitle": "Monthly spending limits per category.",
+    "new": "New budget",
+    "createTitle": "New budget",
+    "editTitle": "Edit budget",
+    "listLabel": "Budgets of the month",
+    "emptyTitle": "No budgets this month",
+    "emptyDescription": "Set a monthly limit for an expense category.",
+    "of": "of",
+    "progress": "{percent}% of the limit",
+    "edit": "Edit budget for {name}",
+    "remove": "Delete budget for {name}",
+    "deleteTitle": "Delete budget?",
+    "deleteMessage": "The budget for {name} is removed for every month. Transactions are kept.",
+    "form": {
+      "category": "Category",
+      "choose": "Select",
+      "limit": "Monthly limit",
+      "limitPositive": "Enter a limit greater than zero.",
+      "noCategories": "Every active expense category already has a budget."
+    }
+  },
+  "recurring": {
+    "subtitle": "Transactions that repeat on their own.",
+    "new": "New recurring transaction",
+    "createTitle": "New recurring transaction",
+    "editTitle": "Edit recurring transaction",
+    "active": "Active",
+    "inactive": "Inactive or finished",
+    "emptyTitle": "No recurring transactions",
+    "emptyDescription": "Add a transaction that repeats, such as rent or salary.",
+    "next": "Next: {date}",
+    "finished": "Finished",
+    "edit": "Edit {name}",
+    "activate": "Activate {name}",
+    "deactivate": "Deactivate {name}",
+    "remove": "Delete {name}",
+    "deleteTitle": "Delete recurring transaction?",
+    "deleteMessage": "It stops generating transactions. The transactions already generated remain.",
+    "frequency": {
+      "WEEKLY": "Weekly",
+      "MONTHLY": "Monthly",
+      "YEARLY": "Yearly"
+    },
+    "form": {
+      "frequency": "Frequency",
+      "startDate": "Start",
+      "endDate": "End (optional)",
+      "endBeforeStart": "The end must be on or after the start.",
+      "immediateNotice": "Because the start is today or in the past, the occurrences up to today will be generated now.",
+      "lockedNote": "Type, frequency and start cannot be changed. To change them, create another recurring transaction.",
+      "locked": "Not editable"
+    }
   }
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
-import { computed, ref, useId, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { z } from 'zod'
 import { useBankAccounts } from '@/shared/api/queries/bank-accounts'
@@ -14,12 +14,14 @@ import {
 import { isApiError } from '@/shared/api/problem'
 import type { TransactionKind, TransactionRequest, TransactionResponse } from '@/shared/api/types'
 import { todayIso } from '@/shared/lib/dates'
+import { referenceOptions } from '@/shared/lib/reference-options'
 import { errorMessage } from '@/shared/i18n/error-codes'
 import { Button } from '@/shared/ui/button'
-import { Label } from '@/shared/ui/label'
 import ConfirmDialog from '@/shared/ui/ConfirmDialog.vue'
 import { applyFieldErrors } from '@/shared/ui/FormErrors'
+import KindSwitch from '@/shared/ui/KindSwitch.vue'
 import MoneyInput from '@/shared/ui/MoneyInput.vue'
+import SelectField from '@/shared/ui/SelectField.vue'
 import TextField from '@/shared/ui/TextField.vue'
 
 const props = defineProps<{
@@ -35,8 +37,6 @@ const remove = useDeleteTransaction()
 
 const KINDS = ['EXPENSE', 'INCOME', 'TRANSFER'] as const satisfies readonly TransactionKind[]
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
-const SELECT =
-  'h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive'
 
 const schema = computed(() =>
   toTypedSchema(
@@ -110,38 +110,23 @@ const categoryKind = computed(() => (kind.value === 'TRANSFER' ? undefined : kin
 const categoriesQuery = useCategories(categoryKind)
 const bankAccountsQuery = useBankAccounts()
 
-type Option = { id: string; label: string }
 const archivedLabel = (name: string) => t('transactions.archivedOption', { name })
 
 /** Active options only; when editing, the current reference stays listed even if archived. */
-const categoryOptions = computed<Option[]>(() => {
-  const active = (categoriesQuery.data.value ?? [])
-    .filter((c) => !c.archived)
-    .map((c) => ({ id: c.id, label: c.name }))
-  const current = tx?.category
-  if (current?.archived && kind.value === tx?.kind && !active.some((o) => o.id === current.id)) {
-    active.push({ id: current.id, label: archivedLabel(current.name) })
-  }
-  return active
-})
-const bankAccountOptions = computed<Option[]>(() => {
-  const active = (bankAccountsQuery.data.value ?? [])
-    .filter((b) => !b.archived)
-    .map((b) => ({ id: b.id, label: b.name }))
-  for (const current of [tx?.bankAccount, tx?.destinationBankAccount]) {
-    if (current?.archived && !active.some((o) => o.id === current.id)) {
-      active.push({ id: current.id, label: archivedLabel(current.name) })
-    }
-  }
-  return active
-})
-
-const ids = {
-  kind: useId(),
-  category: useId(),
-  account: useId(),
-  destination: useId(),
-}
+const categoryOptions = computed(() =>
+  referenceOptions(
+    categoriesQuery.data.value,
+    kind.value === tx?.kind ? [tx?.category] : [],
+    archivedLabel,
+  ),
+)
+const bankAccountOptions = computed(() =>
+  referenceOptions(
+    bankAccountsQuery.data.value,
+    [tx?.bankAccount, tx?.destinationBankAccount],
+    archivedLabel,
+  ),
+)
 
 const FIELDS = [
   'kind',
@@ -214,21 +199,7 @@ async function onDelete() {
       {{ formError }}
     </p>
 
-    <fieldset class="grid gap-2">
-      <legend class="mb-2 text-sm font-medium text-foreground">
-        {{ t('transactions.form.kind') }}
-      </legend>
-      <div class="grid grid-cols-3 gap-1 rounded-md bg-muted p-1">
-        <label
-          v-for="k in KINDS"
-          :key="k"
-          class="flex cursor-pointer items-center justify-center rounded-sm px-2 py-1 text-sm font-medium text-muted-foreground has-checked:bg-background has-checked:text-foreground has-checked:shadow-xs has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
-        >
-          <input v-model="kind" type="radio" :name="ids.kind" :value="k" class="sr-only" />
-          {{ t(`transactions.kind.${k}`) }}
-        </label>
-      </div>
-    </fieldset>
+    <KindSwitch v-model="kind" :legend="t('transactions.form.kind')" />
 
     <MoneyInput
       v-model="amount"
@@ -252,91 +223,41 @@ async function onDelete() {
     />
 
     <template v-if="!isTransfer">
-      <div class="grid gap-2">
-        <Label :for="ids.category">{{ t('transactions.form.category') }}</Label>
-        <select
-          :id="ids.category"
-          v-model="categoryId"
-          v-bind="categoryAttrs"
-          :class="SELECT"
-          :aria-invalid="errors.categoryId ? 'true' : undefined"
-          :aria-describedby="errors.categoryId ? `${ids.category}-error` : undefined"
-        >
-          <option value="" disabled>{{ t('transactions.form.choose') }}</option>
-          <option v-for="o in categoryOptions" :key="o.id" :value="o.id">{{ o.label }}</option>
-        </select>
-        <p v-if="errors.categoryId" :id="`${ids.category}-error`" class="text-sm text-destructive">
-          {{ errors.categoryId }}
-        </p>
-      </div>
-      <div class="grid gap-2">
-        <Label :for="ids.account">{{ t('transactions.form.bankAccount') }}</Label>
-        <select
-          :id="ids.account"
-          v-model="bankAccountId"
-          v-bind="bankAccountAttrs"
-          :class="SELECT"
-          :aria-invalid="errors.bankAccountId ? 'true' : undefined"
-          :aria-describedby="errors.bankAccountId ? `${ids.account}-error` : undefined"
-        >
-          <option value="">{{ t('transactions.form.noBankAccount') }}</option>
-          <option v-for="o in bankAccountOptions" :key="o.id" :value="o.id">{{ o.label }}</option>
-        </select>
-        <p
-          v-if="errors.bankAccountId"
-          :id="`${ids.account}-error`"
-          class="text-sm text-destructive"
-        >
-          {{ errors.bankAccountId }}
-        </p>
-      </div>
+      <SelectField
+        v-model="categoryId"
+        v-bind="categoryAttrs"
+        :label="t('transactions.form.category')"
+        :options="categoryOptions"
+        :placeholder="t('transactions.form.choose')"
+        :error="errors.categoryId"
+      />
+      <SelectField
+        v-model="bankAccountId"
+        v-bind="bankAccountAttrs"
+        :label="t('transactions.form.bankAccount')"
+        :options="bankAccountOptions"
+        :empty-label="t('transactions.form.noBankAccount')"
+        :error="errors.bankAccountId"
+      />
     </template>
 
     <template v-else>
-      <div class="grid gap-2">
-        <Label :for="ids.account">{{ t('transactions.form.origin') }}</Label>
-        <select
-          :id="ids.account"
-          v-model="bankAccountId"
-          v-bind="bankAccountAttrs"
-          :class="SELECT"
-          :aria-invalid="errors.bankAccountId ? 'true' : undefined"
-          :aria-describedby="errors.bankAccountId ? `${ids.account}-error` : undefined"
-        >
-          <option value="" disabled>{{ t('transactions.form.choose') }}</option>
-          <option v-for="o in bankAccountOptions" :key="o.id" :value="o.id">{{ o.label }}</option>
-        </select>
-        <p
-          v-if="errors.bankAccountId"
-          :id="`${ids.account}-error`"
-          class="text-sm text-destructive"
-        >
-          {{ errors.bankAccountId }}
-        </p>
-      </div>
-      <div class="grid gap-2">
-        <Label :for="ids.destination">{{ t('transactions.form.destination') }}</Label>
-        <select
-          :id="ids.destination"
-          v-model="destinationId"
-          v-bind="destinationAttrs"
-          :class="SELECT"
-          :aria-invalid="errors.destinationBankAccountId ? 'true' : undefined"
-          :aria-describedby="
-            errors.destinationBankAccountId ? `${ids.destination}-error` : undefined
-          "
-        >
-          <option value="" disabled>{{ t('transactions.form.choose') }}</option>
-          <option v-for="o in bankAccountOptions" :key="o.id" :value="o.id">{{ o.label }}</option>
-        </select>
-        <p
-          v-if="errors.destinationBankAccountId"
-          :id="`${ids.destination}-error`"
-          class="text-sm text-destructive"
-        >
-          {{ errors.destinationBankAccountId }}
-        </p>
-      </div>
+      <SelectField
+        v-model="bankAccountId"
+        v-bind="bankAccountAttrs"
+        :label="t('transactions.form.origin')"
+        :options="bankAccountOptions"
+        :placeholder="t('transactions.form.choose')"
+        :error="errors.bankAccountId"
+      />
+      <SelectField
+        v-model="destinationId"
+        v-bind="destinationAttrs"
+        :label="t('transactions.form.destination')"
+        :options="bankAccountOptions"
+        :placeholder="t('transactions.form.choose')"
+        :error="errors.destinationBankAccountId"
+      />
     </template>
 
     <div class="flex flex-wrap items-center justify-between gap-2 pt-2">

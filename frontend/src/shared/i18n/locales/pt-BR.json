@@ -373,5 +373,64 @@
     },
     "deleteTitle": "Excluir lançamento?",
     "deleteMessage": "Isso remove o lançamento definitivamente e atualiza os saldos."
+  },
+  "monthSelector": {
+    "label": "Mês",
+    "previous": "Mês anterior",
+    "next": "Próximo mês"
+  },
+  "budgets": {
+    "subtitle": "Limites mensais de gasto por categoria.",
+    "new": "Novo orçamento",
+    "createTitle": "Novo orçamento",
+    "editTitle": "Editar orçamento",
+    "listLabel": "Orçamentos do mês",
+    "emptyTitle": "Nenhum orçamento neste mês",
+    "emptyDescription": "Defina um limite mensal para uma categoria de despesa.",
+    "of": "de",
+    "progress": "{percent}% do limite",
+    "edit": "Editar orçamento de {name}",
+    "remove": "Excluir orçamento de {name}",
+    "deleteTitle": "Excluir orçamento?",
+    "deleteMessage": "O orçamento de {name} deixa de existir em todos os meses. Os lançamentos permanecem.",
+    "form": {
+      "category": "Categoria",
+      "choose": "Selecione",
+      "limit": "Limite mensal",
+      "limitPositive": "Informe um limite maior que zero.",
+      "noCategories": "Todas as categorias de despesa ativas já têm orçamento."
+    }
+  },
+  "recurring": {
+    "subtitle": "Lançamentos que se repetem sozinhos.",
+    "new": "Nova recorrência",
+    "createTitle": "Nova recorrência",
+    "editTitle": "Editar recorrência",
+    "active": "Ativas",
+    "inactive": "Inativas ou encerradas",
+    "emptyTitle": "Nenhuma recorrência",
+    "emptyDescription": "Cadastre um lançamento que se repete, como aluguel ou salário.",
+    "next": "Próximo: {date}",
+    "finished": "Encerrada",
+    "edit": "Editar {name}",
+    "activate": "Ativar {name}",
+    "deactivate": "Desativar {name}",
+    "remove": "Excluir {name}",
+    "deleteTitle": "Excluir recorrência?",
+    "deleteMessage": "A recorrência deixa de gerar lançamentos. Os lançamentos já gerados permanecem.",
+    "frequency": {
+      "WEEKLY": "Semanal",
+      "MONTHLY": "Mensal",
+      "YEARLY": "Anual"
+    },
+    "form": {
+      "frequency": "Frequência",
+      "startDate": "Início",
+      "endDate": "Fim (opcional)",
+      "endBeforeStart": "O fim deve ser igual ou posterior ao início.",
+      "immediateNotice": "Como o início é hoje ou no passado, as ocorrências até hoje serão geradas agora.",
+      "lockedNote": "Tipo, frequência e início não podem ser alterados. Para mudá-los, crie outra recorrência.",
+      "locked": "Não editável"
+    }
   }
 }
