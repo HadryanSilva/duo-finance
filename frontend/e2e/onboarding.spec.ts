@@ -15,11 +15,14 @@ test('register, onboard, add expense, see it on the dashboard', async ({
   await page.goto(await latestLink(request, email, '/verify-email'))
   await expect(page.getByRole('status')).toContainText('E-mail confirmado')
 
-  await page.goto('/onboarding')
+  // No reload: the session restored before verifying must not ask to confirm the e-mail again.
+  await page.getByRole('link', { name: 'Continuar' }).click()
+  await expect(page).toHaveURL(/\/onboarding$/)
   await page.getByLabel('Nome do casal').fill('Ana e Bia')
   await page.getByRole('button', { name: 'Continuar' }).click()
 
   await expect(page.getByRole('heading', { name: 'Convide seu parceiro' })).toBeVisible()
+  await expect(page.getByLabel('E-mail do parceiro')).toBeVisible()
   await page.getByRole('button', { name: 'Pular' }).click()
 
   await expect(page.getByRole('heading', { name: /primeira conta bancária/ })).toBeVisible()
@@ -52,4 +55,10 @@ test('register, onboard, add expense, see it on the dashboard', async ({
   await expect(page.getByText(balance).first()).toBeVisible()
   await expect(page.getByRole('list', { name: 'Saldo por conta' })).toContainText(balance)
   await expect(page.getByRole('list', { name: 'Gastos por categoria' })).toContainText('Mercado')
+
+  // The user menu reaches the pages the bottom nav has no room for (on every viewport).
+  await page.getByRole('button', { name: 'Ana Souza' }).click()
+  await page.getByRole('menuitem', { name: 'Contas' }).click()
+  await expect(page).toHaveURL(/\/bank-accounts$/)
+  await expect(page.getByText('Conta corrente').first()).toBeVisible()
 })
