@@ -86,6 +86,32 @@ describe('MoneyInput', () => {
     expect([input.selectionStart, input.selectionEnd]).toEqual([0, input.value.length])
   })
 
+  it('moneyInput_selectAfterFocusThenType_replacesTheAmount', async () => {
+    // Chrome ordering: focus lands first, the selection is made afterwards, then the user types.
+    const { C, value } = host(0)
+    const r = await render(C)
+    const input = screen.getByLabelText('Saldo') as HTMLInputElement
+    input.focus()
+    await nextTick()
+    input.select()
+    await r.user.keyboard('5')
+    expect(input.value).toBe('5')
+    expect(value.value).toBe(500)
+  })
+
+  it('moneyInput_selectAllOnFocusThenType_replacesTheAmount', async () => {
+    // Playwright's fill: select() and focus() in one task, typing after the microtasks ran.
+    const { C, value } = host(0)
+    const r = await render(C)
+    const input = screen.getByLabelText('Saldo') as HTMLInputElement
+    input.select()
+    input.focus()
+    await nextTick()
+    await r.user.keyboard('5')
+    expect(input.value).toBe('5')
+    expect(value.value).toBe(500)
+  })
+
   it('moneyInput_tabFocusWithFullSelection_keepsItSelected', async () => {
     const { C } = host(123456)
     await render(C)

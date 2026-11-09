@@ -40,13 +40,13 @@ export default defineConfig({
       cwd: '../backend',
       url: 'http://localhost:8080/api/actuator/health',
       timeout: 180_000,
-      reuseExistingServer: true,
+      reuseExistingServer: !process.env.CI,
     },
     {
       command: 'npm run dev -- --port 5173 --strictPort',
       url: 'http://localhost:5173',
       timeout: 60_000,
-      reuseExistingServer: true,
+      reuseExistingServer: !process.env.CI,
     },
   ],
 })

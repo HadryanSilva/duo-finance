@@ -53,7 +53,7 @@ function onFocus(e: FocusEvent) {
     if (!(el instanceof HTMLInputElement) || el.value === raw) return
     const allSelected = el.selectionStart === 0 && el.selectionEnd === el.value.length
     el.value = raw
-    if (allSelected) el.select()
+    if (allSelected) el.setSelectionRange(0, raw.length)
   })
 }
 
