@@ -76,6 +76,37 @@ export function inlineStyleOffenders(root: string = SRC): string[] {
     })
 }
 
+/** The app shell, outside src/ but served under the same CSP. */
+export const INDEX_HTML = join(SRC, '..', 'index.html')
+
+/** A static style="..." attribute; :style / v-bind:style bindings and data-style do not match. */
+export const STATIC_STYLE_ATTR = /(?<![\w:.@-])style\s*=\s*["']/
+
+/**
+ * Static style attributes in .vue files and index.html. The CSP has no 'unsafe-inline' in
+ * style-src (infra/nginx/snippets/security-headers.conf), so the browser would silently drop them.
+ * :style bindings are fine: Vue applies them through CSSOM, which CSP does not govern.
+ */
+export function staticStyleAttributes(
+  root: string = SRC,
+  extraFiles: string[] = [INDEX_HTML],
+): string[] {
+  const files = [
+    ...guardedFiles(root)
+      .filter((f) => f.endsWith('.vue'))
+      .map((f) => join(root, f)),
+    ...extraFiles,
+  ]
+  return files.flatMap((path) => {
+    const label = posix(relative(root, path)).replace(/^\.\.\//, '')
+    return readFileSync(path, 'utf8')
+      .split('\n')
+      .flatMap((line, i) =>
+        STATIC_STYLE_ATTR.test(line) ? [`${label}:${i + 1}: ${line.trim()}`] : [],
+      )
+  })
+}
+
 const PAGE_FILE = /^features\/[^/]+\/pages\/.+\.vue$/
 const PAGE_EXEMPT = /^features\/(landing|auth|onboarding)\/pages\//
 

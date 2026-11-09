@@ -14,6 +14,7 @@ import {
   unscannedFiles,
   pagesMissingHeader,
   pagesRequiringHeader,
+  staticStyleAttributes,
 } from './design-guard'
 
 describe('design guard', () => {
@@ -31,6 +32,10 @@ describe('design guard', () => {
 
   it('has no px/rem lengths in inline styles or style blocks', () => {
     expect(inlineStyleOffenders()).toEqual([])
+  })
+
+  it('has no static style="" attributes in .vue templates or index.html (strict CSP)', () => {
+    expect(staticStyleAttributes()).toEqual([])
   })
 
   it('has no source files the guard cannot scan', () => {
@@ -162,6 +167,28 @@ describe('design guard checkers', () => {
       },
       (root) => {
         expect(inlineStyleOffenders(root).map((o) => o.split(':')[0])).toEqual(['a.vue', 'b.vue'])
+      },
+    )
+  })
+
+  it('flags static style attributes in .vue and html files but allows :style bindings', () => {
+    withFixture(
+      {
+        'a.vue': '<template>\n  <div style="color: var(--color-brand)" />\n</template>',
+        'b.vue': [
+          '<div :style="{ width: w }" />',
+          '<div v-bind:style="s" />',
+          "<div data-style='x' />",
+          '<script setup lang="ts">el.style.width = w</script>',
+        ].join('\n'),
+        'c.ts': 'const html = \'<div style="x">\'',
+        'index.html': '<body>\n<div id="app" style=\'margin: 0\'></div>\n</body>',
+      },
+      (root) => {
+        expect(staticStyleAttributes(root, [join(root, 'index.html')])).toEqual([
+          'a.vue:2: <div style="color: var(--color-brand)" />',
+          'index.html:2: <div id="app" style=\'margin: 0\'></div>',
+        ])
       },
     )
   })
