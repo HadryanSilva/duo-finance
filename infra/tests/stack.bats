@@ -57,10 +57,17 @@ teardown_file() {
 }
 
 @test "api and postgres are not published" {
-  run stack port api 8080
-  [[ -z "${output//[[:space:]]/}" || "${output//[[:space:]]/}" == ":0" ]]
-  run stack port postgres 5432
-  [[ -z "${output//[[:space:]]/}" || "${output//[[:space:]]/}" == ":0" ]]
+  # Inspect the containers' host bindings directly: `compose port` output for an unpublished port
+  # differs between Compose versions (":0" on some, an error and non-zero exit on others).
+  local svc id
+  for svc in api postgres; do
+    id="$(stack ps -q "$svc")"
+    [ -n "$id" ]
+    run docker inspect -f '{{json .NetworkSettings.Ports}}' "$id"
+    [ "$status" -eq 0 ]
+    echo "$svc: $output"
+    [[ "$output" != *HostPort* ]]
+  done
   run stack config
   [ "$(echo "$output" | grep -c "published:")" -eq 1 ]
 }
