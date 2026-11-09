@@ -22,12 +22,16 @@ export interface HttpDeps {
 
 type Query = Record<string, string | number | undefined>
 
+/**
+ * `T` is the response type, `B` the request body type: callers name the generated schema type
+ * (`http.post<AuthResponse, LoginRequest>(...)`) so a hand-written body cannot drift from the API.
+ */
 export interface Http {
   get<T>(path: string, query?: Query): Promise<T>
-  post<T>(path: string, body?: unknown): Promise<T>
-  put<T>(path: string, body: unknown): Promise<T>
-  patch<T>(path: string, body: unknown): Promise<T>
-  del(path: string, body?: unknown): Promise<void>
+  post<T, B = unknown>(path: string, body?: B): Promise<T>
+  put<T, B = unknown>(path: string, body: B): Promise<T>
+  patch<T, B = unknown>(path: string, body: B): Promise<T>
+  del<B = unknown>(path: string, body?: B): Promise<void>
 }
 
 const NO_REFRESH = ['/auth/login', '/auth/register', '/auth/refresh']

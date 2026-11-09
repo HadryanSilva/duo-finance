@@ -1,25 +1,35 @@
 import type { Http } from '@/shared/api/http'
-import type { AuthResponse, InvitationPreviewResponse, RegisterRequest } from '@/shared/api/types'
+import type {
+  AcceptInvitationRequest,
+  AuthResponse,
+  ForgotPasswordRequest,
+  InvitationPreviewResponse,
+  LoginRequest,
+  RegisterRequest,
+  ResetPasswordRequest,
+  TokenRequest,
+} from '@/shared/api/types'
 
-export const login = (http: Http, body: { email: string; password: string }) =>
-  http.post<AuthResponse>('/auth/login', body)
+export const login = (http: Http, body: LoginRequest) =>
+  http.post<AuthResponse, LoginRequest>('/auth/login', body)
 
 export const register = (http: Http, body: RegisterRequest) =>
-  http.post<AuthResponse>('/auth/register', body)
+  http.post<AuthResponse, RegisterRequest>('/auth/register', body)
 
 export const verifyEmail = (http: Http, token: string) =>
-  http.post<void>('/auth/verify-email', { token })
+  http.post<void, TokenRequest>('/auth/verify-email', { token })
 
 export const forgotPassword = (http: Http, email: string) =>
-  http.post<void>('/auth/forgot-password', { email })
+  http.post<void, ForgotPasswordRequest>('/auth/forgot-password', { email })
 
 export const resetPassword = (http: Http, token: string, newPassword: string) =>
-  http.post<void>('/auth/reset-password', { token, newPassword })
+  http.post<void, ResetPasswordRequest>('/auth/reset-password', { token, newPassword })
 
 export const invitationPreview = (http: Http, token: string) =>
   http.get<InvitationPreviewResponse>(`/account/invitations/${encodeURIComponent(token)}`)
 
 export const acceptInvitation = (http: Http, token: string, confirmDiscard: boolean) =>
-  http.post<AuthResponse>(`/account/invitations/${encodeURIComponent(token)}/accept`, {
-    confirmDiscard,
-  })
+  http.post<AuthResponse, AcceptInvitationRequest>(
+    `/account/invitations/${encodeURIComponent(token)}/accept`,
+    { confirmDiscard },
+  )

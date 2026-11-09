@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useHttp } from '@/app/providers'
-import type { AccountResponse, AuthResponse, InvitationSummary } from '../types'
+import type {
+  AccountResponse,
+  AuthResponse,
+  CreateInvitationRequest,
+  InvitationSummary,
+  UpdateAccountRequest,
+} from '../types'
 
 const ACCOUNT_KEY = ['account'] as const
 
@@ -16,7 +22,8 @@ export function useRenameAccount() {
   const http = useHttp()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (name: string) => http.patch<AccountResponse>('/account', { name }),
+    mutationFn: (name: string) =>
+      http.patch<AccountResponse, UpdateAccountRequest>('/account', { name }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ACCOUNT_KEY }),
   })
 }
@@ -25,7 +32,8 @@ export function useCreateInvitation() {
   const http = useHttp()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (email: string) => http.post<InvitationSummary>('/account/invitations', { email }),
+    mutationFn: (email: string) =>
+      http.post<InvitationSummary, CreateInvitationRequest>('/account/invitations', { email }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ACCOUNT_KEY }),
   })
 }
