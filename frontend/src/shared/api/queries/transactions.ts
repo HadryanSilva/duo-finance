@@ -22,16 +22,22 @@ export type TransactionFilter = {
   q?: string
 }
 
-/** Pages of 50, newest date first; `hasNextPage` while `page < totalPages - 1`. */
-export function useTransactions(filter: MaybeRefOrGetter<TransactionFilter>) {
+/**
+ * Pages of 50 (or `size`), newest date first; `hasNextPage` while `page < totalPages - 1`.
+ * An empty filter means no date range at all. `size` is part of the cache key.
+ */
+export function useTransactions(
+  filter: MaybeRefOrGetter<TransactionFilter>,
+  size: number = TRANSACTIONS_PAGE_SIZE,
+) {
   const http = useHttp()
   return useInfiniteQuery({
-    queryKey: computed(() => [...KEY, toValue(filter)]),
+    queryKey: computed(() => [...KEY, toValue(filter), size]),
     queryFn: ({ pageParam }) =>
       http.get<PageResponseTransactionResponse>('/transactions', {
         ...toValue(filter),
         page: pageParam,
-        size: TRANSACTIONS_PAGE_SIZE,
+        size,
       }),
     initialPageParam: 0,
     getNextPageParam: (last) => (last.page < last.totalPages - 1 ? last.page + 1 : undefined),

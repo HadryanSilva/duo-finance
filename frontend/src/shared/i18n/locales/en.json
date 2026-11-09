@@ -429,8 +429,54 @@
       "endDate": "End (optional)",
       "endBeforeStart": "The end must be on or after the start.",
       "immediateNotice": "Because the start is today or in the past, the occurrences up to today will be generated now.",
-      "lockedNote": "Type, frequency and start cannot be changed. To change them, create another recurring transaction.",
-      "locked": "Not editable"
+      "lockedNote": "Type, frequency and start cannot be changed. To change them, create another recurring transaction."
+    }
+  },
+  "dashboard": {
+    "subtitle": "Your month at a glance.",
+    "balance": {
+      "title": "Balance",
+      "total": "Total balance",
+      "asOf": "balance as of {date}",
+      "accountsLabel": "Balance by account",
+      "emptyTitle": "No accounts yet",
+      "emptyDescription": "Add a bank account to see your balances.",
+      "emptyCta": "Create first account"
+    },
+    "incomeExpense": {
+      "title": "Income and expenses",
+      "income": "Income",
+      "expense": "Expenses",
+      "chartLabel": "Bar chart comparing the month's income and expenses"
+    },
+    "spending": {
+      "title": "Spending by category",
+      "empty": "No expenses in this month.",
+      "chartLabel": "Doughnut chart of the month's spending by category",
+      "legendLabel": "Spending by category"
+    },
+    "budgets": {
+      "title": "Budgets",
+      "emptyTitle": "No budgets this month",
+      "emptyDescription": "Set monthly limits to keep spending under control.",
+      "emptyCta": "Set a budget",
+      "listLabel": "Budget progress"
+    },
+    "upcoming": {
+      "title": "Upcoming",
+      "subtitle": "Next 30 days",
+      "emptyTitle": "Nothing scheduled",
+      "emptyDescription": "Recurring transactions show up here before they are posted.",
+      "emptyCta": "Create a recurring transaction",
+      "listLabel": "Upcoming transactions"
+    },
+    "recent": {
+      "title": "Recent transactions",
+      "viewAll": "View all",
+      "emptyTitle": "No transactions yet",
+      "emptyDescription": "Record your first income or expense.",
+      "emptyCta": "Record first transaction",
+      "listLabel": "Recent transactions"
     }
   }
 }

@@ -429,8 +429,54 @@
       "endDate": "Fim (opcional)",
       "endBeforeStart": "O fim deve ser igual ou posterior ao início.",
       "immediateNotice": "Como o início é hoje ou no passado, as ocorrências até hoje serão geradas agora.",
-      "lockedNote": "Tipo, frequência e início não podem ser alterados. Para mudá-los, crie outra recorrência.",
-      "locked": "Não editável"
+      "lockedNote": "Tipo, frequência e início não podem ser alterados. Para mudá-los, crie outra recorrência."
+    }
+  },
+  "dashboard": {
+    "subtitle": "O mês de vocês em um relance.",
+    "balance": {
+      "title": "Saldo",
+      "total": "Saldo total",
+      "asOf": "saldo em {date}",
+      "accountsLabel": "Saldo por conta",
+      "emptyTitle": "Nenhuma conta ainda",
+      "emptyDescription": "Adicione uma conta bancária para ver os saldos.",
+      "emptyCta": "Criar primeira conta"
+    },
+    "incomeExpense": {
+      "title": "Receitas e despesas",
+      "income": "Receitas",
+      "expense": "Despesas",
+      "chartLabel": "Gráfico de barras comparando receitas e despesas do mês"
+    },
+    "spending": {
+      "title": "Gastos por categoria",
+      "empty": "Nenhuma despesa neste mês.",
+      "chartLabel": "Gráfico de rosca dos gastos do mês por categoria",
+      "legendLabel": "Gastos por categoria"
+    },
+    "budgets": {
+      "title": "Orçamentos",
+      "emptyTitle": "Nenhum orçamento neste mês",
+      "emptyDescription": "Defina limites mensais para manter os gastos sob controle.",
+      "emptyCta": "Definir orçamento",
+      "listLabel": "Andamento dos orçamentos"
+    },
+    "upcoming": {
+      "title": "Próximos",
+      "subtitle": "Próximos 30 dias",
+      "emptyTitle": "Nada agendado",
+      "emptyDescription": "As recorrências aparecem aqui antes de serem lançadas.",
+      "emptyCta": "Criar recorrência",
+      "listLabel": "Próximos lançamentos"
+    },
+    "recent": {
+      "title": "Últimos lançamentos",
+      "viewAll": "Ver todos",
+      "emptyTitle": "Nenhum lançamento ainda",
+      "emptyDescription": "Registre a primeira receita ou despesa.",
+      "emptyCta": "Registrar primeiro lançamento",
+      "listLabel": "Últimos lançamentos"
     }
   }
 }
