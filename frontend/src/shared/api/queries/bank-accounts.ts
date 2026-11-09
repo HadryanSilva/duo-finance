@@ -17,14 +17,21 @@ export function useBankAccounts(includeArchived: MaybeRefOrGetter<boolean> = fal
   })
 }
 
-/** Invalidates bank accounts and the dashboard; `withTransactions` too when rows show account names. */
-function useInvalidate(withTransactions: boolean) {
+/**
+ * Invalidates bank accounts and the dashboard; with `withReferences`, also the views that show an
+ * account's name or archived state (transactions, recurring rules, budgets).
+ */
+function useInvalidate(withReferences: boolean) {
   const qc = useQueryClient()
   return () =>
     Promise.all([
       qc.invalidateQueries({ queryKey: KEY }),
       qc.invalidateQueries({ queryKey: ['dashboard'] }),
-      ...(withTransactions ? [qc.invalidateQueries({ queryKey: ['transactions'] })] : []),
+      ...(withReferences
+        ? [['transactions'], ['recurring-rules'], ['budgets']].map((queryKey) =>
+            qc.invalidateQueries({ queryKey }),
+          )
+        : []),
     ])
 }
 

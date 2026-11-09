@@ -45,7 +45,8 @@ export function useDecideWaitlistEntry() {
   return useMutation({
     mutationFn: ({ id, action }: { id: string; action: 'approve' | 'reject' }) =>
       http.post<WaitlistEntryResponse>(`/admin/waitlist/${encodeURIComponent(id)}/${action}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: WAITLIST_KEY }),
+    // Approving issues an access code: refresh everything under 'admin', codes included.
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin'] }),
   })
 }
 

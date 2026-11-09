@@ -16,12 +16,12 @@ export function useRecurringRules() {
   })
 }
 
-/** A rule with a past start generates transactions right away, which move balances. */
+/** A rule with a past start generates transactions right away, which move balances and budgets. */
 function useInvalidate() {
   const qc = useQueryClient()
   return () =>
     Promise.all(
-      [KEY, ['transactions'], ['dashboard'], ['bank-accounts']].map((queryKey) =>
+      [KEY, ['transactions'], ['dashboard'], ['bank-accounts'], ['budgets']].map((queryKey) =>
         qc.invalidateQueries({ queryKey }),
       ),
     )

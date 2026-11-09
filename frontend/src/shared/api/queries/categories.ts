@@ -30,14 +30,21 @@ export function useCategories(
   })
 }
 
-/** Invalidates categories and the dashboard; `withTransactions` too when rows show category names. */
-function useInvalidate(withTransactions: boolean) {
+/**
+ * Invalidates categories and the dashboard; with `withReferences`, also the views that show a
+ * category's name or archived state (transactions, recurring rules, budgets).
+ */
+function useInvalidate(withReferences: boolean) {
   const qc = useQueryClient()
   return () =>
     Promise.all([
       qc.invalidateQueries({ queryKey: KEY }),
       qc.invalidateQueries({ queryKey: ['dashboard'] }),
-      ...(withTransactions ? [qc.invalidateQueries({ queryKey: ['transactions'] })] : []),
+      ...(withReferences
+        ? [['transactions'], ['recurring-rules'], ['budgets']].map((queryKey) =>
+            qc.invalidateQueries({ queryKey }),
+          )
+        : []),
     ])
 }
 
