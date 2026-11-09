@@ -8,7 +8,10 @@
 #           staged ones in and rolls files and tag back together on failure; the job fails with
 #           the script's exit code.
 # Settings (environment "production"): secrets DEPLOY_SSH_KEY (private key), DEPLOY_KNOWN_HOSTS
-# (ssh-keyscan output, verified by hand); variables DEPLOY_HOST, DEPLOY_USER, DEPLOY_PATH.
+# (ssh-keyscan output, verified by hand); variables DEPLOY_HOST, DEPLOY_USER, DEPLOY_PATH,
+# AWS_DEPLOY_ROLE_ARN, AWS_REGION, LIGHTSAIL_INSTANCE.
+# Port 22 of the instance is open only to the administrator; the deploy job (OIDC role, Lightsail
+# port actions only) adds the runner's /32 for the length of the deploy and removes it afterwards.
 name: Deploy
 
 on:
@@ -86,6 +89,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
+    permissions:
+      contents: read
+      id-token: write
     concurrency:
       group: deploy-production
       cancel-in-progress: false
@@ -99,6 +105,36 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
+      - uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      # Adds this runner's public IPv4 /32 to the instance's SSH rule, keeping the existing CIDRs
+      # (so it works whether open-instance-public-ports replaces or merges the rule). The original
+      # CIDRs and the runner CIDR are step outputs for the always() close step.
+      - name: Open SSH for this runner
+        id: ports
+        env:
+          INSTANCE: ${{ vars.LIGHTSAIL_INSTANCE }}
+        run: |
+          if [ -z "$INSTANCE" ]; then
+            echo "::error::LIGHTSAIL_INSTANCE must be set"
+            exit 1
+          fi
+          runner_ip="$(curl -fsS https://checkip.amazonaws.com | tr -d '[:space:]')"
+          if ! [[ "$runner_ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+            echo "::error::could not determine the runner IPv4 address"
+            exit 1
+          fi
+          original="$(aws lightsail get-instance-port-states --instance-name "$INSTANCE" --output json |
+            jq -r '[.portStates[] | select(.fromPort == 22 and .protocol == "tcp") | .cidrs[]] | join(",")')"
+          echo "original=$original" >> "$GITHUB_OUTPUT"
+          echo "runner=$runner_ip/32" >> "$GITHUB_OUTPUT"
+          cidrs="$runner_ip/32"
+          if [ -n "$original" ]; then cidrs="$original,$cidrs"; fi
+          aws lightsail open-instance-public-ports --instance-name "$INSTANCE" \
+            --port-info "fromPort=22,toPort=22,protocol=TCP,cidrs=$cidrs"
+          sleep 5
       - uses: webfactory/ssh-agent@dc588b651fe13675774614f8e6a936a468676387 # v0.9.0
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -136,3 +172,27 @@ jobs:
         run: |
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
             "cd $(printf '%q' "$DEPLOY_PATH") && ./.incoming/deploy.sh $(printf '%q' "$TAG")"
+      # Always runs, even when the deploy failed. Removes only the runner CIDR, then re-asserts the
+      # original CIDRs (idempotent), so the administrator's rule survives either API semantics, and
+      # fails the job if the runner CIDR is still open.
+      - name: Close SSH for this runner
+        if: always() && steps.ports.outputs.runner != ''
+        env:
+          INSTANCE: ${{ vars.LIGHTSAIL_INSTANCE }}
+          RUNNER_CIDR: ${{ steps.ports.outputs.runner }}
+          ORIGINAL_CIDRS: ${{ steps.ports.outputs.original }}
+        run: |
+          aws lightsail close-instance-public-ports --instance-name "$INSTANCE" \
+            --port-info "fromPort=22,toPort=22,protocol=TCP,cidrs=$RUNNER_CIDR" || echo "::warning::close failed"
+          if [ -n "$ORIGINAL_CIDRS" ]; then
+            aws lightsail open-instance-public-ports --instance-name "$INSTANCE" \
+              --port-info "fromPort=22,toPort=22,protocol=TCP,cidrs=$ORIGINAL_CIDRS"
+          fi
+          current="$(aws lightsail get-instance-port-states --instance-name "$INSTANCE" --output json |
+            jq -r '[.portStates[] | select(.fromPort == 22 and .protocol == "tcp") | .cidrs[]] | join(",")')"
+          case ",$current," in
+            *",$RUNNER_CIDR,"*)
+              echo "::error::port 22 is still open to $RUNNER_CIDR"
+              exit 1
+              ;;
+          esac

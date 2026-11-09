@@ -22,16 +22,38 @@ Convenções: os comandos rodam na instância, como o usuário `deploy`, salvo q
 ## 2. Instância
 
 1. No console do Lightsail, crie uma instância Linux/Unix, blueprint **Ubuntu LTS**, plano de **2 GB**
-   de RAM. Região sugerida: `sa-east-1` (São Paulo), a mais próxima dos usuários.
+   de RAM. Região: a mais próxima dos usuários disponível no Lightsail (ex.: `us-east-1`; confira a
+   lista de regiões no console, pois nem toda região da AWS tem Lightsail). O bucket de backup
+   (seção 9) também precisa estar numa região do Lightsail. Anote a região (`<REGIAO>`) e o nome da
+   instância (`<NOME_DA_INSTANCIA>`).
    Resultado esperado: instância em estado "Running".
 2. Em **Networking**, crie um **IP estático** e anexe à instância. Anote o IP (`<IP_ESTATICO>`).
-3. Firewall (Networking da instância): deixe apenas
+3. Firewall (Networking da instância), regras **IPv4**: deixe apenas
    - SSH, TCP 22, restrito ao IP do administrador ("Restrict to IP address");
    - HTTP, TCP 80, qualquer origem;
    - HTTPS, TCP 443, qualquer origem.
-4. Em **Snapshots**, ligue **Automatic snapshots**. O Lightsail só oferece snapshots diários e guarda
+
+   A porta 22 fica fechada ao resto do mundo, mas o deploy do GitHub Actions precisa de SSH a partir
+   de runners hospedados pelo GitHub, que têm IPs variáveis. Por isso o workflow `deploy.yml` abre a
+   porta 22 para o `/32` do próprio runner (via API do Lightsail, com a role da seção 8.2) só pelo
+   tempo do deploy e a fecha em seguida, mesmo se o deploy falhar. Você não precisa liberar faixas
+   de IP do GitHub.
+4. **IPv6.** O Lightsail tem um firewall IPv6 separado, com regras próprias. Desabilite o IPv6 da
+   instância (Networking > IPv6 > Disable) ou espelhe as regras do IPv4 (80 e 443 abertas, **sem
+   a 22 sobre IPv6**). Para a instância ficar acessível só por IPv4 (veja também a seção 4),
+   prefira desabilitar. Verificação, na sua máquina:
+
+   ```bash
+   aws lightsail get-instance-port-states --instance-name <NOME_DA_INSTANCIA> --region <REGIAO> \
+     --query 'portStates[].[fromPort,protocol,cidrs,ipv6Cidrs]' --output json
+   ```
+
+   Resultado esperado: a porta 22 com somente o seu `/32` em `cidrs` e `ipv6Cidrs` vazio; 80 e 443
+   sem 22 em nenhuma regra IPv6. (Sem o AWS CLI, confira em Networking > IPv6 firewall.)
+5. Em **Snapshots**, ligue **Automatic snapshots**. O Lightsail só oferece snapshots diários e guarda
    os últimos 7, o que cobre (e supera) o "snapshot automático semanal" da spec.
-5. Adicione swap de 2 GB (a instância tem 2 GB de RAM; o swap evita OOM em picos):
+6. Conecte como `ubuntu` (`ssh -i <CHAVE_DO_LIGHTSAIL>.pem ubuntu@<IP_ESTATICO>` ou o terminal do
+   console) e adicione swap de 2 GB (a instância tem 2 GB de RAM; o swap evita OOM em picos):
 
    ```bash
    sudo fallocate -l 2G /swapfile
@@ -57,7 +79,12 @@ Conecte como o usuário padrão do Lightsail (`ubuntu`) e prepare o servidor.
    echo '<CONTEUDO_DA_CHAVE_PUBLICA>' | sudo tee /home/deploy/.ssh/authorized_keys
    sudo chown deploy:deploy /home/deploy/.ssh/authorized_keys
    sudo chmod 600 /home/deploy/.ssh/authorized_keys
+   sudo visudo -cf /etc/sudoers.d/90-deploy
    ```
+
+   O `visudo` deve imprimir `/etc/sudoers.d/90-deploy: parsed OK`. Lembre que pertencer ao grupo
+   `docker` (passo 4) já equivale a root na máquina; o `sudo` sem senha do `deploy` não amplia o
+   risco, mas a chave SSH do `deploy` deve ser tratada como chave de root.
 
    Na sua máquina: `ssh deploy@<IP_ESTATICO> whoami` deve imprimir `deploy`.
 
@@ -116,7 +143,8 @@ Conecte como o usuário padrão do Lightsail (`ubuntu`) e prepare o servidor.
 
 ## 4. DNS
 
-No painel do domínio, crie **somente registros A** (não crie AAAA; veja a seção 7, passo 6):
+No painel do domínio, crie **somente registros A** (não crie AAAA; veja a seção 2, passo 4, e a
+seção 7, passo 6):
 
 | Nome | Tipo | Valor |
 | --- | --- | --- |
@@ -207,14 +235,20 @@ As imagens `ghcr.io/hadryansilva/duo-finance-api` e `ghcr.io/hadryansilva/duo-fi
 sempre em minúsculas) são **privadas por padrão**, então a instância precisa se autenticar.
 
 1. No GitHub: Settings > Developer settings > Personal access tokens > Tokens (classic) >
-   Generate new token, somente o escopo **`read:packages`**. Copie o token (`ghp_...`).
-2. Na instância:
+   Generate new token, somente o escopo **`read:packages`** e com **expiração** definida (ex.: 90
+   dias; anote a data para renovar). Copie o token (`ghp_...`).
+2. Na instância, sem deixar o token no histórico do shell:
 
    ```bash
-   echo '<TOKEN>' | docker login ghcr.io -u hadryansilva --password-stdin
+   read -rs GHCR_TOKEN
+   printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u hadryansilva --password-stdin
+   unset GHCR_TOKEN
    ```
 
-   Resultado esperado: `Login Succeeded`. As credenciais ficam em `~/.docker/config.json` do `deploy`.
+   Cole o token no prompt (nada é exibido) e tecle Enter. Resultado esperado: `Login Succeeded`.
+   As credenciais ficam em `~/.docker/config.json` do `deploy`, codificadas em base64 (**não
+   criptografadas**); confirme o modo: `chmod 600 ~/.docker/config.json`. Ao expirar o token, repita o
+   passo, senão o `docker compose pull` do deploy falha.
 
 As imagens só existem depois do primeiro build do pipeline (seção 8); o login pode ser feito antes.
 
@@ -246,7 +280,7 @@ depois. Pré-requisito: DNS da seção 4 propagado e `.env` da seção 5 pronto.
 3. Emita o certificado para os **dois nomes**, `duofinance.dev.br` e `www.duofinance.dev.br`:
 
    ```bash
-   docker compose run --rm --entrypoint certbot certbot certonly --webroot \
+   docker compose run --rm --entrypoint certbot certbot certonly --webroot --non-interactive \
      -w /var/www/certbot -d duofinance.dev.br -d www.duofinance.dev.br \
      --email <SEU_EMAIL> --agree-tos --no-eff-email
    ```
@@ -263,7 +297,7 @@ depois. Pré-requisito: DNS da seção 4 propagado e `.env` da seção 5 pronto.
    ```
 
    Resultado esperado: `Domains: duofinance.dev.br www.duofinance.dev.br` e `VALID: 89 days` (ou próximo).
-5. Faça o primeiro deploy pelo pipeline (seção 8, passo 8.4). Ele sobe o nginx com o certificado real.
+5. Faça o primeiro deploy pelo pipeline (seção 8.5). Ele sobe o nginx com o certificado real.
    Depois do deploy:
 
    ```bash
@@ -278,14 +312,17 @@ depois. Pré-requisito: DNS da seção 4 propagado e `.env` da seção 5 pronto.
    por IPv6 sem o IPv6 configurado de ponta a ponta no Docker), todo IP de cliente vira o gateway da
    bridge e todos compartilham o mesmo balde de `limit_req`. Por isso publique **apenas registro A**
    (sem AAAA), como na seção 4. Para verificar, gere um acesso e veja o `remote_addr` nos logs JSON do
-   nginx:
+   nginx. Na sua máquina, gere o acesso e descubra o seu IP público; na instância, leia o log:
 
    ```bash
+   # na sua máquina
    curl -s -o /dev/null https://duofinance.dev.br/
+   curl -s https://checkip.amazonaws.com
+   # na instância
    docker compose logs --tail 5 nginx | grep -o '"remote_addr":"[^"]*"'
    ```
 
-   Resultado esperado: o IP público de onde você fez a requisição. Se aparecer `172.x.x.x` (gateway da
+   Resultado esperado: o `remote_addr` é igual ao IP impresso pelo `checkip`. Se aparecer `172.x.x.x` (gateway da
    bridge), os limites estão compartilhados: remova qualquer AAAA e repita.
 7. Confira a nota em <https://www.ssllabs.com/ssltest/analyze.html?d=duofinance.dev.br>.
    Resultado esperado: nota **A** ou **A+** (o HSTS está ativo).
@@ -294,11 +331,70 @@ depois. Pré-requisito: DNS da seção 4 propagado e `.env` da seção 5 pronto.
 
 ### 8.1 Environment `production`
 
-Settings > Environments > New environment > `production`. Opcional: adicione a si mesmo em "Required
+Settings > Environments > New environment > `production`. Em "Deployment branches and tags", escolha
+**Selected branches and tags** e adicione somente `main`. Opcional: adicione a si mesmo em "Required
 reviewers" para aprovar cada deploy. O job `deploy` de `.github/workflows/deploy.yml` usa esse
-environment.
+environment, e o token OIDC dele só é aceito pela AWS com `environment:production` (próximo passo).
 
-### 8.2 Secrets e variáveis
+### 8.2 Role AWS para abrir a porta 22 durante o deploy
+
+A porta 22 só aceita o IP do administrador, então o job `deploy` assume uma role da AWS por OIDC (sem
+chaves de longa duração) e abre a 22 para o `/32` do runner enquanto o deploy roda. Passos no console
+IAM (a role é global; a região fica nas variáveis do GitHub):
+
+1. IAM > Identity providers > Add provider: tipo **OpenID Connect**, provider URL
+   `https://token.actions.githubusercontent.com`, audience `sts.amazonaws.com`.
+2. IAM > Roles > Create role > Custom trust policy (nome sugerido `duo-finance-deploy-ssh`):
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [{
+       "Effect": "Allow",
+       "Principal": {"Federated": "arn:aws:iam::<ID_DA_CONTA>:oidc-provider/token.actions.githubusercontent.com"},
+       "Action": "sts:AssumeRoleWithWebIdentity",
+       "Condition": {
+         "StringEquals": {
+           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+           "token.actions.githubusercontent.com:sub": "repo:HadryanSilva/duo-finance:environment:production"
+         }
+       }
+     }]
+   }
+   ```
+
+3. Anexe uma **inline policy** com somente as três ações de porta. O Lightsail aceita permissão por
+   recurso (ARN da instância) para essas ações; use-o:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [{
+       "Effect": "Allow",
+       "Action": [
+         "lightsail:OpenInstancePublicPorts",
+         "lightsail:CloseInstancePublicPorts",
+         "lightsail:GetInstancePortStates"
+       ],
+       "Resource": "arn:aws:lightsail:<REGIAO>:<ID_DA_CONTA>:Instance/<ID_DA_INSTANCIA>"
+     }]
+   }
+   ```
+
+   O ID da instância (um UUID) aparece em `aws lightsail get-instance --instance-name
+   <NOME_DA_INSTANCIA> --query instance.arn --output text`. Se a AWS recusar o ARN para alguma ação,
+   troque o `Resource` por `"*"`: a role continua limitada a essas três ações e a este repositório e
+   environment.
+4. Anote o ARN da role (`<ARN_DA_ROLE>`).
+
+**Risco a conhecer.** O workflow remove só o CIDR do runner com `close-instance-public-ports` e depois
+reafirma os CIDRs originais da 22 com `open-instance-public-ports`, para que a regra do administrador
+sobreviva qualquer que seja a semântica exata da API (substituir ou mesclar a regra da porta). Se o
+passo de fechar falhar ou a porta ficar aberta ao runner, o job termina vermelho com "port 22 is still
+open". Nesse caso, remova o CIDR à mão em Networking, e se a sua própria regra sumir, recupere o
+acesso pelo terminal SSH do console do Lightsail e recrie-a.
+
+### 8.3 Secrets e variáveis
 
 Chave SSH dedicada ao deploy (na sua máquina):
 
@@ -320,18 +416,22 @@ Compare a impressão digital (`SHA256:...`) com a do servidor (na instância:
 | Variable | `DEPLOY_HOST` | `<IP_ESTATICO>` |
 | Variable | `DEPLOY_USER` | `deploy` |
 | Variable | `DEPLOY_PATH` | `/opt/duo-finance` |
+| Variable | `AWS_DEPLOY_ROLE_ARN` | `<ARN_DA_ROLE>` (seção 8.2) |
+| Variable | `AWS_REGION` | `<REGIAO>` da instância |
+| Variable | `LIGHTSAIL_INSTANCE` | `<NOME_DA_INSTANCIA>` |
 
 Depois apague `duo-deploy-key`, `duo-deploy-key.pub` e `duo-known-hosts` da sua máquina. O
 `GITHUB_TOKEN` usado para publicar no GHCR é automático; não há secret a criar para isso.
 
-### 8.3 Proteção da `main`
+### 8.4 Proteção da `main`
 
 Settings > Branches > Add branch protection rule para `main`: **Require a pull request before merging**
 e **Require status checks to pass before merging**, com os checks `backend`, `frontend`, `api-types`,
-`e2e` e `infra` (jobs de `.github/workflows/ci.yml`). Os checks só aparecem na lista depois de rodarem
-ao menos uma vez em um pull request.
+`e2e` e `infra` (jobs de `.github/workflows/ci.yml`). Deixe **Do not allow bypassing the above
+settings** marcado (administradores não furam a regra). Os checks só aparecem na lista depois de
+rodarem ao menos uma vez em um pull request.
 
-### 8.4 Primeiro deploy
+### 8.5 Primeiro deploy
 
 O primeiro deploy sempre passa pelo pipeline: faça merge de um pull request na `main`. Quando o
 workflow `CI` termina com sucesso, o workflow `Deploy` constrói e publica as imagens (job `images`),
@@ -367,18 +467,21 @@ echo 'sha-<12_DA_TAG_BOA>' > .last-good-tag
    mantenha o bucket privado e crie uma **access key restrita a esse bucket**. O Access key ID e o
    Secret aparecem uma única vez.
 2. Regra de ciclo de vida de 30 dias em `daily/` (segunda camada de retenção; o `backup.sh` também
-   apaga dumps com mais de 30 dias). Na sua máquina, com a access key do bucket e o `aws` instalado:
+   apaga dumps com mais de 30 dias). Na sua máquina, com o `aws` instalado, guarde a access key do
+   bucket num perfil (as chaves não vão para o histórico do shell nem para variáveis inline):
 
    ```bash
+   aws configure --profile duo-backup
    cat > lifecycle.json <<'JSON'
    {"Rules":[{"ID":"expire-daily-30d","Status":"Enabled","Filter":{"Prefix":"daily/"},"Expiration":{"Days":30}}]}
    JSON
-   AWS_ACCESS_KEY_ID=<KEY> AWS_SECRET_ACCESS_KEY=<SECRET> aws s3api put-bucket-lifecycle-configuration \
+   aws --profile duo-backup s3api put-bucket-lifecycle-configuration \
      --endpoint-url https://s3.<regiao>.amazonaws.com --region <regiao> \
      --bucket <BUCKET> --lifecycle-configuration file://lifecycle.json
    ```
 
-   Resultado esperado: nenhuma saída e exit code 0. Se o endpoint recusar a operação, mantenha só a
+   O `aws configure` pergunta Access Key ID, Secret, região (`<regiao>`) e formato (`json`). Resultado
+   esperado: nenhuma saída e exit code 0. Se o endpoint recusar a operação, mantenha só a
    poda do `backup.sh`.
 3. Na instância, instale o AWS CLI v2 em `/usr/local/bin` (o PATH do cron não inclui `/snap/bin`):
 
@@ -386,19 +489,20 @@ echo 'sha-<12_DA_TAG_BOA>' > .last-good-tag
    curl -fsSL https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /tmp/awscliv2.zip
    unzip -q /tmp/awscliv2.zip -d /tmp && sudo /tmp/aws/install
    aws --version
+   aws configure --profile duo-backup   # mesma access key do bucket, só para conferir o upload
    ```
 
    Resultado esperado: `aws-cli/2.x.x`.
-4. Preencha no `.env`, sem aspas: `BACKUP_S3_BUCKET=<BUCKET>`,
-   `BACKUP_S3_ENDPOINT=https://s3.<regiao>.amazonaws.com`, `AWS_ACCESS_KEY_ID`,
-   `AWS_SECRET_ACCESS_KEY` e `AWS_DEFAULT_REGION=<regiao>`.
+4. Preencha no `.env` com `nano` (nunca com `echo`/`export` na linha de comando), sem aspas:
+   `BACKUP_S3_BUCKET=<BUCKET>`, `BACKUP_S3_ENDPOINT=https://s3.<regiao>.amazonaws.com`,
+   `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` e `AWS_DEFAULT_REGION=<regiao>`.
 5. Teste manual, com a stack no ar:
 
    ```bash
    cd /opt/duo-finance
    ./backup.sh
    echo $?
-   aws s3 ls s3://<BUCKET>/daily/ --endpoint-url https://s3.<regiao>.amazonaws.com
+   aws --profile duo-backup s3 ls s3://<BUCKET>/daily/ --endpoint-url https://s3.<regiao>.amazonaws.com
    ```
 
    Resultado esperado: linhas `backup: ...`, exit code `0` e o objeto
@@ -432,15 +536,18 @@ echo 'sha-<12_DA_TAG_BOA>' > .last-good-tag
    docker compose exec postgres psql -U duofinance -d duofinance -c 'SELECT x FROM t;'
    ```
 
-   Resultado esperado: o último comando imprime `42`. Limpeza:
+   Resultado esperado: o último comando imprime `42`.
+
+   Para testar também o restore a partir do bucket, antes da limpeza rode
+   `./restore.sh s3://<BUCKET>/daily/<ARQUIVO>.dump --yes` nesse mesmo diretório de teste, com as
+   variáveis `BACKUP_S3_*` e `AWS_*` copiadas para o `.env` dele.
+
+   Limpeza:
 
    ```bash
    docker compose down -v
    cd ~ && rm -rf ~/duo-test && unset COMPOSE_PROJECT_NAME BACKUP_TARGET
    ```
-
-   Para testar o restore a partir do bucket, rode `./restore.sh s3://<BUCKET>/daily/<ARQUIVO>.dump --yes`
-   nesse mesmo diretório de teste, com as variáveis `BACKUP_S3_*` e `AWS_*` copiadas para o `.env` dele.
 
 ## 10. Admin
 
@@ -449,7 +556,7 @@ Depois de criar a sua conta pelo site e verificar o e-mail, promova-a a administ
 ```bash
 cd /opt/duo-finance
 docker compose exec postgres psql -U duofinance -d duofinance \
-  -c "UPDATE users SET role = 'ADMIN' WHERE email = 'voce@exemplo.com';"
+  -c "UPDATE users SET role = 'ADMIN' WHERE lower(email) = lower('voce@exemplo.com');"
 ```
 
 Resultado esperado: `UPDATE 1`. Se for `UPDATE 0`, o e-mail está errado. Faça logout e login de novo
@@ -492,8 +599,12 @@ Resultado esperado: a saída de `--debug` cita os dois arquivos, sem erros.
 GitHub > Actions). O `deploy.sh` usa um lock (`.deploy.lock`) e sai com código 75 se estiver ocupado,
 mas não conte só com isso.
 
+Um `.incoming/` que sobrou de um deploy do pipeline é usado pelo `deploy.sh` (arquivos antigos
+poderiam substituir o compose e os scripts atuais). Confira e remova antes de rodar à mão:
+
 ```bash
 cd /opt/duo-finance
+ls -A .incoming 2>/dev/null && rm -rf .incoming
 ./deploy.sh sha-<12>
 echo $?
 ```
@@ -504,6 +615,7 @@ boa; `2`: falhou e a volta também falhou (intervenção manual).
 Voltar à mão para a última tag boa:
 
 ```bash
+rm -rf .incoming
 ./deploy.sh "$(cat .last-good-tag)"
 curl -s https://duofinance.dev.br/api/actuator/health
 ```
@@ -558,7 +670,9 @@ real acontece com 30 dias restantes).
   `frontend/src/shared/i18n/locales/pt-BR.json` (e `en.json`), nas chaves `legal.privacy.body` e
   `legal.terms.body`, hoje com `[texto jurídico a ser fornecido]`. O vue-i18n interpreta caracteres
   especiais: escape `@` como `{'@'}`, `{` como `{'{'}`, `}` como `{'}'}` e `|` como `{'|'}`. Confira as
-  páginas de privacidade e termos no navegador depois do build.
+  páginas de privacidade e termos no navegador depois do build. Atualize também os testes que
+  afirmam o texto provisório: `frontend/src/features/landing/pages/LandingPage.spec.ts` (linha 34, e
+  o teste dos termos logo abaixo) espera `[texto jurídico a ser fornecido]` e falhará com o texto real.
 - [ ] Revisar `TERMS_VERSION` em `frontend/src/shared/lib/legal.ts` (hoje `'2026-11'`): altere se o
   texto mudou em relação ao que os usuários já aceitaram.
 - [ ] Conferir `PUBLIC_BASE_URL=https://duofinance.dev.br` no `.env` (links dos e-mails).
