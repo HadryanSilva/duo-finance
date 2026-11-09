@@ -64,7 +64,11 @@ watch(
 )
 const listError = computed(() => {
   const e = transactions.error.value
-  return e && !(isApiError(e) && e.code === 'NOT_FOUND') ? errorMessage(e) : null
+  if (!e) return null
+  // that 404 is handled above by removing the filter; any other error is shown
+  const { categoryId, bankAccountId } = filter.value
+  const filterGone = isApiError(e) && e.code === 'NOT_FOUND' && !!(categoryId || bankAccountId)
+  return filterGone ? null : errorMessage(e)
 })
 
 // Side panel: ?new=1 creates, ?edit=<id> edits; closing removes the param.

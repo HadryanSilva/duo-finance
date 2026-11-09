@@ -80,9 +80,14 @@ export function useUpdateTransaction() {
 
 export function useDeleteTransaction() {
   const http = useHttp()
+  const qc = useQueryClient()
   const invalidate = useInvalidate()
   return useMutation({
     mutationFn: (id: string) => http.del(`/transactions/${encodeURIComponent(id)}`),
-    onSuccess: invalidate,
+    onSuccess: (_data, id) => {
+      // The deleted transaction's detail would only refetch into a 404: drop it instead.
+      qc.removeQueries({ queryKey: [...KEY, 'detail', id], exact: true })
+      return invalidate()
+    },
   })
 }

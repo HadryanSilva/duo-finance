@@ -54,9 +54,13 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value || undef
 
 // Search: typed text stays local, the trimmed value reaches the URL 300 ms after the last key.
 const search = ref(props.filter.q ?? '')
+// What this field last sent to the URL: its echo must not overwrite text typed since then.
+let lastEmitted: string | null = null
 const pushSearch = debounce((text: string) => {
   const q = normalizeSearch(text)
-  if (q !== (props.filter.q ?? '')) emit('change', { q: q || undefined })
+  if (q === (props.filter.q ?? '')) return
+  lastEmitted = q
+  emit('change', { q: q || undefined })
 }, SEARCH_DEBOUNCE_MS)
 onBeforeUnmount(() => pushSearch.cancel())
 
@@ -69,7 +73,12 @@ function onSearch(value: string | undefined) {
 watch(
   () => props.filter.q,
   (q) => {
-    if (normalizeSearch(search.value) !== (q ?? '')) search.value = q ?? ''
+    const incoming = q ?? ''
+    if (incoming === lastEmitted) {
+      lastEmitted = null // only the echo is skipped; a later change to the same value syncs
+      return
+    }
+    if (normalizeSearch(search.value) !== incoming) search.value = incoming
   },
 )
 </script>

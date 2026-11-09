@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/dom'
 import { http, HttpResponse, type RequestHandler } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import App from '@/app/App.vue'
 import { todayIso } from '@/shared/lib/dates'
 import { render, renderRoute, testUser } from '@/test/render'
@@ -353,5 +354,57 @@ describe('TransactionsPage', () => {
     const date = within(dialog).getByLabelText('Data')
     await waitFor(() => expect(date.getAttribute('aria-invalid')).toBe('true'))
     expect(dialog.textContent).toContain('Já existe um lançamento recorrente nesta data.')
+  })
+
+  it('delete_confirmsAndClosesPanel', async () => {
+    let deleted = false
+    const s = setup([
+      http.get(`${api}/transactions/t2`, () =>
+        deleted ? problem(404, 'NOT_FOUND') : HttpResponse.json(t2),
+      ),
+      http.delete(`${api}/transactions/t2`, () => {
+        deleted = true
+        return new HttpResponse(null, { status: 204 })
+      }),
+    ])
+    const { router, user } = await s.mount('/transactions?edit=t2')
+    const dialog = await screen.findByRole('dialog', { name: 'Editar lançamento' })
+    await user.click(await within(dialog).findByRole('button', { name: 'Excluir' }))
+    const confirm = await screen.findByRole('dialog', { name: 'Excluir lançamento?' })
+    await user.click(within(confirm).getByRole('button', { name: 'Excluir' }))
+    await waitFor(() => expect(deleted).toBe(true))
+    await waitFor(() => expect(router.currentRoute.value.query.edit).toBeUndefined())
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(screen.queryByText('Não encontramos o que você procurava.')).toBeNull()
+  })
+
+  it('search_echoOfEmittedValue_keepsTextTypedSince', async () => {
+    const { router } = await setup().render('/transactions')
+    await findList()
+    const filters = screen.getByRole('search', { name: 'Filtros' })
+    const search = within(filters).getByLabelText('Buscar') as HTMLInputElement
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    fireEvent.input(search, { target: { value: 'fe' } })
+    await nextTick() // the input's model update reaches the field
+    // 'i' is typed (its model update is queued) just as the debounce sends 'fe' to the URL
+    fireEvent.input(search, { target: { value: 'fei' } })
+    vi.advanceTimersByTime(300)
+    await vi.advanceTimersByTimeAsync(100) // 'fei' reaches the field, then the 'fe' echo arrives
+    expect(router.currentRoute.value.query.q).toBe('fe')
+    expect(search.value).toBe('fei')
+    await vi.advanceTimersByTimeAsync(200)
+    expect(router.currentRoute.value.query.q).toBe('fei')
+    expect(search.value).toBe('fei')
+  })
+
+  it('list_notFoundWithoutEntityFilter_showsError', async () => {
+    await setup([http.get(`${api}/transactions`, () => problem(404, 'NOT_FOUND'))]).render(
+      '/transactions',
+    )
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'Não encontramos o que você procurava.',
+    )
+    expect(screen.queryByText('Nenhum lançamento aqui')).toBeNull()
   })
 })
