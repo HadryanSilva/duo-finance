@@ -1,6 +1,8 @@
 # Production stack (Lightsail, 2 GB). Run from this directory with a .env next to this file
 # (see .env.example). Only nginx publishes ports; api and postgres live on the internal network.
 # Files: docker-compose.local.yml = HTTP smoke override, docker-compose.dev.yml = dev Postgres only.
+name: duo-finance
+
 x-logging: &logging
   driver: json-file
   options:
@@ -49,6 +51,7 @@ services:
 
   postgres:
     image: postgres:16
+    mem_limit: 512m
     restart: unless-stopped
     logging: *logging
     environment:
@@ -66,7 +69,7 @@ services:
   # Renew loop only. The FIRST issuance (runbook, Task 8) must cover both the apex and www:
   #   certbot certonly --webroot -w /var/www/certbot -d duofinance.dev.br -d www.duofinance.dev.br
   certbot:
-    image: certbot/certbot
+    image: certbot/certbot:v5.9.0
     restart: unless-stopped
     logging: *logging
     entrypoint:
