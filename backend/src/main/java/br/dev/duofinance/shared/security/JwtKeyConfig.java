@@ -109,7 +109,7 @@ public class JwtKeyConfig {
     }
 
     private static byte[] decodePem(String pem) {
-        String base64 = pem.replaceAll("-----(BEGIN|END) [A-Z ]+-----", "").replaceAll("\\s", "");
+        String base64 = pem.replace("\\n", "").replaceAll("-----(BEGIN|END) [A-Z ]+-----", "").replaceAll("\\s", "");
         return Base64.getDecoder().decode(base64);
     }
 }

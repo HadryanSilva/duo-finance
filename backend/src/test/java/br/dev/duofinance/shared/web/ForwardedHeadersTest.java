@@ -62,6 +62,14 @@ class ForwardedHeadersTest {
     }
 
     @Test
+    void forgedClientEntry_isIgnored_onlyTheEntryAddedByTheTrustedProxyCounts() throws Exception {
+        // The client forged 6.6.6.6; the trusted proxy (loopback here, nginx in production) appended the real IP.
+        Map<?, ?> info = requestInfo("X-Forwarded-For", "6.6.6.6, 203.0.113.9");
+
+        assertThat(info.get("remoteAddr")).isEqualTo("203.0.113.9");
+    }
+
+    @Test
     void withoutForwardedHeaders_requestIsPlainLoopback() throws Exception {
         Map<?, ?> info = requestInfo();
 

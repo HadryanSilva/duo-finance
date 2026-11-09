@@ -87,4 +87,22 @@ class JwtKeyConfigTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("do not match");
     }
+
+    @Test
+    void pemFormats_singleLine_literalBackslashN_andRealNewlines_areAllAccepted() throws Exception {
+        KeyPair expected = generate();
+        String privateReal = pem("PRIVATE KEY", expected.getPrivate().getEncoded());
+        String publicReal = pem("PUBLIC KEY", expected.getPublic().getEncoded());
+
+        String[][] variants = {
+            {privateReal.replace("\n", ""), publicReal.replace("\n", "")},
+            {privateReal.replace("\n", "\n"), publicReal.replace("\n", "\n")},
+            {privateReal, publicReal},
+        };
+        for (String[] variant : variants) {
+            KeyPair loaded = config.jwtKeyPair(props(variant[0], variant[1]), profiles());
+            assertThat(loaded.getPublic()).isEqualTo(expected.getPublic());
+            assertThat(loaded.getPrivate()).isEqualTo(expected.getPrivate());
+        }
+    }
 }
