@@ -387,12 +387,41 @@ IAM (a role é global; a região fica nas variáveis do GitHub):
    environment.
 4. Anote o ARN da role (`<ARN_DA_ROLE>`).
 
-**Risco a conhecer.** O workflow remove só o CIDR do runner com `close-instance-public-ports` e depois
-reafirma os CIDRs originais da 22 com `open-instance-public-ports`, para que a regra do administrador
-sobreviva qualquer que seja a semântica exata da API (substituir ou mesclar a regra da porta). Se o
-passo de fechar falhar ou a porta ficar aberta ao runner, o job termina vermelho com "port 22 is still
-open". Nesse caso, remova o CIDR à mão em Networking, e se a sua própria regra sumir, recupere o
-acesso pelo terminal SSH do console do Lightsail e recrie-a.
+**Risco a conhecer.** O workflow guarda a regra atual da porta 22 (`cidrs`, `ipv6Cidrs` e
+`cidrListAliases`, este último o alias `lightsail-connect` do SSH pelo navegador) e a reenvia junto
+com o `/32` do runner. Ao final, remove só o CIDR do runner com `close-instance-public-ports` e
+reafirma a regra original com `open-instance-public-ports`, para que o seu IP e o SSH pelo navegador
+sobrevivam qualquer que seja a semântica exata da API (substituir ou mesclar a regra da porta; fechar
+um CIDR ou a regra inteira). Se o passo de fechar falhar ou a porta ficar aberta ao runner, o job
+termina vermelho com "port 22 is still open". **Depois de um passo de fechar vermelho, remova o `/32`
+do runner à mão antes do próximo deploy** (Networking > regra da 22): senão o próximo deploy o guarda
+como se fosse parte da regra original e o mantém. Se a sua própria regra sumir, recrie-a em Networking
+(adicione o seu IP de novo à regra SSH) ou use o terminal SSH do console do Lightsail.
+
+**Teste a seco, uma vez, antes do primeiro deploy.** Na sua máquina, com um perfil AWS com as mesmas
+permissões da role (`aws configure --profile duo-admin`), confirme que abrir e fechar se comportam como
+o workflow assume. Use um IP de teste que não seja o seu (ex.: `203.0.113.7/32`):
+
+```bash
+P="--profile duo-admin --region <REGIAO> lightsail"
+Q='portStates[?fromPort==`22`]'
+aws $P get-instance-port-states --instance-name <NOME_DA_INSTANCIA> --query "$Q" --output json
+aws $P open-instance-public-ports --instance-name <NOME_DA_INSTANCIA> --port-info \
+  '{"fromPort":22,"toPort":22,"protocol":"tcp","cidrs":["<SEU_IP>/32","203.0.113.7/32"],"cidrListAliases":["lightsail-connect"]}'
+aws $P get-instance-port-states --instance-name <NOME_DA_INSTANCIA> --query "$Q" --output json
+aws $P close-instance-public-ports --instance-name <NOME_DA_INSTANCIA> --port-info \
+  '{"fromPort":22,"toPort":22,"protocol":"tcp","cidrs":["203.0.113.7/32"]}'
+aws $P open-instance-public-ports --instance-name <NOME_DA_INSTANCIA> --port-info \
+  '{"fromPort":22,"toPort":22,"protocol":"tcp","cidrs":["<SEU_IP>/32"],"cidrListAliases":["lightsail-connect"]}'
+aws $P get-instance-port-states --instance-name <NOME_DA_INSTANCIA> --query "$Q" --output json
+```
+
+Ajuste os dois JSON ao que o primeiro `get-instance-port-states` mostrou (inclua `ipv6Cidrs` se houver).
+Resultado esperado: a segunda leitura mostra a regra com o seu `/32`, o `203.0.113.7/32` e o alias; a
+terceira (depois de fechar e reafirmar) é idêntica à primeira, com o seu IP e o alias
+`lightsail-connect` intactos e sem o IP de teste. Se a regra mudar de outra forma (por exemplo, o
+alias sumir ou o `open` substituir em vez de mesclar de modo diferente do esperado), não faça o
+primeiro deploy: reveja o workflow.
 
 ### 8.3 Secrets e variáveis
 
