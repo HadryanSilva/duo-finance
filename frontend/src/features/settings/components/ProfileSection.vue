@@ -24,7 +24,7 @@ const resendMutation = useResendVerification()
 const schema = computed(() =>
   toTypedSchema(
     z.object({
-      displayName: z.string().trim().min(1, t('validation.NotBlank')).max(80, t('validation.Size')),
+      displayName: z.string().trim().min(1, t('validation.NotBlank')).max(60, t('validation.Size')),
     }),
   ),
 )

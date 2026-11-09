@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useHttp } from '@/app/providers'
-import type { AuthResponse, MeResponse } from '../types'
+import type {
+  AuthResponse,
+  ChangePasswordRequest,
+  DeleteMeRequest,
+  MeResponse,
+  UpdateMeRequest,
+} from '../types'
 
 /** Sends the signed-in user a new email verification link. */
 export function useResendVerification() {
@@ -19,8 +25,7 @@ export function useUpdateMe() {
   const http = useHttp()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: { displayName?: string; locale?: string }) =>
-      http.patch<MeResponse>('/me', body),
+    mutationFn: (body: UpdateMeRequest) => http.patch<MeResponse>('/me', body),
     onSuccess: (me) => qc.setQueryData(ME_KEY, me),
   })
 }
@@ -29,12 +34,16 @@ export function useUpdateMe() {
 export function useChangePassword() {
   const http = useHttp()
   return useMutation({
-    mutationFn: (body: { currentPassword: string; newPassword: string }) =>
-      http.put<AuthResponse>('/me/password', body),
+    mutationFn: (body: ChangePasswordRequest) => http.put<AuthResponse>('/me/password', body),
   })
 }
 
 export function useDeleteMe() {
   const http = useHttp()
-  return useMutation({ mutationFn: (password: string) => http.del('/me', { password }) })
+  return useMutation({
+    mutationFn: (password: string) => {
+      const body: DeleteMeRequest = { password }
+      return http.del('/me', body)
+    },
+  })
 }

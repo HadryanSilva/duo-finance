@@ -114,7 +114,12 @@ async function leave() {
       <InvitePartnerForm v-if="canInvite" :email-verified="emailVerified" />
 
       <div v-if="canLeave">
-        <Button type="button" variant="outline" @click="leaveOpen = true">
+        <Button
+          type="button"
+          variant="outline"
+          :disabled="leaveMutation.isPending.value"
+          @click="leaveOpen = true"
+        >
           {{ t('settings.couple.leave') }}
         </Button>
         <ConfirmDialog

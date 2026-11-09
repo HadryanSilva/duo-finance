@@ -342,6 +342,23 @@ describe('SettingsPage', () => {
     expect(document.body.textContent).not.toContain('Ana e Bia')
   })
 
+  it('leave_failure_showsErrorKeepsSessionAndAllowsRetry', async () => {
+    const r = await open({
+      account: full,
+      extra: [http.post(`${api}/account/leave`, () => problem(409, 'NOT_IN_COUPLE'))],
+    })
+    const couple = within(await region('Casal'))
+    await r.user.click(await couple.findByRole('button', { name: 'Sair do casal' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    await r.user.click(dialog.getByRole('button', { name: 'Sair do casal' }))
+
+    expect(await couple.findByText('Você não faz parte de um casal.')).toBeTruthy()
+    expect(r.session.accessToken).toBe('test-access-token')
+    expect(r.router.currentRoute.value.path).toBe('/settings')
+    const again = await couple.findByRole('button', { name: 'Sair do casal' })
+    expect((again as HTMLButtonElement).disabled).toBe(false)
+  })
+
   it('plan_isReadOnly', async () => {
     await open()
     const plan = within(await region('Plano'))
