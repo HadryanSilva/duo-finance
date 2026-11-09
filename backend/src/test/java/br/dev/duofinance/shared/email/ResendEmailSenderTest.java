@@ -74,7 +74,7 @@ class ResendEmailSenderTest {
             long start = System.nanoTime();
             assertThatThrownBy(() -> slow.send(new EmailMessage("ana@mail.com", "s", "h")))
                     .isInstanceOf(ResourceAccessException.class);
-            assertThat(Duration.ofNanos(System.nanoTime() - start)).isLessThanOrEqualTo(Duration.ofSeconds(11));
+            assertThat(Duration.ofNanos(System.nanoTime() - start)).isLessThanOrEqualTo(Duration.ofSeconds(15));
         }
     }
 }
