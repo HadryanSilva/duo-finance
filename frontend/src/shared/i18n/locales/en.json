@@ -480,5 +480,76 @@
       "emptyCta": "Record first transaction",
       "listLabel": "Recent transactions"
     }
+  },
+  "settings": {
+    "profile": {
+      "title": "Profile",
+      "name": "Name",
+      "email": "Email",
+      "unverified": "Not verified",
+      "resend": "Resend verification",
+      "resent": "We sent a new confirmation link to your email.",
+      "saved": "Profile updated."
+    },
+    "password": {
+      "title": "Password",
+      "current": "Current password",
+      "new": "New password",
+      "submit": "Change password",
+      "changed": "Password changed. Your other devices were signed out.",
+      "wrongCurrent": "The current password is incorrect."
+    },
+    "preferences": {
+      "title": "Preferences",
+      "language": "Language",
+      "theme": "Theme",
+      "languageSaved": "Language updated."
+    },
+    "couple": {
+      "title": "Couple",
+      "name": "Couple name",
+      "nameSaved": "Name updated.",
+      "members": "Members",
+      "you": "you",
+      "pending": "Pending invitation",
+      "pendingFor": "{email} · valid until {date}",
+      "cancelInvite": "Cancel invitation",
+      "inviteCancelled": "Invitation cancelled.",
+      "inviteEmail": "Partner's email",
+      "invite": "Invite partner",
+      "invited": "Invitation sent to {email}.",
+      "needsVerification": "Confirm your email to invite your partner.",
+      "leave": "Leave couple",
+      "leaveTitle": "Leave the couple?",
+      "leaveMessage": "The transactions and accounts stay with your partner. You get a new, empty account.",
+      "leaveConfirm": "Leave couple"
+    },
+    "plan": {
+      "title": "Plan",
+      "plan": "Plan",
+      "status": "Status",
+      "renews": "Current period until",
+      "names": {
+        "BETA": "Beta"
+      },
+      "statuses": {
+        "TRIALING": "Trial",
+        "ACTIVE": "Active",
+        "PAST_DUE": "Past due",
+        "CANCELED": "Canceled",
+        "EXPIRED": "Expired"
+      }
+    },
+    "danger": {
+      "title": "Danger zone",
+      "description": "Deleting your account is permanent.",
+      "password": "Confirm your password",
+      "delete": "Delete my account",
+      "confirmTitle": "Delete your account?",
+      "confirmMessage": "If you are the only member, all the account's data is erased. If there is a partner, the transactions stay with them and show as \"Former member\". This cannot be undone.",
+      "confirm": "Delete permanently",
+      "deleted": "Your account was deleted.",
+      "wrongPassword": "The password is incorrect."
+    }
   }
 }

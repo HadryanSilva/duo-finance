@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useHttp } from '@/app/providers'
-import type { AccountResponse, InvitationSummary } from '../types'
+import type { AccountResponse, AuthResponse, InvitationSummary } from '../types'
 
 const ACCOUNT_KEY = ['account'] as const
 
@@ -37,4 +37,10 @@ export function useCancelInvitation() {
     mutationFn: (id: string) => http.del(`/account/invitations/${encodeURIComponent(id)}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ACCOUNT_KEY }),
   })
+}
+
+/** Leaving the couple returns the tokens of the user's new solo Account. */
+export function useLeaveAccount() {
+  const http = useHttp()
+  return useMutation({ mutationFn: () => http.post<AuthResponse>('/account/leave') })
 }

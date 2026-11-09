@@ -480,5 +480,76 @@
       "emptyCta": "Registrar primeiro lançamento",
       "listLabel": "Últimos lançamentos"
     }
+  },
+  "settings": {
+    "profile": {
+      "title": "Perfil",
+      "name": "Nome",
+      "email": "E-mail",
+      "unverified": "Não verificado",
+      "resend": "Reenviar verificação",
+      "resent": "Enviamos um novo link de confirmação para o seu e-mail.",
+      "saved": "Perfil atualizado."
+    },
+    "password": {
+      "title": "Senha",
+      "current": "Senha atual",
+      "new": "Nova senha",
+      "submit": "Alterar senha",
+      "changed": "Senha alterada. Os outros dispositivos foram desconectados.",
+      "wrongCurrent": "A senha atual está incorreta."
+    },
+    "preferences": {
+      "title": "Preferências",
+      "language": "Idioma",
+      "theme": "Tema",
+      "languageSaved": "Idioma atualizado."
+    },
+    "couple": {
+      "title": "Casal",
+      "name": "Nome do casal",
+      "nameSaved": "Nome atualizado.",
+      "members": "Membros",
+      "you": "você",
+      "pending": "Convite pendente",
+      "pendingFor": "{email} · válido até {date}",
+      "cancelInvite": "Cancelar convite",
+      "inviteCancelled": "Convite cancelado.",
+      "inviteEmail": "E-mail do parceiro",
+      "invite": "Convidar parceiro",
+      "invited": "Convite enviado para {email}.",
+      "needsVerification": "Confirme seu e-mail para convidar seu parceiro.",
+      "leave": "Sair do casal",
+      "leaveTitle": "Sair do casal?",
+      "leaveMessage": "Os lançamentos e as contas ficam com o seu parceiro. Você recebe uma conta nova e vazia.",
+      "leaveConfirm": "Sair do casal"
+    },
+    "plan": {
+      "title": "Plano",
+      "plan": "Plano",
+      "status": "Situação",
+      "renews": "Período atual até",
+      "names": {
+        "BETA": "Beta"
+      },
+      "statuses": {
+        "TRIALING": "Em teste",
+        "ACTIVE": "Ativo",
+        "PAST_DUE": "Pagamento atrasado",
+        "CANCELED": "Cancelado",
+        "EXPIRED": "Expirado"
+      }
+    },
+    "danger": {
+      "title": "Zona de perigo",
+      "description": "Excluir a conta é permanente.",
+      "password": "Confirme sua senha",
+      "delete": "Excluir minha conta",
+      "confirmTitle": "Excluir sua conta?",
+      "confirmMessage": "Se você for o único membro, todos os dados da conta serão apagados. Se houver um parceiro, os lançamentos ficam com ele e aparecem como \"Ex-membro\". Esta ação não pode ser desfeita.",
+      "confirm": "Excluir definitivamente",
+      "deleted": "Sua conta foi excluída.",
+      "wrongPassword": "A senha está incorreta."
+    }
   }
 }

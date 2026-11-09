@@ -32,6 +32,22 @@ export interface Http {
 
 const NO_REFRESH = ['/auth/login', '/auth/register', '/auth/refresh']
 
+/**
+ * Endpoints that check the typed password and answer a wrong one with 401 INVALID_CREDENTIALS.
+ * That 401 says nothing about the session, so it must not refresh or log out; any other 401 on
+ * them (an expired token) refreshes as usual.
+ */
+const PASSWORD_CHECKS = ['PUT /me/password', 'DELETE /me']
+
+async function isInvalidCredentials(res: Response): Promise<boolean> {
+  try {
+    const p: unknown = await res.clone().json()
+    return !!p && typeof p === 'object' && 'code' in p && p.code === 'INVALID_CREDENTIALS'
+  } catch {
+    return false
+  }
+}
+
 async function toApiError(res: Response): Promise<ApiError> {
   try {
     const p: unknown = await res.json()
@@ -110,7 +126,11 @@ export function createHttp(deps: HttpDeps): Http {
   ): Promise<T> {
     const first = await send(method, path, query, body)
     let res = first.res
-    if (res.status === 401 && !NO_REFRESH.includes(path)) {
+    if (
+      res.status === 401 &&
+      !NO_REFRESH.includes(path) &&
+      !(PASSWORD_CHECKS.includes(`${method} ${path}`) && (await isInvalidCredentials(res)))
+    ) {
       if (epoch() !== first.epoch) throw stale()
       // A newer token means another request already refreshed after this one was sent.
       const current = deps.getToken()

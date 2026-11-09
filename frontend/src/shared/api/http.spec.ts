@@ -345,6 +345,35 @@ describe('http client', () => {
     expect(deps.onUnauthenticated).not.toHaveBeenCalled()
   })
 
+  it('wrongPasswordOnPasswordChangeAndAccountDeletion_doesNotRefreshOrLogOut', async () => {
+    server.use(
+      rest.put(`${base}/me/password`, () => problem(401, 'INVALID_CREDENTIALS')),
+      rest.delete(`${base}/me`, () => problem(401, 'INVALID_CREDENTIALS')),
+    )
+    const { http, deps } = setup()
+    await expect(http.put('/me/password', {})).rejects.toMatchObject({
+      code: 'INVALID_CREDENTIALS',
+    })
+    await expect(http.del('/me', { password: 'x' })).rejects.toMatchObject({
+      code: 'INVALID_CREDENTIALS',
+    })
+    expect(deps.refresh).not.toHaveBeenCalled()
+    expect(deps.onUnauthenticated).not.toHaveBeenCalled()
+  })
+
+  it('an expired token on the password endpoints still refreshes and retries', async () => {
+    server.use(
+      rest.put(`${base}/me/password`, ({ request }) =>
+        request.headers.get('authorization') === 'Bearer new'
+          ? HttpResponse.json({ ok: true })
+          : problem(401, 'UNAUTHENTICATED'),
+      ),
+    )
+    const { http, deps } = setup()
+    await expect(http.put('/me/password', {})).resolves.toEqual({ ok: true })
+    expect(deps.refresh).toHaveBeenCalledTimes(1)
+  })
+
   it('subscriptionInactive_callsHandler', async () => {
     server.use(rest.get(`${base}/data`, () => problem(402, 'SUBSCRIPTION_INACTIVE')))
     const { http, deps } = setup()

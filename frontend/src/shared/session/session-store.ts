@@ -53,6 +53,13 @@ export const useSession = defineStore('session', () => {
     if (locale) setLocale(locale)
   }
 
+  /** The signed-in user's profile changed (PATCH /me): keep the session in step, locale included. */
+  function updateUser(me: MeResponse): void {
+    user.value = me
+    const locale = asLocale(me.locale)
+    if (locale) setLocale(locale)
+  }
+
   /** Tokens of another Account replace the current ones; nothing cached from the old one survives. */
   function switchAccount(r: AuthResponse): void {
     epoch++
@@ -121,6 +128,11 @@ export const useSession = defineStore('session', () => {
     if (router.currentRoute.value.path !== '/suspended') void router.push('/suspended')
   }
 
+  /** Ends the session locally without calling the backend (the account was deleted) or redirecting. */
+  function endSession(): void {
+    clear()
+  }
+
   async function logout(): Promise<void> {
     try {
       await post(LOGOUT_URL)
@@ -138,7 +150,9 @@ export const useSession = defineStore('session', () => {
     isAdmin,
     getEpoch,
     applyAuth,
+    updateUser,
     switchAccount,
+    endSession,
     refresh,
     restore,
     logout,
