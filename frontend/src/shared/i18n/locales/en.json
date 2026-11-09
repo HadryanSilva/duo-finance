@@ -1,0 +1,625 @@
+{
+  "errors": {
+    "VALIDATION_FAILED": "Some fields are invalid. Check them and try again.",
+    "UNAUTHENTICATED": "Your session has expired. Please sign in again.",
+    "INVALID_CREDENTIALS": "Incorrect email or password.",
+    "SESSION_STALE": "Your session is out of date. Please sign in again.",
+    "REFRESH_TOKEN_INVALID": "Your session has expired. Please sign in again.",
+    "REFRESH_RACE": "Your session was just renewed in another tab. Please try again.",
+    "SUBSCRIPTION_INACTIVE": "Access to this account is suspended.",
+    "FORBIDDEN": "You don't have permission to do that.",
+    "NOT_FOUND": "We couldn't find what you were looking for.",
+    "EMAIL_ALREADY_REGISTERED": "An account with this email already exists.",
+    "ACCESS_CODE_INVALID": "This access code is invalid or has already been used.",
+    "INVITE_INVALID": "This invitation is not valid.",
+    "INVITE_EXPIRED": "This invitation has expired. Ask the person who invited you for a new one.",
+    "INVITE_SELF": "You can't accept your own invitation.",
+    "INVITE_PENDING_EXISTS": "This account already has a pending invitation.",
+    "ACCOUNT_FULL": "This account already has two people.",
+    "ALREADY_IN_COUPLE": "You are already part of a couple.",
+    "ACCOUNT_HAS_DATA": "Your current account already has data. If you continue, it will be discarded.",
+    "NOT_IN_COUPLE": "You are not part of a couple.",
+    "EMAIL_NOT_VERIFIED": "Please verify your email before continuing.",
+    "TOKEN_INVALID": "This link is invalid or has expired.",
+    "BANK_ACCOUNT_ARCHIVED": "This bank account is archived.",
+    "BANK_ACCOUNT_IN_USE": "This bank account still has transactions. Archive it instead of deleting.",
+    "CATEGORY_ARCHIVED": "This category is archived.",
+    "CATEGORY_KIND_MISMATCH": "The category doesn't match the transaction type.",
+    "CATEGORY_NAME_TAKEN": "A category with this name already exists.",
+    "CATEGORY_IN_USE": "This category still has transactions. Archive it instead of deleting.",
+    "TRANSFER_INVALID": "A transfer needs two different accounts.",
+    "RECURRING_DATE_TAKEN": "A recurring transaction already exists on this date.",
+    "BUDGET_EXISTS": "A budget already exists for this category.",
+    "BUDGET_CATEGORY_INVALID": "Budgets can only be created for expense categories.",
+    "IN_USE_BY_ACTIVE_RULE": "This item is used by an active recurring transaction.",
+    "INTERNAL_ERROR": "Something went wrong on our side. Please try again shortly.",
+    "NETWORK_ERROR": "Can't reach the server. Check your connection and try again.",
+    "UNKNOWN": "Something went wrong. Please try again."
+  },
+  "validation": {
+    "NotNull": "Fill in this field.",
+    "NotBlank": "Fill in this field.",
+    "Size": "The length of this field isn't allowed.",
+    "Email": "Enter a valid email address.",
+    "Pattern": "The format of this field is invalid.",
+    "Min": "The value is below the minimum allowed.",
+    "Max": "The value is above the maximum allowed.",
+    "AssertTrue": "You need to accept to continue.",
+    "OutOfRange": "The value is outside the allowed range.",
+    "NotAllowed": "This value isn't allowed.",
+    "Invalid": "Invalid value."
+  },
+  "common": {
+    "logout": "Sign out",
+    "signIn": "Sign in",
+    "cancel": "Cancel",
+    "continue": "Continue",
+    "skip": "Skip",
+    "delete": "Delete",
+    "edit": "Edit",
+    "save": "Save",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "archived": "Archived",
+    "showArchived": "Show archived",
+    "close": "Close",
+    "viewRecurring": "View recurring transactions"
+  },
+  "nav": {
+    "main": "Main navigation",
+    "dashboard": "Dashboard",
+    "transactions": "Transactions",
+    "bankAccounts": "Accounts",
+    "categories": "Categories",
+    "budgets": "Budgets",
+    "recurring": "Recurring",
+    "settings": "Settings",
+    "admin": "Admin",
+    "newTransaction": "New transaction",
+    "more": "More"
+  },
+  "theme": {
+    "toggle": "Change theme (current: {theme})",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "pages": {
+    "landing": "Duo Finance",
+    "privacy": "Privacy",
+    "terms": "Terms of use",
+    "login": "Sign in",
+    "register": "Create account",
+    "verifyEmail": "Confirm email",
+    "forgotPassword": "Forgot password",
+    "resetPassword": "New password",
+    "acceptInvite": "Invitation",
+    "onboarding": "Welcome"
+  },
+  "suspended": {
+    "title": "Access suspended",
+    "message": "Access to this account’s finances is suspended. Check the plan in Settings or contact support.",
+    "settings": "Go to Settings"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "message": "The address you opened does not exist or has moved.",
+    "home": "Back to home"
+  },
+  "app": {
+    "name": "Duo Finance"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "newPassword": "New password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "passwordHint": "Use 8 to 128 characters.",
+    "backToLogin": "Back to sign in",
+    "login": {
+      "subtitle": "Sign in to follow your couple's finances.",
+      "forgot": "Forgot my password",
+      "noAccount": "Don't have an account yet?",
+      "createAccount": "Create account",
+      "resetDone": "Password reset. Sign in with your new password."
+    },
+    "register": {
+      "subtitle": "Start organizing your finances together.",
+      "displayName": "Name",
+      "locale": "Language",
+      "accessCode": "Access code",
+      "accessCodeHint": "Sign-up is by invitation. Enter the code you received.",
+      "acceptTerms": "I have read and accept the {terms} and the {privacy}.",
+      "terms": "Terms of use",
+      "privacy": "Privacy policy",
+      "submit": "Create account",
+      "haveAccount": "Already have an account?"
+    },
+    "verify": {
+      "title": "Confirm email",
+      "loading": "Confirming your email…",
+      "success": "Email confirmed",
+      "successMessage": "All set. Your email has been confirmed.",
+      "resend": "Resend email",
+      "resent": "We sent a new confirmation link to your email.",
+      "continue": "Continue"
+    },
+    "forgot": {
+      "subtitle": "Enter your email to receive a reset link.",
+      "submit": "Send link",
+      "sentTitle": "Check your email",
+      "sentMessage": "If an account exists for that email, we sent a link to reset the password."
+    },
+    "reset": {
+      "subtitle": "Choose a new password for your account.",
+      "submit": "Reset password",
+      "requestNew": "Request a new link"
+    }
+  },
+  "invite": {
+    "title": "You have an invitation",
+    "subtitle": "Accept to share your finances in a joint account.",
+    "invitedBy": "Invited by",
+    "unknownInviter": "Someone",
+    "account": "Account",
+    "email": "Invitation email",
+    "signIn": "Sign in",
+    "createAccount": "Create account",
+    "accept": "Accept invitation",
+    "confirmTitle": "Replace your current data?",
+    "confirmMessage": "Your current account already has transactions. If you accept this invitation, your current data will be deleted and you will use the shared account. This cannot be undone.",
+    "confirmLabel": "Accept and delete my data",
+    "notForThisAccount": "This invitation isn't for this account. Sign in with the email that received it.",
+    "loading": "Loading invitation…"
+  },
+  "landing": {
+    "title": "Manage money together, as a couple",
+    "subtitle": "Duo Finance gives you and your partner one clear view of your shared finances.",
+    "highlights": {
+      "shared": {
+        "title": "One account for two",
+        "text": "Both of you see and record the same transactions."
+      },
+      "recurring": {
+        "title": "Automatic recurring entries",
+        "text": "Rent, salaries and subscriptions are posted for you."
+      },
+      "budgets": {
+        "title": "Budgets by category",
+        "text": "Set monthly limits and get warned before you go over."
+      }
+    },
+    "waitlist": {
+      "title": "Join the waitlist",
+      "subtitle": "Leave your email and we will let you know when there is a spot.",
+      "submit": "Join the waitlist",
+      "successTitle": "You are on the list",
+      "successMessage": "If a spot opens up, we will email you."
+    },
+    "createAccount": "Create account",
+    "footer": "Legal"
+  },
+  "legal": {
+    "privacy": {
+      "title": "Privacy policy",
+      "body": "[legal text to be provided]"
+    },
+    "terms": {
+      "title": "Terms of use",
+      "body": "[legal text to be provided]"
+    }
+  },
+  "onboarding": {
+    "progress": "Setup progress",
+    "couple": {
+      "title": "What should the account be called?",
+      "subtitle": "Both of you will see this name. You can change it later.",
+      "name": "Couple name"
+    },
+    "invite": {
+      "title": "Invite your partner",
+      "subtitle": "We will email an invitation to share this account.",
+      "email": "Partner email",
+      "send": "Send invitation",
+      "sent": "Invitation sent to {email}",
+      "resend": "Resend verification",
+      "resent": "We sent a new confirmation link to your email."
+    },
+    "bank": {
+      "title": "Add your first bank account",
+      "subtitle": "Enter today's balance to start with the right numbers.",
+      "name": "Account name",
+      "type": "Type",
+      "balance": "Initial balance",
+      "submit": "Finish"
+    },
+    "stepOf": "Step {current} of {total}"
+  },
+  "bankAccountType": {
+    "CHECKING": "Checking",
+    "SAVINGS": "Savings",
+    "CASH": "Cash",
+    "OTHER": "Other"
+  },
+  "bankAccounts": {
+    "subtitle": "Where your money lives.",
+    "new": "New account",
+    "createTitle": "New account",
+    "editTitle": "Edit account",
+    "total": "Total balance",
+    "heldBy": "Holder: {name}",
+    "formerMember": "Former member",
+    "emptyTitle": "No accounts yet",
+    "emptyDescription": "Add a bank account or wallet to start tracking balances.",
+    "form": {
+      "name": "Name",
+      "type": "Type",
+      "balance": "Initial balance",
+      "holder": "Holder",
+      "noHolder": "No holder"
+    },
+    "deleteTitle": "Delete {name}?",
+    "deleteMessage": "This permanently removes the account.",
+    "actions": {
+      "edit": "Edit {name}",
+      "archive": "Archive {name}",
+      "unarchive": "Unarchive {name}",
+      "delete": "Delete {name}"
+    }
+  },
+  "categories": {
+    "subtitle": "Organize income and expenses.",
+    "new": "New category",
+    "createTitle": "New category",
+    "editTitle": "Edit category",
+    "kind": {
+      "EXPENSE": "Expenses",
+      "INCOME": "Income"
+    },
+    "emptyTitle": "No categories here",
+    "emptyDescription": "Create a category to organize your transactions.",
+    "form": {
+      "name": "Name",
+      "kind": "Type",
+      "icon": "Icon",
+      "color": "Color",
+      "colorN": "Color {n}"
+    },
+    "deleteTitle": "Delete {name}?",
+    "deleteMessage": "This permanently removes the category.",
+    "actions": {
+      "edit": "Edit {name}",
+      "archive": "Archive {name}",
+      "unarchive": "Unarchive {name}",
+      "delete": "Delete {name}"
+    },
+    "icons": {
+      "shopping-cart": "Groceries",
+      "house": "Housing",
+      "car": "Transport",
+      "utensils": "Restaurants",
+      "heart-pulse": "Health",
+      "party-popper": "Leisure",
+      "repeat": "Subscriptions",
+      "graduation-cap": "Education",
+      "ellipsis": "Other",
+      "banknote": "Salary",
+      "laptop": "Freelance",
+      "trending-up": "Investments",
+      "plus": "Other income",
+      "wallet": "Cash",
+      "piggy-bank": "Savings",
+      "landmark": "Banking",
+      "plane": "Travel",
+      "gift": "Gifts",
+      "shirt": "Clothing",
+      "coffee": "Coffee",
+      "dumbbell": "Fitness",
+      "baby": "Kids",
+      "paw-print": "Pets",
+      "briefcase": "Work"
+    }
+  },
+  "author": {
+    "formerMember": "Former member"
+  },
+  "transactions": {
+    "subtitle": "The couple's income, expenses and transfers.",
+    "new": "New transaction",
+    "createTitle": "New transaction",
+    "editTitle": "Edit transaction",
+    "listLabel": "Transactions by day",
+    "emptyTitle": "No transactions here",
+    "emptyDescription": "Adjust the filters or record a new transaction.",
+    "loadMore": "Load more",
+    "loadingMore": "Loading more transactions…",
+    "filterRemoved": "The category or account filter no longer exists and was removed.",
+    "dayNet": "Day balance",
+    "transferRoute": "{from} → {to}",
+    "archivedOption": "{name} (archived)",
+    "kind": {
+      "EXPENSE": "Expense",
+      "INCOME": "Income",
+      "TRANSFER": "Transfer"
+    },
+    "filters": {
+      "label": "Filters",
+      "from": "From",
+      "to": "To",
+      "kind": "Type",
+      "allKinds": "All",
+      "category": "Category",
+      "allCategories": "All",
+      "bankAccount": "Account",
+      "allBankAccounts": "All",
+      "author": "Author",
+      "allAuthors": "All",
+      "search": "Search",
+      "searchPlaceholder": "Search descriptions"
+    },
+    "form": {
+      "kind": "Type",
+      "amount": "Amount",
+      "date": "Date",
+      "description": "Description",
+      "category": "Category",
+      "bankAccount": "Account",
+      "noBankAccount": "No account",
+      "origin": "From account",
+      "destination": "To account",
+      "choose": "Select",
+      "amountPositive": "Enter an amount greater than zero.",
+      "sameAccounts": "The destination account must differ from the origin."
+    },
+    "deleteTitle": "Delete transaction?",
+    "deleteMessage": "This permanently removes the transaction and updates the balances."
+  },
+  "monthSelector": {
+    "label": "Month",
+    "previous": "Previous month",
+    "next": "Next month"
+  },
+  "budgets": {
+    "subtitle": "Monthly spending limits per category.",
+    "new": "New budget",
+    "createTitle": "New budget",
+    "editTitle": "Edit budget",
+    "listLabel": "Budgets of the month",
+    "emptyTitle": "No budgets this month",
+    "emptyDescription": "Set a monthly limit for an expense category.",
+    "of": "of",
+    "progress": "{percent}% of the limit",
+    "edit": "Edit budget for {name}",
+    "remove": "Delete budget for {name}",
+    "deleteTitle": "Delete budget?",
+    "deleteMessage": "The budget for {name} is removed for every month. Transactions are kept.",
+    "form": {
+      "category": "Category",
+      "choose": "Select",
+      "limit": "Monthly limit",
+      "limitPositive": "Enter a limit greater than zero.",
+      "noCategories": "Every active expense category already has a budget."
+    }
+  },
+  "recurring": {
+    "subtitle": "Transactions that repeat on their own.",
+    "new": "New recurring transaction",
+    "createTitle": "New recurring transaction",
+    "editTitle": "Edit recurring transaction",
+    "active": "Active",
+    "inactive": "Inactive or finished",
+    "emptyTitle": "No recurring transactions",
+    "emptyDescription": "Add a transaction that repeats, such as rent or salary.",
+    "next": "Next: {date}",
+    "finished": "Finished",
+    "edit": "Edit {name}",
+    "activate": "Activate {name}",
+    "deactivate": "Deactivate {name}",
+    "remove": "Delete {name}",
+    "deleteTitle": "Delete recurring transaction?",
+    "deleteMessage": "It stops generating transactions. The transactions already generated remain.",
+    "frequency": {
+      "WEEKLY": "Weekly",
+      "MONTHLY": "Monthly",
+      "YEARLY": "Yearly"
+    },
+    "form": {
+      "frequency": "Frequency",
+      "startDate": "Start",
+      "endDate": "End (optional)",
+      "endBeforeStart": "The end must be on or after the start.",
+      "immediateNotice": "Because the start is today or in the past, the occurrences up to today will be generated now.",
+      "lockedNote": "Type, frequency and start cannot be changed. To change them, create another recurring transaction.",
+      "futureOnlyNote": "Changes apply only to future occurrences; transactions already generated are not changed."
+    }
+  },
+  "dashboard": {
+    "subtitle": "Your month at a glance.",
+    "balance": {
+      "title": "Balance",
+      "total": "Total balance",
+      "asOf": "balance as of {date}",
+      "accountsLabel": "Balance by account",
+      "emptyTitle": "No accounts yet",
+      "emptyDescription": "Add a bank account to see your balances.",
+      "emptyCta": "Create first account"
+    },
+    "incomeExpense": {
+      "title": "Income and expenses",
+      "income": "Income",
+      "expense": "Expenses",
+      "chartLabel": "Bar chart comparing the month's income and expenses"
+    },
+    "spending": {
+      "title": "Spending by category",
+      "empty": "No expenses in this month.",
+      "emptyDescription": "Record an expense to see where the money goes.",
+      "emptyCta": "Record an expense",
+      "chartLabel": "Doughnut chart of the month's spending by category",
+      "legendLabel": "Spending by category"
+    },
+    "budgets": {
+      "title": "Budgets",
+      "emptyTitle": "No budgets this month",
+      "emptyDescription": "Set monthly limits to keep spending under control.",
+      "emptyCta": "Set a budget",
+      "listLabel": "Budget progress"
+    },
+    "upcoming": {
+      "title": "Upcoming",
+      "subtitle": "Next 30 days",
+      "emptyTitle": "Nothing scheduled",
+      "emptyDescription": "Recurring transactions show up here before they are posted.",
+      "emptyCta": "Create a recurring transaction",
+      "listLabel": "Upcoming transactions"
+    },
+    "recent": {
+      "title": "Recent transactions",
+      "viewAll": "View all",
+      "emptyTitle": "No transactions yet",
+      "emptyDescription": "Record your first income or expense.",
+      "emptyCta": "Record first transaction",
+      "listLabel": "Recent transactions"
+    }
+  },
+  "settings": {
+    "profile": {
+      "title": "Profile",
+      "name": "Name",
+      "email": "Email",
+      "unverified": "Not verified",
+      "resend": "Resend verification",
+      "resent": "We sent a new confirmation link to your email.",
+      "saved": "Profile updated."
+    },
+    "password": {
+      "title": "Password",
+      "current": "Current password",
+      "new": "New password",
+      "submit": "Change password",
+      "changed": "Password changed. Your other devices were signed out.",
+      "wrongCurrent": "The current password is incorrect."
+    },
+    "preferences": {
+      "title": "Preferences",
+      "language": "Language",
+      "theme": "Theme",
+      "languageSaved": "Language updated."
+    },
+    "couple": {
+      "title": "Couple",
+      "name": "Couple name",
+      "nameSaved": "Name updated.",
+      "members": "Members",
+      "you": "you",
+      "pending": "Pending invitation",
+      "pendingFor": "{email} · valid until {date}",
+      "cancelInvite": "Cancel invitation",
+      "inviteCancelled": "Invitation cancelled.",
+      "inviteEmail": "Partner's email",
+      "invite": "Invite partner",
+      "invited": "Invitation sent to {email}.",
+      "needsVerification": "Confirm your email to invite your partner.",
+      "leave": "Leave couple",
+      "leaveTitle": "Leave the couple?",
+      "leaveMessage": "The transactions and accounts stay with your partner. You get a new, empty account.",
+      "leaveConfirm": "Leave couple"
+    },
+    "plan": {
+      "title": "Plan",
+      "plan": "Plan",
+      "status": "Status",
+      "renews": "Current period until",
+      "names": {
+        "BETA": "Beta"
+      },
+      "statuses": {
+        "TRIALING": "Trial",
+        "ACTIVE": "Active",
+        "PAST_DUE": "Past due",
+        "CANCELED": "Canceled",
+        "EXPIRED": "Expired"
+      }
+    },
+    "danger": {
+      "title": "Danger zone",
+      "description": "Deleting your account is permanent.",
+      "password": "Confirm your password",
+      "delete": "Delete my account",
+      "confirmTitle": "Delete your account?",
+      "confirmMessage": "If you are the only member, all the account's data is erased. If there is a partner, the transactions stay with them and show as \"Former member\". This cannot be undone.",
+      "confirm": "Delete permanently",
+      "deleted": "Your account was deleted.",
+      "wrongPassword": "The password is incorrect."
+    }
+  },
+  "admin": {
+    "title": "Administration",
+    "tabs": {
+      "waitlist": "Waitlist",
+      "codes": "Access codes"
+    },
+    "status": {
+      "label": "Status",
+      "PENDING": "Pending",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected"
+    },
+    "waitlist": {
+      "empty": "No entries with this status.",
+      "locale": "Language",
+      "requested": "Requested {date}",
+      "approve": "Approve",
+      "resend": "Resend code",
+      "reject": "Reject",
+      "approved": "Invite sent to {email}.",
+      "resent": "New code sent to {email}; the previous one was revoked.",
+      "rejected": "Entry for {email} rejected.",
+      "rejectTitle": "Reject this entry?",
+      "rejectMessage": "The code already sent to {email} will be revoked and stop working.",
+      "pager": "Pagination",
+      "previous": "Previous",
+      "next": "Next",
+      "page": "Page {page} of {total}"
+    },
+    "codes": {
+      "empty": "No access codes yet.",
+      "generate": "Generate code",
+      "linkedEmail": "Linked email",
+      "anyone": "Anyone",
+      "uses": "Uses",
+      "expires": "Expires",
+      "never": "No expiry",
+      "note": "Note",
+      "revoke": "Revoke",
+      "revokeTitle": "Revoke this code?",
+      "revokeMessage": "The code will stop working immediately.",
+      "revoked": "Code revoked.",
+      "status": {
+        "ACTIVE": "Active",
+        "REVOKED": "Revoked",
+        "EXPIRED": "Expired",
+        "EXHAUSTED": "Exhausted"
+      }
+    },
+    "form": {
+      "title": "Generate access code",
+      "email": "Email (optional)",
+      "emailHint": "If set, only this email can use the code.",
+      "maxUses": "Uses",
+      "maxUsesRange": "Enter a whole number between 1 and 1000.",
+      "expiresAt": "Expires (optional)",
+      "note": "Note (optional)",
+      "submit": "Generate"
+    },
+    "plain": {
+      "title": "Code generated",
+      "description": "Copy the code and send it to whoever will use it.",
+      "warning": "This code won't be shown again. Copy it now.",
+      "copy": "Copy",
+      "copied": "Copied",
+      "manual": "Could not copy. Copy the selected text manually."
+    }
+  }
+}

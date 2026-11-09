@@ -3,15 +3,16 @@ package br.dev.duofinance.access.dto;
 import br.dev.duofinance.access.model.AccessCode;
 import java.time.Instant;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 public record AccessCodeResponse(
         UUID id,
-        String email,
+        @Nullable String email,
         int maxUses,
         int usedCount,
-        Instant expiresAt,
-        Instant revokedAt,
-        String note,
+        @Nullable Instant expiresAt,
+        @Nullable Instant revokedAt,
+        @Nullable String note,
         Instant createdAt) {
 
     public static AccessCodeResponse of(AccessCode c) {

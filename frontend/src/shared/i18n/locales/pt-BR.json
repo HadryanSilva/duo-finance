@@ -1,0 +1,625 @@
+{
+  "errors": {
+    "VALIDATION_FAILED": "Alguns campos estão inválidos. Confira e tente novamente.",
+    "UNAUTHENTICATED": "Sua sessão expirou. Entre novamente.",
+    "INVALID_CREDENTIALS": "E-mail ou senha incorretos.",
+    "SESSION_STALE": "Sua sessão está desatualizada. Entre novamente.",
+    "REFRESH_TOKEN_INVALID": "Sua sessão expirou. Entre novamente.",
+    "REFRESH_RACE": "Sua sessão acabou de ser renovada em outra aba. Tente novamente.",
+    "SUBSCRIPTION_INACTIVE": "O acesso desta conta está suspenso.",
+    "FORBIDDEN": "Você não tem permissão para fazer isso.",
+    "NOT_FOUND": "Não encontramos o que você procurava.",
+    "EMAIL_ALREADY_REGISTERED": "Já existe uma conta com este e-mail.",
+    "ACCESS_CODE_INVALID": "Este código de acesso é inválido ou já foi usado.",
+    "INVITE_INVALID": "Este convite é inválido.",
+    "INVITE_EXPIRED": "Este convite expirou. Peça um novo para quem convidou você.",
+    "INVITE_SELF": "Você não pode aceitar o próprio convite.",
+    "INVITE_PENDING_EXISTS": "Já existe um convite pendente para esta conta.",
+    "ACCOUNT_FULL": "Esta conta já tem duas pessoas.",
+    "ALREADY_IN_COUPLE": "Você já faz parte de um casal.",
+    "ACCOUNT_HAS_DATA": "Sua conta atual já tem dados. Se você continuar, eles serão descartados.",
+    "NOT_IN_COUPLE": "Você não faz parte de um casal.",
+    "EMAIL_NOT_VERIFIED": "Confirme seu e-mail antes de continuar.",
+    "TOKEN_INVALID": "Este link é inválido ou expirou.",
+    "BANK_ACCOUNT_ARCHIVED": "Esta conta bancária está arquivada.",
+    "BANK_ACCOUNT_IN_USE": "Esta conta bancária ainda tem lançamentos. Arquive-a em vez de excluir.",
+    "CATEGORY_ARCHIVED": "Esta categoria está arquivada.",
+    "CATEGORY_KIND_MISMATCH": "A categoria não combina com o tipo do lançamento.",
+    "CATEGORY_NAME_TAKEN": "Já existe uma categoria com este nome.",
+    "CATEGORY_IN_USE": "Esta categoria ainda tem lançamentos. Arquive-a em vez de excluir.",
+    "TRANSFER_INVALID": "A transferência precisa de duas contas diferentes.",
+    "RECURRING_DATE_TAKEN": "Já existe um lançamento recorrente nesta data.",
+    "BUDGET_EXISTS": "Já existe um orçamento para esta categoria.",
+    "BUDGET_CATEGORY_INVALID": "Só é possível criar orçamento para categorias de despesa.",
+    "IN_USE_BY_ACTIVE_RULE": "Este item é usado por um lançamento recorrente ativo.",
+    "INTERNAL_ERROR": "Algo deu errado do nosso lado. Tente novamente em instantes.",
+    "NETWORK_ERROR": "Sem conexão com o servidor. Verifique sua internet e tente de novo.",
+    "UNKNOWN": "Algo deu errado. Tente novamente."
+  },
+  "validation": {
+    "NotNull": "Preencha este campo.",
+    "NotBlank": "Preencha este campo.",
+    "Size": "O tamanho deste campo não é permitido.",
+    "Email": "Informe um e-mail válido.",
+    "Pattern": "O formato deste campo é inválido.",
+    "Min": "O valor é menor que o mínimo permitido.",
+    "Max": "O valor é maior que o máximo permitido.",
+    "AssertTrue": "Você precisa aceitar para continuar.",
+    "OutOfRange": "O valor está fora do intervalo permitido.",
+    "NotAllowed": "Este valor não é permitido.",
+    "Invalid": "Valor inválido."
+  },
+  "common": {
+    "logout": "Sair",
+    "signIn": "Entrar",
+    "cancel": "Cancelar",
+    "continue": "Continuar",
+    "skip": "Pular",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "save": "Salvar",
+    "archive": "Arquivar",
+    "unarchive": "Desarquivar",
+    "archived": "Arquivada",
+    "showArchived": "Mostrar arquivadas",
+    "close": "Fechar",
+    "viewRecurring": "Ver lançamentos recorrentes"
+  },
+  "nav": {
+    "main": "Navegação principal",
+    "dashboard": "Dashboard",
+    "transactions": "Lançamentos",
+    "bankAccounts": "Contas",
+    "categories": "Categorias",
+    "budgets": "Orçamentos",
+    "recurring": "Recorrências",
+    "settings": "Configurações",
+    "admin": "Admin",
+    "newTransaction": "Novo lançamento",
+    "more": "Mais"
+  },
+  "theme": {
+    "toggle": "Mudar tema (atual: {theme})",
+    "light": "Claro",
+    "dark": "Escuro",
+    "system": "Do sistema"
+  },
+  "pages": {
+    "landing": "Duo Finance",
+    "privacy": "Privacidade",
+    "terms": "Termos de uso",
+    "login": "Entrar",
+    "register": "Criar conta",
+    "verifyEmail": "Confirmar e-mail",
+    "forgotPassword": "Esqueci minha senha",
+    "resetPassword": "Nova senha",
+    "acceptInvite": "Convite",
+    "onboarding": "Boas-vindas"
+  },
+  "suspended": {
+    "title": "Acesso suspenso",
+    "message": "O acesso às finanças desta conta está suspenso. Confira o plano em Configurações ou fale com o suporte.",
+    "settings": "Ir para Configurações"
+  },
+  "notFound": {
+    "title": "Página não encontrada",
+    "message": "O endereço que você abriu não existe ou foi movido.",
+    "home": "Voltar ao início"
+  },
+  "app": {
+    "name": "Duo Finance"
+  },
+  "auth": {
+    "email": "E-mail",
+    "password": "Senha",
+    "newPassword": "Nova senha",
+    "showPassword": "Mostrar senha",
+    "hidePassword": "Ocultar senha",
+    "passwordHint": "Use de 8 a 128 caracteres.",
+    "backToLogin": "Voltar para entrar",
+    "login": {
+      "subtitle": "Entre para acompanhar as finanças do casal.",
+      "forgot": "Esqueci minha senha",
+      "noAccount": "Ainda não tem conta?",
+      "createAccount": "Criar conta",
+      "resetDone": "Senha redefinida. Entre com a nova senha."
+    },
+    "register": {
+      "subtitle": "Comece a organizar as finanças a dois.",
+      "displayName": "Nome",
+      "locale": "Idioma",
+      "accessCode": "Código de acesso",
+      "accessCodeHint": "O cadastro é por convite. Informe o código que você recebeu.",
+      "acceptTerms": "Li e aceito os {terms} e a {privacy}.",
+      "terms": "Termos de uso",
+      "privacy": "Política de privacidade",
+      "submit": "Criar conta",
+      "haveAccount": "Já tem conta?"
+    },
+    "verify": {
+      "title": "Confirmar e-mail",
+      "loading": "Confirmando seu e-mail…",
+      "success": "E-mail confirmado",
+      "successMessage": "Tudo certo. Seu e-mail foi confirmado.",
+      "resend": "Reenviar e-mail",
+      "resent": "Enviamos um novo link de confirmação para o seu e-mail.",
+      "continue": "Continuar"
+    },
+    "forgot": {
+      "subtitle": "Informe seu e-mail para receber um link de redefinição.",
+      "submit": "Enviar link",
+      "sentTitle": "Verifique seu e-mail",
+      "sentMessage": "Se existir uma conta com esse e-mail, enviamos um link para redefinir a senha."
+    },
+    "reset": {
+      "subtitle": "Escolha uma nova senha para a sua conta.",
+      "submit": "Redefinir senha",
+      "requestNew": "Pedir um novo link"
+    }
+  },
+  "invite": {
+    "title": "Você recebeu um convite",
+    "subtitle": "Aceite para compartilhar as finanças em uma conta a dois.",
+    "invitedBy": "Convidado por",
+    "unknownInviter": "Alguém",
+    "account": "Conta",
+    "email": "E-mail do convite",
+    "signIn": "Entrar",
+    "createAccount": "Criar conta",
+    "accept": "Aceitar convite",
+    "confirmTitle": "Substituir seus dados atuais?",
+    "confirmMessage": "Sua conta atual já tem lançamentos. Ao aceitar este convite, os dados atuais serão apagados e você passará a usar a conta compartilhada. Esta ação não pode ser desfeita.",
+    "confirmLabel": "Aceitar e apagar meus dados",
+    "notForThisAccount": "Este convite não é para esta conta. Entre com o e-mail que recebeu o convite.",
+    "loading": "Carregando convite…"
+  },
+  "landing": {
+    "title": "Cuidem do dinheiro juntos, como casal",
+    "subtitle": "O Duo Finance dá a você e ao seu par uma visão clara das finanças compartilhadas.",
+    "highlights": {
+      "shared": {
+        "title": "Uma conta para dois",
+        "text": "Vocês dois veem e registram os mesmos lançamentos."
+      },
+      "recurring": {
+        "title": "Lançamentos recorrentes automáticos",
+        "text": "Aluguel, salários e assinaturas são lançados para vocês."
+      },
+      "budgets": {
+        "title": "Orçamentos por categoria",
+        "text": "Defina limites mensais e receba aviso antes de estourar."
+      }
+    },
+    "waitlist": {
+      "title": "Entre na lista de espera",
+      "subtitle": "Deixe seu e-mail e avisaremos quando houver vaga.",
+      "submit": "Entrar na lista",
+      "successTitle": "Você está na lista",
+      "successMessage": "Se abrir uma vaga, enviaremos um e-mail."
+    },
+    "createAccount": "Criar conta",
+    "footer": "Legal"
+  },
+  "legal": {
+    "privacy": {
+      "title": "Política de privacidade",
+      "body": "[texto jurídico a ser fornecido]"
+    },
+    "terms": {
+      "title": "Termos de uso",
+      "body": "[texto jurídico a ser fornecido]"
+    }
+  },
+  "onboarding": {
+    "progress": "Progresso da configuração",
+    "couple": {
+      "title": "Como vocês querem chamar a conta?",
+      "subtitle": "Esse nome aparece para os dois. Dá para mudar depois.",
+      "name": "Nome do casal"
+    },
+    "invite": {
+      "title": "Convide seu parceiro",
+      "subtitle": "Enviaremos um convite por e-mail para dividir esta conta.",
+      "email": "E-mail do parceiro",
+      "send": "Enviar convite",
+      "sent": "Convite enviado para {email}",
+      "resend": "Reenviar verificação",
+      "resent": "Enviamos um novo link de confirmação para o seu e-mail."
+    },
+    "bank": {
+      "title": "Adicione sua primeira conta bancária",
+      "subtitle": "Informe o saldo de hoje para começar com os números certos.",
+      "name": "Nome da conta",
+      "type": "Tipo",
+      "balance": "Saldo inicial",
+      "submit": "Concluir"
+    },
+    "stepOf": "Passo {current} de {total}"
+  },
+  "bankAccountType": {
+    "CHECKING": "Conta corrente",
+    "SAVINGS": "Poupança",
+    "CASH": "Dinheiro",
+    "OTHER": "Outra"
+  },
+  "bankAccounts": {
+    "subtitle": "Onde seu dinheiro está.",
+    "new": "Nova conta",
+    "createTitle": "Nova conta",
+    "editTitle": "Editar conta",
+    "total": "Saldo total",
+    "heldBy": "Titular: {name}",
+    "formerMember": "Ex-membro",
+    "emptyTitle": "Nenhuma conta ainda",
+    "emptyDescription": "Adicione uma conta bancária ou carteira para acompanhar os saldos.",
+    "form": {
+      "name": "Nome",
+      "type": "Tipo",
+      "balance": "Saldo inicial",
+      "holder": "Titular",
+      "noHolder": "Sem titular"
+    },
+    "deleteTitle": "Excluir {name}?",
+    "deleteMessage": "Isso remove a conta definitivamente.",
+    "actions": {
+      "edit": "Editar {name}",
+      "archive": "Arquivar {name}",
+      "unarchive": "Desarquivar {name}",
+      "delete": "Excluir {name}"
+    }
+  },
+  "categories": {
+    "subtitle": "Organize receitas e despesas.",
+    "new": "Nova categoria",
+    "createTitle": "Nova categoria",
+    "editTitle": "Editar categoria",
+    "kind": {
+      "EXPENSE": "Despesas",
+      "INCOME": "Receitas"
+    },
+    "emptyTitle": "Nenhuma categoria aqui",
+    "emptyDescription": "Crie uma categoria para organizar seus lançamentos.",
+    "form": {
+      "name": "Nome",
+      "kind": "Tipo",
+      "icon": "Ícone",
+      "color": "Cor",
+      "colorN": "Cor {n}"
+    },
+    "deleteTitle": "Excluir {name}?",
+    "deleteMessage": "Isso remove a categoria definitivamente.",
+    "actions": {
+      "edit": "Editar {name}",
+      "archive": "Arquivar {name}",
+      "unarchive": "Desarquivar {name}",
+      "delete": "Excluir {name}"
+    },
+    "icons": {
+      "shopping-cart": "Mercado",
+      "house": "Moradia",
+      "car": "Transporte",
+      "utensils": "Restaurantes",
+      "heart-pulse": "Saúde",
+      "party-popper": "Lazer",
+      "repeat": "Assinaturas",
+      "graduation-cap": "Educação",
+      "ellipsis": "Outros",
+      "banknote": "Salário",
+      "laptop": "Freelance",
+      "trending-up": "Investimentos",
+      "plus": "Outras receitas",
+      "wallet": "Dinheiro",
+      "piggy-bank": "Poupança",
+      "landmark": "Banco",
+      "plane": "Viagens",
+      "gift": "Presentes",
+      "shirt": "Roupas",
+      "coffee": "Café",
+      "dumbbell": "Academia",
+      "baby": "Filhos",
+      "paw-print": "Pets",
+      "briefcase": "Trabalho"
+    }
+  },
+  "author": {
+    "formerMember": "Ex-membro"
+  },
+  "transactions": {
+    "subtitle": "Receitas, despesas e transferências do casal.",
+    "new": "Novo lançamento",
+    "createTitle": "Novo lançamento",
+    "editTitle": "Editar lançamento",
+    "listLabel": "Lançamentos por dia",
+    "emptyTitle": "Nenhum lançamento aqui",
+    "emptyDescription": "Ajuste os filtros ou registre um novo lançamento.",
+    "loadMore": "Carregar mais",
+    "loadingMore": "Carregando mais lançamentos…",
+    "filterRemoved": "O filtro de categoria ou conta não existe mais e foi removido.",
+    "dayNet": "Saldo do dia",
+    "transferRoute": "{from} → {to}",
+    "archivedOption": "{name} (arquivada)",
+    "kind": {
+      "EXPENSE": "Despesa",
+      "INCOME": "Receita",
+      "TRANSFER": "Transferência"
+    },
+    "filters": {
+      "label": "Filtros",
+      "from": "De",
+      "to": "Até",
+      "kind": "Tipo",
+      "allKinds": "Todos",
+      "category": "Categoria",
+      "allCategories": "Todas",
+      "bankAccount": "Conta",
+      "allBankAccounts": "Todas",
+      "author": "Autor",
+      "allAuthors": "Todos",
+      "search": "Buscar",
+      "searchPlaceholder": "Buscar na descrição"
+    },
+    "form": {
+      "kind": "Tipo",
+      "amount": "Valor",
+      "date": "Data",
+      "description": "Descrição",
+      "category": "Categoria",
+      "bankAccount": "Conta",
+      "noBankAccount": "Sem conta",
+      "origin": "Conta de origem",
+      "destination": "Conta de destino",
+      "choose": "Selecione",
+      "amountPositive": "Informe um valor maior que zero.",
+      "sameAccounts": "A conta de destino precisa ser diferente da origem."
+    },
+    "deleteTitle": "Excluir lançamento?",
+    "deleteMessage": "Isso remove o lançamento definitivamente e atualiza os saldos."
+  },
+  "monthSelector": {
+    "label": "Mês",
+    "previous": "Mês anterior",
+    "next": "Próximo mês"
+  },
+  "budgets": {
+    "subtitle": "Limites mensais de gasto por categoria.",
+    "new": "Novo orçamento",
+    "createTitle": "Novo orçamento",
+    "editTitle": "Editar orçamento",
+    "listLabel": "Orçamentos do mês",
+    "emptyTitle": "Nenhum orçamento neste mês",
+    "emptyDescription": "Defina um limite mensal para uma categoria de despesa.",
+    "of": "de",
+    "progress": "{percent}% do limite",
+    "edit": "Editar orçamento de {name}",
+    "remove": "Excluir orçamento de {name}",
+    "deleteTitle": "Excluir orçamento?",
+    "deleteMessage": "O orçamento de {name} deixa de existir em todos os meses. Os lançamentos permanecem.",
+    "form": {
+      "category": "Categoria",
+      "choose": "Selecione",
+      "limit": "Limite mensal",
+      "limitPositive": "Informe um limite maior que zero.",
+      "noCategories": "Todas as categorias de despesa ativas já têm orçamento."
+    }
+  },
+  "recurring": {
+    "subtitle": "Lançamentos que se repetem sozinhos.",
+    "new": "Nova recorrência",
+    "createTitle": "Nova recorrência",
+    "editTitle": "Editar recorrência",
+    "active": "Ativas",
+    "inactive": "Inativas ou encerradas",
+    "emptyTitle": "Nenhuma recorrência",
+    "emptyDescription": "Cadastre um lançamento que se repete, como aluguel ou salário.",
+    "next": "Próximo: {date}",
+    "finished": "Encerrada",
+    "edit": "Editar {name}",
+    "activate": "Ativar {name}",
+    "deactivate": "Desativar {name}",
+    "remove": "Excluir {name}",
+    "deleteTitle": "Excluir recorrência?",
+    "deleteMessage": "A recorrência deixa de gerar lançamentos. Os lançamentos já gerados permanecem.",
+    "frequency": {
+      "WEEKLY": "Semanal",
+      "MONTHLY": "Mensal",
+      "YEARLY": "Anual"
+    },
+    "form": {
+      "frequency": "Frequência",
+      "startDate": "Início",
+      "endDate": "Fim (opcional)",
+      "endBeforeStart": "O fim deve ser igual ou posterior ao início.",
+      "immediateNotice": "Como o início é hoje ou no passado, as ocorrências até hoje serão geradas agora.",
+      "lockedNote": "Tipo, frequência e início não podem ser alterados. Para mudá-los, crie outra recorrência.",
+      "futureOnlyNote": "As alterações valem só para as próximas ocorrências; lançamentos já gerados não mudam."
+    }
+  },
+  "dashboard": {
+    "subtitle": "O mês de vocês em um relance.",
+    "balance": {
+      "title": "Saldo",
+      "total": "Saldo total",
+      "asOf": "saldo em {date}",
+      "accountsLabel": "Saldo por conta",
+      "emptyTitle": "Nenhuma conta ainda",
+      "emptyDescription": "Adicione uma conta bancária para ver os saldos.",
+      "emptyCta": "Criar primeira conta"
+    },
+    "incomeExpense": {
+      "title": "Receitas e despesas",
+      "income": "Receitas",
+      "expense": "Despesas",
+      "chartLabel": "Gráfico de barras comparando receitas e despesas do mês"
+    },
+    "spending": {
+      "title": "Gastos por categoria",
+      "empty": "Nenhuma despesa neste mês.",
+      "emptyDescription": "Registre uma despesa para ver para onde o dinheiro vai.",
+      "emptyCta": "Registrar despesa",
+      "chartLabel": "Gráfico de rosca dos gastos do mês por categoria",
+      "legendLabel": "Gastos por categoria"
+    },
+    "budgets": {
+      "title": "Orçamentos",
+      "emptyTitle": "Nenhum orçamento neste mês",
+      "emptyDescription": "Defina limites mensais para manter os gastos sob controle.",
+      "emptyCta": "Definir orçamento",
+      "listLabel": "Andamento dos orçamentos"
+    },
+    "upcoming": {
+      "title": "Próximos",
+      "subtitle": "Próximos 30 dias",
+      "emptyTitle": "Nada agendado",
+      "emptyDescription": "As recorrências aparecem aqui antes de serem lançadas.",
+      "emptyCta": "Criar recorrência",
+      "listLabel": "Próximos lançamentos"
+    },
+    "recent": {
+      "title": "Últimos lançamentos",
+      "viewAll": "Ver todos",
+      "emptyTitle": "Nenhum lançamento ainda",
+      "emptyDescription": "Registre a primeira receita ou despesa.",
+      "emptyCta": "Registrar primeiro lançamento",
+      "listLabel": "Últimos lançamentos"
+    }
+  },
+  "settings": {
+    "profile": {
+      "title": "Perfil",
+      "name": "Nome",
+      "email": "E-mail",
+      "unverified": "Não verificado",
+      "resend": "Reenviar verificação",
+      "resent": "Enviamos um novo link de confirmação para o seu e-mail.",
+      "saved": "Perfil atualizado."
+    },
+    "password": {
+      "title": "Senha",
+      "current": "Senha atual",
+      "new": "Nova senha",
+      "submit": "Alterar senha",
+      "changed": "Senha alterada. Os outros dispositivos foram desconectados.",
+      "wrongCurrent": "A senha atual está incorreta."
+    },
+    "preferences": {
+      "title": "Preferências",
+      "language": "Idioma",
+      "theme": "Tema",
+      "languageSaved": "Idioma atualizado."
+    },
+    "couple": {
+      "title": "Casal",
+      "name": "Nome do casal",
+      "nameSaved": "Nome atualizado.",
+      "members": "Membros",
+      "you": "você",
+      "pending": "Convite pendente",
+      "pendingFor": "{email} · válido até {date}",
+      "cancelInvite": "Cancelar convite",
+      "inviteCancelled": "Convite cancelado.",
+      "inviteEmail": "E-mail do parceiro",
+      "invite": "Convidar parceiro",
+      "invited": "Convite enviado para {email}.",
+      "needsVerification": "Confirme seu e-mail para convidar seu parceiro.",
+      "leave": "Sair do casal",
+      "leaveTitle": "Sair do casal?",
+      "leaveMessage": "Os lançamentos e as contas ficam com o seu parceiro. Você recebe uma conta nova e vazia.",
+      "leaveConfirm": "Sair do casal"
+    },
+    "plan": {
+      "title": "Plano",
+      "plan": "Plano",
+      "status": "Situação",
+      "renews": "Período atual até",
+      "names": {
+        "BETA": "Beta"
+      },
+      "statuses": {
+        "TRIALING": "Em teste",
+        "ACTIVE": "Ativo",
+        "PAST_DUE": "Pagamento atrasado",
+        "CANCELED": "Cancelado",
+        "EXPIRED": "Expirado"
+      }
+    },
+    "danger": {
+      "title": "Zona de perigo",
+      "description": "Excluir a conta é permanente.",
+      "password": "Confirme sua senha",
+      "delete": "Excluir minha conta",
+      "confirmTitle": "Excluir sua conta?",
+      "confirmMessage": "Se você for o único membro, todos os dados da conta serão apagados. Se houver um parceiro, os lançamentos ficam com ele e aparecem como \"Ex-membro\". Esta ação não pode ser desfeita.",
+      "confirm": "Excluir definitivamente",
+      "deleted": "Sua conta foi excluída.",
+      "wrongPassword": "A senha está incorreta."
+    }
+  },
+  "admin": {
+    "title": "Administração",
+    "tabs": {
+      "waitlist": "Lista de espera",
+      "codes": "Códigos de acesso"
+    },
+    "status": {
+      "label": "Status",
+      "PENDING": "Pendente",
+      "APPROVED": "Aprovada",
+      "REJECTED": "Rejeitada"
+    },
+    "waitlist": {
+      "empty": "Nenhuma entrada com esse status.",
+      "locale": "Idioma",
+      "requested": "Pedido em {date}",
+      "approve": "Aprovar",
+      "resend": "Reenviar código",
+      "reject": "Rejeitar",
+      "approved": "Convite enviado para {email}.",
+      "resent": "Novo código enviado para {email}; o anterior foi revogado.",
+      "rejected": "Entrada de {email} rejeitada.",
+      "rejectTitle": "Rejeitar esta entrada?",
+      "rejectMessage": "O código já enviado para {email} será revogado e deixará de funcionar.",
+      "pager": "Paginação",
+      "previous": "Anterior",
+      "next": "Próxima",
+      "page": "Página {page} de {total}"
+    },
+    "codes": {
+      "empty": "Nenhum código de acesso ainda.",
+      "generate": "Gerar código",
+      "linkedEmail": "E-mail vinculado",
+      "anyone": "Qualquer pessoa",
+      "uses": "Usos",
+      "expires": "Validade",
+      "never": "Sem validade",
+      "note": "Nota",
+      "revoke": "Revogar",
+      "revokeTitle": "Revogar este código?",
+      "revokeMessage": "O código deixará de funcionar imediatamente.",
+      "revoked": "Código revogado.",
+      "status": {
+        "ACTIVE": "Ativo",
+        "REVOKED": "Revogado",
+        "EXPIRED": "Expirado",
+        "EXHAUSTED": "Esgotado"
+      }
+    },
+    "form": {
+      "title": "Gerar código de acesso",
+      "email": "E-mail (opcional)",
+      "emailHint": "Se informado, só esse e-mail pode usar o código.",
+      "maxUses": "Usos",
+      "maxUsesRange": "Informe um número inteiro entre 1 e 1000.",
+      "expiresAt": "Validade (opcional)",
+      "note": "Nota (opcional)",
+      "submit": "Gerar"
+    },
+    "plain": {
+      "title": "Código gerado",
+      "description": "Copie o código e envie para quem vai usá-lo.",
+      "warning": "Este código não será mostrado de novo. Copie agora.",
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "manual": "Não foi possível copiar. Copie manualmente o texto selecionado."
+    }
+  }
+}

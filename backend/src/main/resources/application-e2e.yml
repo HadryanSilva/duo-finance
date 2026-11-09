@@ -1,0 +1,10 @@
+# Used together with dev: spring.profiles.active=dev,e2e
+app:
+  registration:
+    mode: OPEN
+  email:
+    provider: LOG
+  recurring:
+    scheduler-enabled: false
+  auth:
+    cookie-secure: false

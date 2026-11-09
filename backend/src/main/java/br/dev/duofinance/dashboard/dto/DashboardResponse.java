@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 public record DashboardResponse(
         YearMonth month,
@@ -25,5 +26,10 @@ public record DashboardResponse(
     public record CategorySpend(UUID categoryId, String name, String color, String icon, long totalCents) {}
 
     public record UpcomingOccurrence(
-            UUID ruleId, LocalDate date, TransactionKind kind, long amountCents, String description, UUID categoryId) {}
+            UUID ruleId,
+            LocalDate date,
+            TransactionKind kind,
+            long amountCents,
+            @Nullable String description,
+            @Nullable UUID categoryId) {}
 }
