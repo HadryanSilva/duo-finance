@@ -24,13 +24,19 @@ export const TRANSACTIONS = item('/transactions', 'nav.transactions', ArrowLeftR
 export const BUDGETS = item('/budgets', 'nav.budgets', PiggyBank)
 export const SETTINGS = item('/settings', 'nav.settings', Settings)
 export const ADMIN = item('/admin', 'nav.admin', ShieldCheck)
+const BANK_ACCOUNTS = item('/bank-accounts', 'nav.bankAccounts', Landmark)
+const CATEGORIES = item('/categories', 'nav.categories', Tags)
+const RECURRING = item('/recurring', 'nav.recurring', Repeat)
 
 export const SIDEBAR_ITEMS: readonly NavItem[] = [
   DASHBOARD,
   TRANSACTIONS,
-  item('/bank-accounts', 'nav.bankAccounts', Landmark),
-  item('/categories', 'nav.categories', Tags),
+  BANK_ACCOUNTS,
+  CATEGORIES,
   BUDGETS,
-  item('/recurring', 'nav.recurring', Repeat),
+  RECURRING,
   SETTINGS,
 ]
+
+/** The pages the bottom nav has no room for, offered in the user menu (Admin added for ADMIN). */
+export const MORE_ITEMS: readonly NavItem[] = [BANK_ACCOUNTS, CATEGORIES, RECURRING]

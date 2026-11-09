@@ -75,7 +75,8 @@
     "recurring": "Recurring",
     "settings": "Settings",
     "admin": "Admin",
-    "newTransaction": "New transaction"
+    "newTransaction": "New transaction",
+    "more": "More"
   },
   "theme": {
     "toggle": "Change theme (current: {theme})",

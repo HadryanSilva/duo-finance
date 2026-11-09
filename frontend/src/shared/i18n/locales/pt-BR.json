@@ -75,7 +75,8 @@
     "recurring": "Recorrências",
     "settings": "Configurações",
     "admin": "Admin",
-    "newTransaction": "Novo lançamento"
+    "newTransaction": "Novo lançamento",
+    "more": "Mais"
   },
   "theme": {
     "toggle": "Mudar tema (atual: {theme})",

@@ -1,7 +1,7 @@
 import { http as rest, HttpResponse } from 'msw'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from '@/app/App.vue'
-import { render } from '@/test/render'
+import { cleanup, render } from '@/test/render'
 import AppLayout from './AppLayout.vue'
 
 const api = `${window.location.origin}/api/v1`
@@ -71,6 +71,82 @@ describe('AppLayout', () => {
     await user.click(item!)
     await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/login'))
     expect(logout).toHaveBeenCalledTimes(1)
+  })
+
+  describe('user menu "More" links (the only path to these pages below md)', () => {
+    const menuItems = () =>
+      [...document.querySelectorAll('[role="menuitem"]')].map((el) => el.textContent?.trim())
+    const empty = () => HttpResponse.json([])
+    const listHandlers = [
+      rest.get(`${api}/bank-accounts`, empty),
+      rest.get(`${api}/categories`, empty),
+      rest.get(`${api}/recurring-rules`, empty),
+      rest.get(`${api}/admin/waitlist`, () =>
+        HttpResponse.json({ content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 }),
+      ),
+      // the dashboard's own data is irrelevant here
+      rest.get(`${api}/*`, () => new HttpResponse(null, { status: 503 })),
+    ]
+
+    afterEach(() => {
+      window.innerWidth = 1024 // jsdom's default
+    })
+
+    async function openMenu(role: 'USER' | 'ADMIN') {
+      window.innerWidth = 375 // phone width: the sidebar is hidden, only the bottom nav shows
+      const r = await render(App, {
+        route: '/dashboard',
+        session: { role },
+        handlers: listHandlers,
+      })
+      const trigger = r.wrapper.get('button[aria-haspopup="menu"]')
+      expect(trigger.element.closest('[data-testid="sidebar"]')).toBeNull()
+      await r.user.click(trigger.element)
+      await vi.waitFor(() => expect(menuItems()).toContain('Sair'))
+      return r
+    }
+
+    it.each([
+      ['Contas', '/bank-accounts'],
+      ['Categorias', '/categories'],
+      ['Recorrências', '/recurring'],
+    ])('reaches %s from the user menu', async (name, path) => {
+      const r = await openMenu('USER')
+      const item = [...document.querySelectorAll('[role="menuitem"]')].find(
+        (el) => el.textContent?.trim() === name,
+      )
+      expect(item).toBeDefined()
+      await r.user.click(item!)
+      await vi.waitFor(() => expect(r.router.currentRoute.value.path).toBe(path))
+    })
+
+    it('lists Admin only for ADMIN', async () => {
+      await openMenu('USER')
+      expect(menuItems()).toEqual(['Contas', 'Categorias', 'Recorrências', 'Sair'])
+      cleanup()
+
+      const r = await openMenu('ADMIN')
+      expect(menuItems()).toEqual(['Contas', 'Categorias', 'Recorrências', 'Admin', 'Sair'])
+      const admin = [...document.querySelectorAll('[role="menuitem"]')].find(
+        (el) => el.textContent?.trim() === 'Admin',
+      )
+      await r.user.click(admin!)
+      await vi.waitFor(() => expect(r.router.currentRoute.value.path).toBe('/admin'))
+    })
+
+    it('labels the section in English', async () => {
+      const r = await render(App, {
+        route: '/dashboard',
+        session: {},
+        locale: 'en',
+        handlers: listHandlers,
+      })
+      await r.user.click(r.wrapper.get('button[aria-haspopup="menu"]').element)
+      await vi.waitFor(() =>
+        expect(menuItems()).toEqual(['Accounts', 'Categories', 'Recurring', 'Sign out']),
+      )
+      expect(document.body.textContent).toContain('More')
+    })
   })
 
   it('renders the page inside the app shell', async () => {
