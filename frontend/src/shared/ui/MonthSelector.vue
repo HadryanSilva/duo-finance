@@ -10,7 +10,11 @@ import { Button } from '@/shared/ui/button'
 const model = defineModel<string>({ required: true })
 
 const { t, locale } = useI18n()
-const label = computed(() => formatMonth(model.value, locale.value as Locale))
+/** Only the first letter is capitalised: "março de 2026" -> "Março de 2026". */
+const label = computed(() => {
+  const text = formatMonth(model.value, locale.value as Locale)
+  return text.charAt(0).toLocaleUpperCase(locale.value) + text.slice(1)
+})
 </script>
 
 <template>
@@ -23,7 +27,7 @@ const label = computed(() => formatMonth(model.value, locale.value as Locale))
     >
       <ChevronLeft class="size-4" aria-hidden="true" />
     </Button>
-    <span class="min-w-40 text-center font-medium capitalize text-foreground" aria-live="polite">{{
+    <span class="min-w-40 text-center font-medium text-foreground" aria-live="polite">{{
       label
     }}</span>
     <Button

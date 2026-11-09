@@ -113,7 +113,7 @@ describe('BudgetsPage', () => {
     const s = setup()
     await s.render('/budgets?month=2026-03')
     await waitFor(() => expect(s.months).toEqual(['2026-03']))
-    expect(screen.getByText('março de 2026')).toBeTruthy()
+    expect(screen.getByText('Março de 2026')).toBeTruthy()
   })
 
   it('budgets_createOffersOnlyExpenseCategoriesWithoutBudget', async () => {
