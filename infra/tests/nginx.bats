@@ -133,8 +133,9 @@ assert_security_headers() {
     real_ip="$(header X-Echo-Real-IP)"
     xff="$(header X-Echo-Forwarded-For)"
     [ -n "$real_ip" ] && [ "$real_ip" != "6.6.6.6" ] || { echo "$path: X-Real-IP '$real_ip'" >&2; return 1; }
-    # nginx appends the real peer as the last hop; the backend trusts only that hop.
-    [ "$xff" = "6.6.6.6, $real_ip" ] || { echo "$path: X-Forwarded-For '$xff'" >&2; return 1; }
+    # nginx is the edge: X-Forwarded-For is overwritten with the real peer, never appended to.
+    [ "$xff" = "$real_ip" ] || { echo "$path: X-Forwarded-For '$xff'" >&2; return 1; }
+    [[ "$(header X-Echo-Forwarded-For)$(header X-Echo-Real-IP)" != *6.6.6.6* ]] || { echo "$path: forged IP reached the api" >&2; return 1; }
     [ "$(header X-Echo-Forwarded-Proto)" = "http" ] || { echo "$path: proto" >&2; return 1; }
     [ "$(header X-Echo-Forwarded-Host)" = "127.0.0.1" ] || { echo "$path: X-Forwarded-Host '$(header X-Echo-Forwarded-Host)'" >&2; return 1; }
     [ "$(header X-Echo-Forwarded-Port)" = "80" ] || { echo "$path: X-Forwarded-Port '$(header X-Echo-Forwarded-Port)'" >&2; return 1; }
@@ -166,6 +167,30 @@ assert_security_headers() {
     [ -n "$(header X-Echo-Real-IP)" ] || { echo "refresh #$i: not proxied" >&2; return 1; }
   done
   [ "$(fetch /api/v1/auth/logout -X POST)" = "200" ]
+}
+
+@test "sessionRefresh_largeBurst_isRateLimited" {
+  # Not unlimited: zone=session (60r/m, burst 30) still stops a flood.
+  local i code limited=0
+  for i in $(seq 1 120); do
+    code="$(fetch /api/v1/auth/refresh -X POST)"
+    [ "$code" = "429" ] && limited=$((limited + 1))
+  done
+  echo "limited=$limited" >&2
+  [ "$limited" -ge 1 ]
+  [ "$(fetch /)" = "200" ]
+}
+
+@test "pathParameters_onApi_areRejected" {
+  # Tomcat strips ";..." path parameters, so they could reach /auth/login through the unlimited
+  # /api/ location, or __e2e past its block. nginx answers 400 and never proxies them.
+  local path
+  for path in "/api;x/v1/auth/login" "/api/v1/auth;x/login" "/api/v1/auth/login;jsessionid=1"     "/api/v1/__e2e;x/outbox" "/api/v1/%3Bx/auth/login"; do
+    [ "$(fetch "$path" -X POST)" = "400" ] || { echo "$path: $(cat "$BATS_TEST_TMPDIR/headers" | head -n1)" >&2; return 1; }
+    [ -z "$(header X-Echo-Real-IP)" ] || { echo "$path: reached the api" >&2; return 1; }
+  done
+  # The SPA itself is untouched by the rule.
+  [ "$(fetch "/transactions;x")" = "200" ]
 }
 
 @test "e2eOutbox_isBlocked" {
@@ -217,8 +242,12 @@ make_dummy_cert() {
 
   [ "$(fetch "http://127.0.0.1:$http/transactions?month=2026-11" -H "Host: $PROD_NAME")" = "301" ]
   [ "$(header Location)" = "https://$PROD_NAME/transactions?month=2026-11" ]
+  assert_security_headers "http 301"
+  [ "$(header_count Strict-Transport-Security)" -eq 0 ]
   # The ACME webroot is served over plain HTTP, never redirected.
   [ "$(fetch "http://127.0.0.1:$http/.well-known/acme-challenge/token" -H "Host: $PROD_NAME")" = "404" ]
+  assert_security_headers "http acme"
+  [ "$(header_count Strict-Transport-Security)" -eq 0 ]
 
   [ "$(fetch "https://www.$PROD_NAME:$https/x?y=1" "${tls[@]}")" = "301" ]
   [ "$(header Location)" = "https://$PROD_NAME/x?y=1" ]

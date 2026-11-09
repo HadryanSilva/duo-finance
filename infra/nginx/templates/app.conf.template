@@ -16,6 +16,9 @@ server {
     listen 80 default_server;
     server_name ${NGINX_SERVER_NAME} www.${NGINX_SERVER_NAME};
 
+    # Headers on the redirects and ACME responses too (HSTS stays empty over HTTP).
+    include snippets/security-headers.conf;
+
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
     }
