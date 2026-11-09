@@ -171,6 +171,9 @@ describe('RecurringPage', () => {
     expect(locked).toContain('Mensal')
     expect(locked).toContain('05/01/2026')
     expect(locked).toContain('crie outra recorrência')
+    expect(locked).toContain(
+      'As alterações valem só para as próximas ocorrências; lançamentos já gerados não mudam.',
+    )
     // an edit never announces generation
     expect(within(dialog).queryByRole('status')).toBeNull()
 

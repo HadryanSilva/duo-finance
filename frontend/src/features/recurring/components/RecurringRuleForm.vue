@@ -226,6 +226,7 @@ const lockedStart = computed(() =>
         </div>
       </dl>
       <p class="text-sm text-muted-foreground">{{ t('recurring.form.lockedNote') }}</p>
+      <p class="text-sm text-muted-foreground">{{ t('recurring.form.futureOnlyNote') }}</p>
     </template>
     <KindSwitch v-else v-model="kind" :legend="t('transactions.form.kind')" />
 

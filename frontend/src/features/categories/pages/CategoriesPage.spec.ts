@@ -80,7 +80,7 @@ describe('CategoriesPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Editar Mercado' }))
     const dialog = await screen.findByRole('dialog', { name: 'Editar categoria' })
     await user.click(within(dialog).getByRole('radio', { name: 'Cor 3' }))
-    await user.click(within(dialog).getByRole('radio', { name: 'Carro' }))
+    await user.click(within(dialog).getByRole('radio', { name: 'Transporte' }))
     await user.click(within(dialog).getByRole('button', { name: 'Salvar' }))
     await waitFor(() =>
       expect(s.calls.put).toEqual({ name: 'Mercado', color: '#000003', icon: 'car' }),
