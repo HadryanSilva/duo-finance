@@ -16,4 +16,14 @@ for file in /etc/nginx/templates/*.conf.template; do
   [ "$file" = "/etc/nginx/templates/$template.conf.template" ] || rm -f "$file"
 done
 
+# Production only: pick up certificates renewed by certbot (separate container) every 6 hours.
+if [ "$template" = "app" ]; then
+  (
+    while :; do
+      sleep 21600
+      nginx -s reload || true
+    done
+  ) &
+fi
+
 exec /docker-entrypoint.sh "$@"

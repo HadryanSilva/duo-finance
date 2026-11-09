@@ -1,3 +1,4 @@
+# Dev database only. Production: docker-compose.yml; full local smoke: docker-compose.local.yml.
 services:
   postgres:
     image: postgres:16
