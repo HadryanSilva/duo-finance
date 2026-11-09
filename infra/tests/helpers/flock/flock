@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Test stub for flock, put on PATH by deploy.bats ONLY when the host has no flock (Git Bash on
+# Windows). Linux hosts and CI use the real flock. Logs the call; FLOCK_BUSY=1 simulates a lock
+# held by another deploy (flock -n then exits 1, as the real one does).
+echo "flock $*" >>"${STUB_LOG:-/dev/null}"
+[ -z "${FLOCK_BUSY:-}" ] || exit 1
+exit 0

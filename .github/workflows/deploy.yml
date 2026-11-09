@@ -1,0 +1,125 @@
+# Continuous deployment. Trigger: workflow_run of "CI" (ci.yml), chosen over duplicating CI's jobs
+# as `needs`: it runs only after CI finished green on a push to main, so every deployed commit
+# passed the same required checks as its pull request.
+#   images: builds api (backend/Dockerfile) and nginx (frontend/Dockerfile), both from the repo
+#           root, and pushes ghcr.io/hadryansilva/duo-finance-{api,nginx}:sha-<12> and :main.
+#   deploy: copies the compose file and scripts to the instance and runs deploy.sh sha-<12>,
+#           which rolls back by itself; the job fails with the script's exit code.
+# Settings (environment "production"): secrets DEPLOY_SSH_KEY (private key), DEPLOY_KNOWN_HOSTS
+# (ssh-keyscan output, verified by hand); variables DEPLOY_HOST, DEPLOY_USER, DEPLOY_PATH.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Deploys never overlap and are never cancelled midway.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  images:
+    # `branches` matches the head branch name only: also require a push in this repository, so a
+    # pull request from a fork's "main" branch can never deploy.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Compute image tag
+        id: tag
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: echo "tag=sha-${HEAD_SHA:0:12}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push api
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/hadryansilva/duo-finance-api:${{ steps.tag.outputs.tag }}
+            ghcr.io/hadryansilva/duo-finance-api:main
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+      - name: Build and push nginx
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: frontend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/hadryansilva/duo-finance-nginx:${{ steps.tag.outputs.tag }}
+            ghcr.io/hadryansilva/duo-finance-nginx:main
+          cache-from: type=gha,scope=nginx
+          cache-to: type=gha,scope=nginx,mode=max
+
+  deploy:
+    needs: images
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      TAG: ${{ needs.images.outputs.tag }}
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+      # Host keys come only from the secret; ssh and scp run with StrictHostKeyChecking=yes, so an
+      # unknown or changed host key fails the job.
+      - name: Trust the instance host key
+        env:
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          if [ -z "$KNOWN_HOSTS" ] || [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_USER" ] || [ -z "$DEPLOY_PATH" ]; then
+            echo "::error::DEPLOY_KNOWN_HOSTS, DEPLOY_HOST, DEPLOY_USER and DEPLOY_PATH must be set"
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+      - name: Copy compose file and scripts
+        run: |
+          files=(infra/docker-compose.yml)
+          for name in deploy smoke backup restore install-cron; do
+            path="infra/scripts/$name.sh"
+            if [ -f "$path" ]; then
+              files+=("$path")
+            else
+              echo "skipping $path (not in this commit)"
+            fi
+          done
+          scp -p -o BatchMode=yes -o StrictHostKeyChecking=yes "${files[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
+      - name: Deploy
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd $(printf '%q' "$DEPLOY_PATH") && ./deploy.sh $(printf '%q' "$TAG")"

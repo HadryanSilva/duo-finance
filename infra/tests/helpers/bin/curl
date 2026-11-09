@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Test stub for curl (deploy.bats): the deploy tests never touch the network. smoke.sh is replaced
+# through SMOKE_CMD, so any curl call is a test bug; it is logged and fails.
+echo "curl $*" >>"${STUB_LOG:-/dev/null}"
+echo "stub: curl is disabled in tests" >&2
+exit 7
