@@ -5,7 +5,9 @@
 #   compose ... up        "deploys": records the IMAGE_TAG of ./.env in $STUB_STATE/running-tag and
 #                         ./docker-compose.yml in $STUB_STATE/running-compose (and appends it to
 #                         $STUB_STATE/up-composes); deletes ./.env afterwards when
-#                         DOCKER_UP_DELETE_ENV is set (to make a later .env rewrite fail)
+#                         DOCKER_UP_DELETE_ENV is set (to make a later .env rewrite fail); hangs
+#                         (exec sleep 60, nothing recorded) when the IMAGE_TAG of ./.env is in
+#                         DOCKER_UP_HANG_FOR_TAG (space-separated)
 #   image ls ... <repo>   prints the refs of <repo> listed (space-separated) in DOCKER_IMAGES
 #   image rm ...          succeeds
 set -euo pipefail
@@ -20,6 +22,11 @@ if [ "${1:-}" = compose ]; then
         exit 0
         ;;
       up)
+        for hang in ${DOCKER_UP_HANG_FOR_TAG:-}; do
+          if [ "$hang" = "$(sed -n 's/^IMAGE_TAG=//p' .env | head -n 1)" ]; then
+            exec sleep 60
+          fi
+        done
         sed -n 's/^IMAGE_TAG=//p' .env | head -n 1 >"$STUB_STATE/running-tag"
         cat docker-compose.yml >"$STUB_STATE/running-compose"
         cat docker-compose.yml >>"$STUB_STATE/up-composes"

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Test stub for smoke.sh (deploy.bats, via SMOKE_CMD). Checks what the docker stub last "started"
-# ($STUB_STATE/running-tag and running-compose) and logs "smoke <url> <tag>" to $STUB_LOG.
+# ($STUB_STATE/running-tag and running-compose) and logs "smoke <url> <tag>" and
+# "smoke-env SMOKE_RESOLVE=<value or unset>" to $STUB_LOG.
 #   SMOKE_FAIL_FOR_TAG      space-separated tags whose smoke fails
 #   SMOKE_FAIL_FOR_COMPOSE  fail when the started compose file contains this text
 #   SMOKE_FAIL_TIMES        fail this many calls first, then apply the rules above
@@ -8,6 +9,7 @@ set -euo pipefail
 
 tag="$(cat "$STUB_STATE/running-tag" 2>/dev/null || true)"
 echo "smoke $* $tag" >>"$STUB_LOG"
+echo "smoke-env SMOKE_RESOLVE=${SMOKE_RESOLVE-unset}" >>"$STUB_LOG"
 
 count_file="$STUB_STATE/smoke-calls"
 calls=$(( $(cat "$count_file" 2>/dev/null || echo 0) + 1 ))

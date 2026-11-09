@@ -11,8 +11,12 @@
 #   1. Backs up the live compose file and scripts that have a staged replacement to
 #      .previous-files/ and moves the staged ones in (rename, atomic per file).
 #   2. Records IMAGE_TAG of .env in .previous-tag and writes the new tag to .env (in place, atomic).
-#   3. docker compose pull api nginx && docker compose up -d --remove-orphans.
-#   4. Polls smoke.sh against PUBLIC_BASE_URL (from .env) every 5 s for up to 120 s.
+#   3. docker compose pull api nginx && docker compose up -d --remove-orphans, the latter bounded by
+#      COMPOSE_UP_TIMEOUT (default 180 s: depends_on service_healthy can block it), so a hang is
+#      a failure like any other.
+#   4. Polls smoke.sh against PUBLIC_BASE_URL (from .env) every 5 s for up to 120 s, with
+#      SMOKE_RESOLVE=127.0.0.1: the public host name is pinned to this host (no public DNS, no
+#      hairpin NAT), TLS still checked against the real name.
 #   5. Success: writes .last-good-tag and removes local images of the two app repositories except
 #      the new tag and the previous last good tag.
 #   6. Failure: restores the backed-up files and the last good tag (.last-good-tag), runs up -d
@@ -21,7 +25,8 @@
 #   64 usage; 75 lock busy or unopenable.
 # Every log line is timestamped and appended to deploy.log; stdout copies are best effort, and
 # HUP/PIPE are ignored, so a dropped SSH session never interrupts a deploy or its rollback.
-# Env overrides (tests): SMOKE_BASE_URL, SMOKE_CMD, SMOKE_TIMEOUT, SMOKE_INTERVAL.
+# Env overrides (tests): SMOKE_BASE_URL, SMOKE_CMD, SMOKE_TIMEOUT, SMOKE_INTERVAL, COMPOSE_UP_TIMEOUT,
+#   SMOKE_RESOLVE (address passed to smoke.sh; empty disables the pinning).
 set -euo pipefail
 trap '' HUP PIPE
 
@@ -43,9 +48,24 @@ run_logged() {
   return "${PIPESTATUS[0]}"
 }
 
-# shellcheck disable=SC2329 # invoked through run_logged
+# shellcheck disable=SC2317,SC2329 # invoked through run_logged
 compose() {
   docker compose -f docker-compose.yml "$@"
+}
+
+# shellcheck disable=SC2317,SC2329 # invoked through run_logged
+compose_up() {
+  timeout -k 10 "$compose_up_timeout" docker compose -f docker-compose.yml up -d --remove-orphans
+}
+
+# Starts the stack with the tag now in .env (bounded); logs a timeout as such. Returns the status.
+start_stack() {
+  local status=0
+  run_logged compose_up || status=$?
+  if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
+    log "docker compose up timed out after ${compose_up_timeout}s for $1"
+  fi
+  return "$status"
 }
 
 # Value of a single key of .env, without sourcing it (values are not shell-safe).
@@ -126,12 +146,12 @@ restore_previous_files() {
   done
 }
 
-# shellcheck disable=SC2329 # invoked through run_logged
+# shellcheck disable=SC2317,SC2329 # invoked through run_logged
 run_smoke() {
   if [ -n "${SMOKE_CMD:-}" ]; then
-    "$SMOKE_CMD" "$1"
+    SMOKE_RESOLVE="$smoke_resolve" "$SMOKE_CMD" "$1"
   else
-    bash ./smoke.sh "$1"
+    SMOKE_RESOLVE="$smoke_resolve" bash ./smoke.sh "$1"
   fi
 }
 
@@ -191,6 +211,8 @@ main() {
   log_file="$deploy_dir/deploy.log"
   smoke_timeout="${SMOKE_TIMEOUT:-120}"
   smoke_interval="${SMOKE_INTERVAL:-5}"
+  smoke_resolve="${SMOKE_RESOLVE-127.0.0.1}"
+  compose_up_timeout="${COMPOSE_UP_TIMEOUT:-180}"
 
   local lock_file="$deploy_dir/.deploy.lock"
   if ! { exec 9>"$lock_file"; } 2>/dev/null; then
@@ -230,7 +252,7 @@ main() {
       log "docker compose pull failed for $new_tag"
     else
       log "starting stack"
-      if ! run_logged compose up -d --remove-orphans; then
+      if ! start_stack "$new_tag"; then
         log "docker compose up failed for $new_tag"
       elif ! smoke_until_healthy; then
         log "smoke failed for $new_tag after ${smoke_timeout}s"
@@ -261,7 +283,7 @@ main() {
     log "rollback to $last_good FAILED: could not write IMAGE_TAG to .env"
     exit 2
   fi
-  if run_logged compose up -d --remove-orphans && smoke_until_healthy; then
+  if start_stack "$last_good" && smoke_until_healthy; then
     log "rolled back to $last_good"
     exit 1
   fi

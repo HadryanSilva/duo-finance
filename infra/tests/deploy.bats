@@ -49,8 +49,9 @@ setup() {
   fi
   export SMOKE_CMD="$HELPERS/bin/smoke"
   export SMOKE_TIMEOUT=0 SMOKE_INTERVAL=0
-  unset SMOKE_BASE_URL SMOKE_FAIL_FOR_TAG SMOKE_FAIL_FOR_COMPOSE SMOKE_FAIL_TIMES \
-    DOCKER_PULL_FAIL DOCKER_UP_DELETE_ENV DOCKER_IMAGES FLOCK_BUSY
+  unset SMOKE_BASE_URL SMOKE_RESOLVE SMOKE_FAIL_FOR_TAG SMOKE_FAIL_FOR_COMPOSE SMOKE_FAIL_TIMES \
+    DOCKER_PULL_FAIL DOCKER_UP_DELETE_ENV DOCKER_UP_HANG_FOR_TAG DOCKER_IMAGES FLOCK_BUSY \
+    COMPOSE_UP_TIMEOUT
 }
 
 teardown() {
@@ -106,6 +107,43 @@ assert_other_lines_untouched() {
   SMOKE_BASE_URL=http://localhost:8088 run "$WORK/deploy.sh" sha-new
   [ "$status" -eq 0 ]
   grep -qx 'smoke http://localhost:8088 sha-new' "$STUB_LOG"
+}
+
+@test "deploy_smokeResolvesHostToLoopback" {
+  run "$WORK/deploy.sh" sha-new
+  [ "$status" -eq 0 ]
+  # Default: smoke.sh pins the public host name to 127.0.0.1 (no public DNS, no hairpin NAT).
+  grep -qx 'smoke-env SMOKE_RESOLVE=127.0.0.1' "$STUB_LOG"
+  [ "$(grep -c '^smoke-env' "$STUB_LOG")" -eq "$(grep -cx 'smoke-env SMOKE_RESOLVE=127.0.0.1' "$STUB_LOG")" ]
+  # An explicit value wins; empty disables it.
+  : >"$STUB_LOG"
+  SMOKE_RESOLVE= run "$WORK/deploy.sh" sha-new2
+  [ "$status" -eq 0 ]
+  grep -qx 'smoke-env SMOKE_RESOLVE=' "$STUB_LOG"
+}
+
+@test "deploy_rollsBackWhenComposeUpHangs" {
+  export DOCKER_UP_HANG_FOR_TAG=sha-new COMPOSE_UP_TIMEOUT=2
+  start=$SECONDS
+  run "$WORK/deploy.sh" sha-new
+  echo "$output"
+  [ "$status" -eq 1 ]
+  [ $((SECONDS - start)) -lt 30 ]
+  [[ "$output" == *"docker compose up timed out after 2s for sha-new"* ]]
+  [[ "$output" == *"rolled back to sha-old"* ]]
+  [ "$(image_tag)" = sha-old ]
+  [ "$(cat "$STUB_STATE/running-tag")" = sha-old ]
+  grep -qx 'smoke https://duofinance.test sha-old' "$STUB_LOG"
+  run ! grep -q 'smoke https://duofinance.test sha-new' "$STUB_LOG"
+}
+
+@test "deploy_exits2WhenRollbackComposeUpHangs" {
+  export DOCKER_UP_HANG_FOR_TAG="sha-new sha-old" COMPOSE_UP_TIMEOUT=1
+  run "$WORK/deploy.sh" sha-new
+  echo "$output"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"docker compose up timed out after 1s for sha-old"* ]]
+  [[ "$output" == *"rollback to sha-old FAILED"* ]]
 }
 
 @test "deploy_retriesSmokeUntilHealthy" {
