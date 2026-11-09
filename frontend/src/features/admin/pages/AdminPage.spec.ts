@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/dom'
+import { fireEvent, screen, waitFor, within } from '@testing-library/dom'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { renderRoute } from '@/test/render'
@@ -162,17 +162,17 @@ describe('AdminPage access codes', () => {
 
   it('createCode_showsPlainCodeOnceThenForgets', async () => {
     let body: Record<string, unknown> = {}
-    let listed = 0
+    let created = false
     const { user, queryClient } = await renderRoute({
       route: codesRoute,
       session: admin,
       handlers: [
-        http.get(`${api}/admin/access-codes`, () => {
-          listed++
-          return HttpResponse.json([])
-        }),
+        http.get(`${api}/admin/access-codes`, () =>
+          HttpResponse.json(created ? [code({ id: 'n1', note: 'Para Bia' })] : []),
+        ),
         http.post(`${api}/admin/access-codes`, async ({ request }) => {
           body = (await request.json()) as Record<string, unknown>
+          created = true
           return HttpResponse.json({ code: code(), plainCode: 'DUO-SECRET-9999' }, { status: 201 })
         }),
       ],
@@ -184,7 +184,7 @@ describe('AdminPage access codes', () => {
 
     expect(await screen.findByText('DUO-SECRET-9999')).toBeTruthy()
     expect(body).toEqual({ maxUses: 1, note: 'Para Bia' })
-    await waitFor(() => expect(listed).toBeGreaterThanOrEqual(2)) // list refreshed
+    expect(await screen.findByText('Para Bia', { selector: 'span' })).toBeTruthy() // list refreshed
 
     await user.click(screen.getByRole('button', { name: 'Fechar' }))
     await waitFor(() => expect(screen.queryByText('DUO-SECRET-9999')).toBeNull())
@@ -197,6 +197,29 @@ describe('AdminPage access codes', () => {
         .map((m) => m.state)
       expect(JSON.stringify(states)).not.toContain('DUO-SECRET-9999')
     })
+  })
+
+  it('createCode_sendsExpiryAsInstant', async () => {
+    let body: Record<string, unknown> = {}
+    const { user } = await renderRoute({
+      route: codesRoute,
+      session: admin,
+      handlers: [
+        http.get(`${api}/admin/access-codes`, () => HttpResponse.json([])),
+        http.post(`${api}/admin/access-codes`, async ({ request }) => {
+          body = (await request.json()) as Record<string, unknown>
+          return HttpResponse.json({ code: code(), plainCode: 'X' }, { status: 201 })
+        }),
+      ],
+    })
+    await user.click(await screen.findByRole('button', { name: 'Gerar código' }))
+    const panel = await screen.findByRole('dialog')
+    const local = '2030-06-15T09:30'
+    await fireEvent.input(within(panel).getByLabelText('Validade (opcional)'), {
+      target: { value: local },
+    })
+    await user.click(within(panel).getByRole('button', { name: 'Gerar' }))
+    await waitFor(() => expect(body.expiresAt).toBe(new Date(local).toISOString()))
   })
 
   it('createCode_validatesMaxUsesRange', async () => {
@@ -219,8 +242,6 @@ describe('AdminPage access codes', () => {
       await user.clear(uses)
       if (bad) await user.type(uses, bad)
       await user.click(within(panel).getByRole('button', { name: 'Gerar' }))
-      console.log('TXT', panel.textContent)
-      await user.click(within(panel).getByRole('button', { name: 'Gerar' }))
       expect(await within(panel).findByText(/entre 1 e 1000/i)).toBeTruthy()
     }
     expect(posts).toBe(0)
@@ -241,6 +262,33 @@ describe('AdminPage access codes', () => {
     await user.type(within(panel).getByLabelText('E-mail (opcional)'), 'nope')
     await user.click(within(panel).getByRole('button', { name: 'Gerar' }))
     expect(await within(panel).findByText(/e-mail válido/i)).toBeTruthy()
+  })
+})
+
+describe('AdminPage waitlist status switch', () => {
+  it('does not show the previous status rows (with live actions) while loading', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    const { user } = await renderRoute({
+      route: '/admin',
+      session: admin,
+      handlers: [
+        http.get(`${api}/admin/waitlist`, async ({ request }) => {
+          const status = new URL(request.url).searchParams.get('status')
+          if (status === 'REJECTED') {
+            await gate
+            return HttpResponse.json(page([entry('r1', 'rej@example.com', 'REJECTED')]))
+          }
+          return HttpResponse.json(page([entry('w1', 'novo@example.com', 'PENDING')]))
+        }),
+      ],
+    })
+    await screen.findByText('novo@example.com')
+    await user.selectOptions(screen.getByLabelText('Status'), 'REJECTED')
+    await waitFor(() => expect(screen.queryByText('novo@example.com')).toBeNull())
+    expect(screen.queryByRole('button', { name: 'Aprovar' })).toBeNull()
+    release()
+    expect(await screen.findByText('rej@example.com')).toBeTruthy()
   })
 })
 

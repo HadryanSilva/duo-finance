@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/dom'
+import { fireEvent, screen, waitFor } from '@testing-library/dom'
 import { describe, expect, it, vi } from 'vitest'
 import { render } from '@/test/render'
 import PlainCodeDialog from './PlainCodeDialog.vue'
@@ -24,6 +24,26 @@ describe('PlainCodeDialog', () => {
     await user.click(await screen.findByRole('button', { name: 'Copiar' }))
     await waitFor(() => expect(screen.getByText(/copie manualmente/i)).toBeTruthy())
     expect(window.getSelection()?.toString()).toBe('DUO-ABCD-1234')
+  })
+
+  it('is not dismissed by a click outside', async () => {
+    const { wrapper } = await render(PlainCodeDialog, {}, { props: { code: 'X-1' } })
+    await screen.findByText('X-1')
+    const outside = document.querySelector('[data-slot="dialog-overlay"]') ?? document.body
+    await new Promise((r) => setTimeout(r, 20))
+    await fireEvent.pointerDown(document.body)
+    await fireEvent.pointerDown(outside)
+    await fireEvent.pointerUp(outside)
+    await fireEvent.click(outside)
+    expect(wrapper.emitted('close')).toBeUndefined()
+    expect(screen.getByText('X-1')).toBeTruthy()
+  })
+
+  it('closes with Escape', async () => {
+    const { wrapper, user } = await render(PlainCodeDialog, {}, { props: { code: 'X-1' } })
+    await screen.findByText('X-1')
+    await user.keyboard('{Escape}')
+    expect(wrapper.emitted('close')).toBeTruthy()
   })
 
   it('emits close when dismissed', async () => {

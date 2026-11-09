@@ -31,7 +31,11 @@ export function useWaitlist(
         page: toValue(page),
         size: WAITLIST_PAGE_SIZE,
       }),
-    placeholderData: (previous) => previous,
+    // Keep the old rows while paging, but never show another status's rows (with live actions).
+    placeholderData: (previous, previousQuery) =>
+      (previousQuery?.queryKey[2] as { status?: string } | undefined)?.status === toValue(status)
+        ? previous
+        : undefined,
   })
 }
 

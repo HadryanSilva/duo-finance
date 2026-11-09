@@ -13,7 +13,7 @@ import ConfirmDialog from '@/shared/ui/ConfirmDialog.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 import { Skeleton } from '@/shared/ui/skeleton'
 import SidePanel from '@/shared/ui/SidePanel.vue'
-import { useAccessCodes, useCreateAccessCode, useRevokeAccessCode } from '../api/admin-api'
+import { useAccessCodes, useRevokeAccessCode } from '../api/admin-api'
 import { accessCodeStatus, type AccessCodeStatus } from '../lib/access-code-status'
 import CreateAccessCodeForm from './CreateAccessCodeForm.vue'
 import PlainCodeDialog from './PlainCodeDialog.vue'
@@ -21,10 +21,10 @@ import PlainCodeDialog from './PlainCodeDialog.vue'
 const { t, locale } = useI18n()
 const codes = useAccessCodes()
 const revoke = useRevokeAccessCode()
-const create = useCreateAccessCode()
 
 const formOpen = ref(false)
-// The only place the plain code lives; nulled on close.
+// The only place the plain code lives; nulled on close. The create mutation lives in the form,
+// which unmounts with the panel, and its gcTime is 0, so the response is not kept either.
 const plainCode = ref<string | null>(null)
 const revoking = ref<AccessCodeResponse | null>(null)
 const revokeOpen = computed({
@@ -41,7 +41,6 @@ function onCreated(result: { plainCode: string }) {
 
 function closePlainCode() {
   plainCode.value = null
-  create.reset() // drop the response (and its plain code) held by the mutation
 }
 
 async function doRevoke() {

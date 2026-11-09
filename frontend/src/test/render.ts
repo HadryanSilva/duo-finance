@@ -14,11 +14,14 @@ import { setLocale, type Locale } from '@/shared/i18n'
 import { markOnboarded } from '@/shared/session/onboarding'
 import { server } from './msw'
 
-const mounted: { unmount: () => void; host: HTMLElement }[] = []
+const mounted: { unmount: () => void; host: HTMLElement; queryClient: QueryClient }[] = []
 
 /** Unmounts everything render() mounted; called after each test by setup.ts. */
 export function cleanup(): void {
-  for (const { unmount, host } of mounted.splice(0)) {
+  for (const { unmount, host, queryClient } of mounted.splice(0)) {
+    // Stop in-flight and queued refetches so they cannot leak into the next test.
+    void queryClient.cancelQueries()
+    queryClient.clear()
     unmount()
     host.remove()
   }
@@ -93,7 +96,7 @@ export async function render<C extends Component>(
       ],
     },
   } as ComponentMountingOptions<C>)
-  mounted.push({ unmount: () => wrapper.unmount(), host })
+  mounted.push({ unmount: () => wrapper.unmount(), host, queryClient })
   await router.isReady()
 
   return { wrapper, router, queryClient, pinia, user: userEvent.setup() }

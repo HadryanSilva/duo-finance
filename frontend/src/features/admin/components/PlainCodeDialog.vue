@@ -49,7 +49,12 @@ function onOpenChange(open: boolean) {
 
 <template>
   <Dialog :open="code !== null" @update:open="onOpenChange">
-    <DialogContent :show-close-button="false">
+    <!-- Only Escape and the button close it: an outside click would lose the one-time code. -->
+    <DialogContent
+      :show-close-button="false"
+      @pointer-down-outside.prevent
+      @interact-outside.prevent
+    >
       <DialogHeader>
         <DialogTitle>{{ t('admin.plain.title') }}</DialogTitle>
         <DialogDescription>{{ t('admin.plain.description') }}</DialogDescription>
