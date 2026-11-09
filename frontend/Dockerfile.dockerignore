@@ -1,0 +1,15 @@
+# Used by `docker build -f frontend/Dockerfile .`: BuildKit reads <Dockerfile>.dockerignore
+# (a plain frontend/.dockerignore would be ignored, since the context is the repository root).
+# Allow only what the image needs.
+*
+!frontend/
+!infra/nginx/
+frontend/node_modules
+frontend/dist
+frontend/coverage
+frontend/test-results
+frontend/playwright-report
+frontend/**/*.local
+frontend/**/*.tsbuildinfo
+frontend/Dockerfile
+frontend/Dockerfile.dockerignore

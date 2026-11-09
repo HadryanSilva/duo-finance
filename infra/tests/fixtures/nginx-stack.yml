@@ -1,0 +1,16 @@
+# Minimal stack for infra/tests/nginx.bats: the nginx image under test plus an "api" stub.
+# The real stack is infra/docker-compose.yml (+ docker-compose.local.yml).
+services:
+  api:
+    image: nginx:stable-alpine
+    volumes:
+      - ./api-stub.conf:/etc/nginx/conf.d/default.conf:ro
+
+  nginx:
+    image: ${NGINX_IMAGE:?set NGINX_IMAGE}
+    environment:
+      NGINX_TEMPLATE: app-local
+    ports:
+      - "127.0.0.1::80"
+    depends_on:
+      - api

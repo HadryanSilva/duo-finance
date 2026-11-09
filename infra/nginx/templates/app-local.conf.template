@@ -1,0 +1,7 @@
+# Local smoke stack (NGINX_TEMPLATE=app-local): plain HTTP, no TLS, no HSTS.
+server {
+    listen 80 default_server;
+    server_name _;
+
+    include snippets/app-common.conf;
+}
