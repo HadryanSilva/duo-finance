@@ -12,7 +12,7 @@
 #      .previous-files/ and moves the staged ones in (rename, atomic per file).
 #   2. Records IMAGE_TAG of .env in .previous-tag and writes the new tag to .env (in place, atomic).
 #   3. docker compose pull api nginx && docker compose up -d --remove-orphans, the latter bounded by
-#      COMPOSE_UP_TIMEOUT (default 180 s: depends_on service_healthy can block it), so a hang is
+#      COMPOSE_UP_TIMEOUT (default 120 s: depends_on service_healthy can block it), so a hang is
 #      a failure like any other.
 #   4. Polls smoke.sh against PUBLIC_BASE_URL (from .env) every 5 s for up to 120 s, with
 #      SMOKE_RESOLVE=127.0.0.1: the public host name is pinned to this host (no public DNS, no
@@ -212,7 +212,7 @@ main() {
   smoke_timeout="${SMOKE_TIMEOUT:-120}"
   smoke_interval="${SMOKE_INTERVAL:-5}"
   smoke_resolve="${SMOKE_RESOLVE-127.0.0.1}"
-  compose_up_timeout="${COMPOSE_UP_TIMEOUT:-180}"
+  compose_up_timeout="${COMPOSE_UP_TIMEOUT:-120}"
 
   local lock_file="$deploy_dir/.deploy.lock"
   if ! { exec 9>"$lock_file"; } 2>/dev/null; then
