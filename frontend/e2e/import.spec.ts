@@ -12,13 +12,15 @@ async function uploadAndReview(page: Page, csv: string) {
     mimeType: 'text/csv',
     buffer: Buffer.from(csv),
   })
-  await page.getByRole('button', { name: 'Revisar' }).click()
+  await page.getByRole('button', { name: 'Revisar', exact: true }).click()
 }
 
 // Revolut CSV: upload → review → import → re-import is a no-op → undo from the history.
 test('import, reimport, undo', async ({ page, request }) => {
   const email = uniqueEmail('ivo')
-  const sample = revolutSample(String(Date.now()))
+  const sample = revolutSample(
+    `${test.info().project.name}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+  )
   await registerViaUi(page, { email, name: 'Ivo Reis', locale: 'pt-BR' })
   await expect(page).toHaveURL(/\/onboarding$/)
   await page.goto(await latestLink(request, email, '/verify-email'))
@@ -27,10 +29,10 @@ test('import, reimport, undo', async ({ page, request }) => {
   await page.goto('/onboarding')
   await page.getByLabel('Nome do casal').fill('Ivo e Eva')
   await page.getByRole('button', { name: 'Continuar' }).click()
-  await page.getByRole('button', { name: 'Pular' }).click()
+  await page.getByRole('button', { name: 'Pular', exact: true }).click()
   await page.getByLabel('Nome da conta').fill('Conta corrente')
   await page.getByLabel('Saldo inicial').fill('0,00')
-  await page.getByRole('button', { name: 'Concluir' }).click()
+  await page.getByRole('button', { name: 'Concluir', exact: true }).click()
   await expect(page).toHaveURL(/\/dashboard/)
 
   // First import: 3 rows to create, the PENDING one is skipped.
@@ -64,10 +66,14 @@ test('import, reimport, undo', async ({ page, request }) => {
   const dialog = page.getByRole('dialog')
   await expect(dialog.getByText('Desfazer esta importação?')).toBeVisible()
   await dialog.getByRole('button', { name: 'Desfazer', exact: true }).click()
-  await expect(page.getByText('Desfeita')).toBeVisible()
+  await expect(
+    page
+      .getByRole('list', { name: 'Importações anteriores' })
+      .getByText('Desfeita', { exact: true }),
+  ).toBeVisible()
 
   await page.goto('/transactions')
-  await expect(page.getByRole('heading', { name: 'Lançamentos' }).first()).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Nenhum lançamento aqui' })).toBeVisible()
   for (const description of sample.completed) {
     await expect(page.getByText(description)).toHaveCount(0)
   }
