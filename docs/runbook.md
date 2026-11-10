@@ -14,7 +14,7 @@ Caminho de deploy: `/opt/duo-finance` (`DEPLOY_PATH`). O projeto do compose se c
 
 ## 1. Pré-requisitos
 
-- Conta AWS com acesso ao Lightsail.
+- Conta AWS com acesso ao Lightsail, ao S3 e ao IAM.
 - Domínio `duofinance.dev.br` com acesso ao painel de DNS.
 - Conta Resend com o domínio `duofinance.dev.br` verificado: registros SPF e DKIM publicados e status
   "Verified" no painel. Anote a API key (`re_...`).
@@ -26,9 +26,9 @@ Caminho de deploy: `/opt/duo-finance` (`DEPLOY_PATH`). O projeto do compose se c
 
 1. No console do Lightsail, crie uma instância Linux/Unix, blueprint **Ubuntu LTS**, plano de **2 GB**
    de RAM. Região: a mais próxima dos usuários disponível no Lightsail (ex.: `us-east-1`; confira a
-   lista de regiões no console, pois nem toda região da AWS tem Lightsail). O bucket de backup
-   (seção 9) também precisa estar numa região do Lightsail. Anote a região (`<REGIAO>`) e o nome da
-   instância (`<NOME_DA_INSTANCIA>`).
+   lista de regiões no console, pois nem toda região da AWS tem Lightsail). O bucket S3 de backup
+   (seção 9) fica na mesma região. Anote a região (`<REGIAO>`) e o nome da instância
+   (`<NOME_DA_INSTANCIA>`).
    Resultado esperado: instância em estado "Running".
 2. Em **Networking**, crie um **IP estático** e anexe à instância. Anote o IP (`<IP_ESTATICO>`).
 3. Firewall (Networking da instância), regras **IPv4**: deixe apenas
@@ -377,28 +377,36 @@ IAM (a role é global; a região fica nas variáveis do GitHub):
    }
    ```
 
-3. Anexe uma **inline policy** com somente as três ações de porta. O Lightsail aceita permissão por
-   recurso (ARN da instância) para essas ações; use-o:
+3. Anexe uma **inline policy** com somente as três ações de porta. `OpenInstancePublicPorts` e
+   `CloseInstancePublicPorts` aceitam o ARN da instância; `GetInstancePortStates` é avaliada contra
+   `arn:aws:lightsail:<REGIAO>:<ID_DA_CONTA>:*` e só funciona com `"Resource": "*"` (é somente
+   leitura):
 
    ```json
    {
      "Version": "2012-10-17",
-     "Statement": [{
-       "Effect": "Allow",
-       "Action": [
-         "lightsail:OpenInstancePublicPorts",
-         "lightsail:CloseInstancePublicPorts",
-         "lightsail:GetInstancePortStates"
-       ],
-       "Resource": "arn:aws:lightsail:<REGIAO>:<ID_DA_CONTA>:Instance/<ID_DA_INSTANCIA>"
-     }]
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": [
+           "lightsail:OpenInstancePublicPorts",
+           "lightsail:CloseInstancePublicPorts"
+         ],
+         "Resource": "arn:aws:lightsail:<REGIAO>:<ID_DA_CONTA>:Instance/<ID_DA_INSTANCIA>"
+       },
+       {
+         "Effect": "Allow",
+         "Action": "lightsail:GetInstancePortStates",
+         "Resource": "*"
+       }
+     ]
    }
    ```
 
    O ID da instância (um UUID) aparece em `aws lightsail get-instance --instance-name
-   <NOME_DA_INSTANCIA> --query instance.arn --output text`. Se a AWS recusar o ARN para alguma ação,
-   troque o `Resource` por `"*"`: a role continua limitada a essas três ações e a este repositório e
-   environment.
+   <NOME_DA_INSTANCIA> --query instance.arn --output text`. Se a AWS recusar o ARN para abrir ou
+   fechar a porta (o erro cita `...:*` como recurso), troque também esse `Resource` por `"*"`: a role
+   continua limitada a essas três ações e a este repositório e environment.
 4. Anote o ARN da role (`<ARN_DA_ROLE>`).
 
 **Risco a conhecer.** O workflow guarda a regra atual da porta 22 (`cidrs`, `ipv6Cidrs` e
@@ -515,27 +523,48 @@ echo 'sha-<12_DA_TAG_BOA>' > .last-good-tag
 
 ## 9. Backup
 
-1. No Lightsail > Storage > Create bucket (plano pequeno, região da instância). Em **Permissions**,
-   mantenha o bucket privado e crie uma **access key restrita a esse bucket**. O Access key ID e o
-   Secret aparecem uma única vez.
-2. Regra de ciclo de vida de 30 dias em `daily/` (segunda camada de retenção; o `backup.sh` também
-   apaga dumps com mais de 30 dias). Na sua máquina, com o `aws` instalado, guarde a access key do
-   bucket num perfil (as chaves não vão para o histórico do shell nem para variáveis inline):
+Os dumps vão para um bucket **S3** comum (não o Object Storage do Lightsail), acessado por um usuário
+IAM que só enxerga o prefixo `daily/` desse bucket.
 
-   ```bash
-   aws configure --profile duo-backup
-   cat > lifecycle.json <<'JSON'
-   {"Rules":[{"ID":"expire-daily-30d","Status":"Enabled","Filter":{"Prefix":"daily/"},"Expiration":{"Days":30}}]}
-   JSON
-   aws --profile duo-backup s3api put-bucket-lifecycle-configuration \
-     --endpoint-url https://s3.<regiao>.amazonaws.com --region <regiao> \
-     --bucket <BUCKET> --lifecycle-configuration file://lifecycle.json
+1. **Bucket.** S3 > Create bucket: tipo *General purpose*, região `<REGIAO>` (a da instância), nome
+   único na AWS (ex.: `duofinance-backup-<sufixo>`; é o `<BUCKET>`). Mantenha **Block all public
+   access** ligado, **Bucket Versioning** desligado (com versionamento, os dumps apagados pela
+   retenção continuam guardados e cobrados como versões antigas) e a criptografia padrão (SSE-S3).
+   Resultado esperado: bucket listado no S3, com "Access: Bucket and objects not public".
+2. **Ciclo de vida de 30 dias** (segunda camada de retenção; o `backup.sh` também apaga dumps com mais
+   de 30 dias). No bucket > Management > Create lifecycle rule: nome `expire-daily-30d`, escopo
+   *Limit the scope using filters* com prefixo `daily/`, ações **Expire current versions of objects**
+   (30 dias) e **Delete expired object delete markers or incomplete multipart uploads** (uploads
+   incompletos após 1 dia). Resultado esperado: regra "Enabled" na aba Management.
+3. **Usuário IAM.** IAM > Users > Create user `duo-finance-backup`, **sem** acesso ao console e sem
+   grupos ou policies gerenciadas. Depois, no usuário > Permissions > Add permissions > Create inline
+   policy (JSON), nome `duo-finance-backup-s3`:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": "s3:ListBucket",
+         "Resource": "arn:aws:s3:::<BUCKET>",
+         "Condition": {"StringLike": {"s3:prefix": ["daily/*"]}}
+       },
+       {
+         "Effect": "Allow",
+         "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+         "Resource": "arn:aws:s3:::<BUCKET>/daily/*"
+       }
+     ]
+   }
    ```
 
-   O `aws configure` pergunta Access Key ID, Secret, região (`<regiao>`) e formato (`json`). Resultado
-   esperado: nenhuma saída e exit code 0. Se o endpoint recusar a operação, mantenha só a
-   poda do `backup.sh`.
-3. Na instância, **como `ubuntu`**, instale o AWS CLI v2 em `/usr/local/bin` (o PATH do cron não
+   O `backup.sh` envia para `daily/.partial/` e move para `daily/` (`PutObject`, `GetObject`,
+   `DeleteObject`), lista `daily/` para a retenção (`ListBucket`) e apaga os dumps antigos
+   (`DeleteObject`); o `restore.sh` baixa com `GetObject`. Em Security credentials > Create access key,
+   escolha "Application running outside AWS". O Access key ID e o Secret aparecem uma única vez;
+   guarde-os num gerenciador de senhas.
+4. Na instância, **como `ubuntu`**, instale o AWS CLI v2 em `/usr/local/bin` (o PATH do cron não
    inclui `/snap/bin`):
 
    ```bash
@@ -548,15 +577,15 @@ echo 'sha-<12_DA_TAG_BOA>' > .last-good-tag
 
    ```bash
    aws --version
-   aws configure --profile duo-backup   # mesma access key do bucket, só para conferir o upload
+   aws configure --profile duo-backup   # access key do usuário IAM do passo 3, só para conferir o upload
    ```
 
    Resultado esperado: `aws-cli/2.x.x`.
-4. Preencha o `/opt/duo-finance/backup.env` (criado na seção 5, `chmod 600`, dono `deploy`) com `nano`
+5. Preencha o `/opt/duo-finance/backup.env` (criado na seção 5, `chmod 600`, dono `deploy`) com `nano`
    (nunca com `echo`/`export` na linha de comando), sem aspas: `BACKUP_S3_BUCKET=<BUCKET>`,
-   `BACKUP_S3_ENDPOINT=https://s3.<regiao>.amazonaws.com`, `AWS_ACCESS_KEY_ID`,
-   `AWS_SECRET_ACCESS_KEY` e `AWS_DEFAULT_REGION=<regiao>`. Essas chaves **não** vão no `.env` (o
-   `.env` inteiro chega ao contêiner `api`). Confira:
+   `BACKUP_S3_ENDPOINT=` **vazio** (S3 padrão da AWS; o aws CLI resolve o endpoint pela região),
+   `AWS_ACCESS_KEY_ID` e `AWS_SECRET_ACCESS_KEY` do usuário IAM e `AWS_DEFAULT_REGION=<REGIAO>`.
+   Essas chaves **não** vão no `.env` (o `.env` inteiro chega ao contêiner `api`). Confira:
 
    ```bash
    cd /opt/duo-finance
@@ -566,20 +595,20 @@ echo 'sha-<12_DA_TAG_BOA>' > .last-good-tag
    ```
 
    Resultado esperado: `-rw------- 1 deploy deploy ... backup.env`, `0` e `0`.
-5. Teste manual, com a stack no ar:
+6. Teste manual, com a stack no ar:
 
    ```bash
    cd /opt/duo-finance
    ./backup.sh
    echo $?
-   aws --profile duo-backup s3 ls s3://<BUCKET>/daily/ --endpoint-url https://s3.<regiao>.amazonaws.com
+   aws --profile duo-backup s3 ls s3://<BUCKET>/daily/
    ```
 
    Resultado esperado: linhas `backup: ...`, exit code `0` e o objeto
    `duofinance-<AAAAMMDD-HHMMSS>.dump` listado. O `backup.sh` valida o dump com `pg_restore --list`,
    que confere **somente o índice (TOC)** do arquivo; só um restore de verdade prova que os dados
-   voltam (passo 7).
-6. Instale o cron como **root**, numa sessão **como `ubuntu`** (grava `/etc/cron.d/duo-finance-backup`:
+   voltam (passo 8).
+7. Instale o cron como **root**, numa sessão **como `ubuntu`** (grava `/etc/cron.d/duo-finance-backup`:
    todo dia às 03:30 UTC, com log em `/var/log/duo-finance-backup.log`; o job roda como root, que lê
    o `.env` e o `backup.env`):
 
@@ -591,7 +620,7 @@ echo 'sha-<12_DA_TAG_BOA>' > .last-good-tag
 
    Resultado esperado: `installed /etc/cron.d/duo-finance-backup` e a linha
    `30 3 * * * root cd /opt/duo-finance && ./backup.sh >> /var/log/duo-finance-backup.log 2>&1`.
-7. Teste `backup.sh` e `restore.sh` num **banco descartável**, nunca no de produção. Um projeto
+8. Teste `backup.sh` e `restore.sh` num **banco descartável**, nunca no de produção. Um projeto
    compose separado (`COMPOSE_PROJECT_NAME` vence o `name:` do arquivo) com volume próprio:
 
    ```bash

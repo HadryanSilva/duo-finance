@@ -26,6 +26,13 @@ on:
 permissions:
   contents: read
 
+# Explicit bash runs steps with -eo pipefail (the implicit default is bash -e only), so a failed
+# `aws ... | jq` stops the step instead of handing jq empty input: an empty port 22 rule would
+# open SSH without the original CIDRs, and an empty port-state read would pass the close check.
+defaults:
+  run:
+    shell: bash
+
 # Concurrency is per job, not per workflow, so it only applies once a job's `if` passed: runs that
 # will be skipped (failed CI, fork branches) can never replace a pending good deploy. Separate
 # groups, so a pending images job and a pending deploy job never cancel each other. Never
