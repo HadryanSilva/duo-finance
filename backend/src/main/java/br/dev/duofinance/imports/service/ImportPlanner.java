@@ -35,7 +35,7 @@ public final class ImportPlanner {
             }
         }
 
-        int[] partner = pairTransfers(rows, importable, ctx);
+        int[] partner = pairTransfers(rows, importable, fingerprints, ctx);
 
         List<PlannedRow> planned = new ArrayList<>();
         for (int i : importable) {
@@ -63,17 +63,19 @@ public final class ImportPlanner {
     }
 
     /** Pairs opposite-sign rows with the same Started Date on different mapped accounts, first match in file order. */
-    private static int[] pairTransfers(List<RevolutRow> rows, List<Integer> importable, PlanContext ctx) {
+    private static int[] pairTransfers(
+            List<RevolutRow> rows, List<Integer> importable, List<String> fingerprints, PlanContext ctx) {
         int[] partner = new int[rows.size()];
         Arrays.fill(partner, -1);
         for (int a = 0; a < importable.size(); a++) {
             int i = importable.get(a);
-            if (partner[i] != -1) continue;
+            if (partner[i] != -1 || ctx.existingFingerprints().contains(fingerprints.get(i))) continue;
             RevolutRow ri = rows.get(i);
             for (int b = a + 1; b < importable.size(); b++) {
                 int j = importable.get(b);
                 RevolutRow rj = rows.get(j);
                 if (partner[j] == -1
+                        && !ctx.existingFingerprints().contains(fingerprints.get(j))
                         && rj.startedRaw().equals(ri.startedRaw())
                         && rj.amountCents() == -ri.amountCents()
                         && !account(ri, ctx).equals(account(rj, ctx))) {
