@@ -25,7 +25,7 @@ public class ImportBatch {
     @Column(nullable = false)
     private ImportSource source;
 
-    @Column(name = "bank_account_id", nullable = false)
+    @Column(name = "bank_account_id")
     private UUID bankAccountId;
 
     @Column(name = "created_by")

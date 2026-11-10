@@ -116,4 +116,16 @@ class ImportSchemaTest {
                         "SELECT count(*) FROM category_memory WHERE account_id = ?", Integer.class, acc))
                 .isZero();
     }
+
+    @Test
+    void deletingBankAccountNullsBatchBankAccountId() {
+        UUID acc = account();
+        UUID bank = bank(acc);
+        UUID batch = batch(acc, bank);
+
+        assertThat(jdbc.update("DELETE FROM bank_accounts WHERE id = ?", bank)).isEqualTo(1);
+
+        assertThat(jdbc.queryForObject("SELECT bank_account_id FROM import_batches WHERE id = ?", UUID.class, batch))
+                .isNull();
+    }
 }
