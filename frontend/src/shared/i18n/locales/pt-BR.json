@@ -32,6 +32,10 @@
     "BUDGET_EXISTS": "Já existe um orçamento para esta categoria.",
     "BUDGET_CATEGORY_INVALID": "Só é possível criar orçamento para categorias de despesa.",
     "IN_USE_BY_ACTIVE_RULE": "Este item é usado por um lançamento recorrente ativo.",
+    "IMPORT_FORMAT_UNSUPPORTED": "Este arquivo não parece ser um extrato CSV da Revolut.",
+    "IMPORT_ROW_INVALID": "O arquivo tem uma linha com data ou valor ilegível.",
+    "IMPORT_TOO_MANY_ROWS": "O arquivo tem linhas demais (máximo de 5.000).",
+    "IMPORT_ALREADY_UNDONE": "Esta importação já foi desfeita.",
     "INTERNAL_ERROR": "Algo deu errado do nosso lado. Tente novamente em instantes.",
     "NETWORK_ERROR": "Sem conexão com o servidor. Verifique sua internet e tente de novo.",
     "UNKNOWN": "Algo deu errado. Tente novamente."
@@ -373,7 +377,81 @@
       "sameAccounts": "A conta de destino precisa ser diferente da origem."
     },
     "deleteTitle": "Excluir lançamento?",
-    "deleteMessage": "Isso remove o lançamento definitivamente e atualiza os saldos."
+    "deleteMessage": "Isso remove o lançamento definitivamente e atualiza os saldos.",
+    "importStatement": "Importar extrato"
+  },
+  "imports": {
+    "title": "Importar extrato da Revolut",
+    "subtitle": "Traga os lançamentos de um extrato CSV, revise e importe.",
+    "upload": {
+      "bankAccount": "Conta de destino",
+      "choose": "Selecione",
+      "file": "Arquivo CSV",
+      "submit": "Revisar",
+      "loading": "Lendo o arquivo…",
+      "helpTitle": "Como exportar da Revolut",
+      "help": "No app da Revolut: Conta → Extrato → Excel/CSV → escolha o período → Gerar",
+      "mappingTitle": "Outros produtos do extrato",
+      "mappingHint": "Escolha a conta de cada produto ou ignore as linhas dele.",
+      "ignore": "Ignorar"
+    },
+    "review": {
+      "tabs": {
+        "new": "Novas",
+        "duplicates": "Possíveis duplicatas",
+        "skipped": "Puladas"
+      },
+      "tabCount": "{label} ({n})",
+      "include": "Incluir {description}",
+      "category": "Categoria de {description}",
+      "chooseCategory": "Escolha a categoria",
+      "alreadyImported": "Já importada",
+      "transferRoute": "{from} → {to}",
+      "applyPrompt": "Aplicar à outra linha igual? | Aplicar às outras {n} linhas iguais?",
+      "apply": "Aplicar",
+      "dismiss": "Só nesta",
+      "empty": "Nenhuma linha aqui.",
+      "summary": "Resumo da importação",
+      "included": "{n} linha incluída | {n} linhas incluídas",
+      "income": "Receitas",
+      "expense": "Despesas",
+      "missingCategory": "Escolha a categoria de todas as linhas incluídas.",
+      "submit": "Importar {n} lançamento | Importar {n} lançamentos"
+    },
+    "skipReason": {
+      "PENDING": "Pendente",
+      "REVERTED": "Revertida ou recusada",
+      "OTHER_CURRENCY": "Outra moeda",
+      "EXCHANGE": "Câmbio",
+      "PRODUCT_IGNORED": "Produto ignorado",
+      "ZERO_AMOUNT": "Valor zero"
+    },
+    "result": {
+      "title": "Importação concluída",
+      "summary": "{created} lançamentos importados, {skipped} já existiam",
+      "viewTransactions": "Ver lançamentos",
+      "undo": "Desfazer importação",
+      "undone": "Importação desfeita.",
+      "another": "Importar outro arquivo"
+    },
+    "undo": {
+      "title": "Desfazer esta importação?",
+      "message": "Os lançamentos dela serão excluídos, inclusive os que você editou depois.",
+      "confirm": "Desfazer"
+    },
+    "history": {
+      "title": "Importações anteriores",
+      "empty": "Nenhuma importação ainda.",
+      "rows": "{n} lançamento | {n} lançamentos",
+      "undone": "Desfeita",
+      "undoLabel": "Desfazer importação de {date}",
+      "previous": "Mais recentes",
+      "next": "Mais antigas"
+    },
+    "errors": {
+      "tooLarge": "O arquivo é grande demais (máximo de 1 MB).",
+      "fileChanged": "O arquivo mudou desde a revisão. Envie-o de novo para revisar."
+    }
   },
   "monthSelector": {
     "label": "Mês",

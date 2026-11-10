@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { Plus } from '@lucide/vue'
+import { Plus, Upload } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter, type LocationQueryRaw } from 'vue-router'
+import { RouterLink, useRoute, useRouter, type LocationQueryRaw } from 'vue-router'
 import { useBankAccounts } from '@/shared/api/queries/bank-accounts'
 import { useCategories } from '@/shared/api/queries/categories'
 import { useTransaction, useTransactions } from '@/shared/api/queries/transactions'
@@ -89,6 +89,12 @@ const closePanel = () => (panelOpen.value = false)
 <template>
   <PageHeader :title="t('nav.transactions')" :subtitle="t('transactions.subtitle')">
     <template #actions>
+      <Button as-child variant="outline">
+        <RouterLink to="/transactions/import">
+          <Upload class="size-4" aria-hidden="true" />
+          {{ t('transactions.importStatement') }}
+        </RouterLink>
+      </Button>
       <Button @click="openNew">
         <Plus class="size-4" aria-hidden="true" />
         {{ t('transactions.new') }}
