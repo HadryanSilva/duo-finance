@@ -428,7 +428,9 @@
     },
     "result": {
       "title": "Import finished",
-      "summary": "{created} transactions imported, {skipped} already existed",
+      "summary": "{created}, {skipped}",
+      "created": "{n} transaction imported | {n} transactions imported",
+      "skipped": "{n} already existed | {n} already existed",
       "viewTransactions": "View transactions",
       "undo": "Undo import",
       "undone": "Import undone.",

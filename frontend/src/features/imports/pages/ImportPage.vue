@@ -39,6 +39,8 @@ const result = ref<CommitResponse | null>(null)
 const uploadError = ref<string | null>(null)
 const reviewError = ref<string | null>(null)
 
+/** Id of the latest preview request: only its response may land. */
+let previewSeq = 0
 const previewImport = usePreviewImport()
 const commitImport = useCommitImport()
 
@@ -55,8 +57,10 @@ const otherProducts = computed(() =>
   (preview.value?.products ?? []).filter((p) => p.product !== DEFAULT_PRODUCT),
 )
 
-// A different file or account is a different import: the review starts over.
+// A different file or account is a different import: any preview in flight is dropped and the
+// review starts over.
 watch([file, bankAccountId], () => {
+  previewSeq++
   if (step.value !== 'review') return
   step.value = 'upload'
   preview.value = null
@@ -74,19 +78,25 @@ function input(productMapping: ProductMapping | undefined): PreviewInput | null 
 }
 
 async function runPreview(productMapping = mapping.value) {
+  if (commitImport.isPending.value) return
   const body = input(productMapping)
   if (!body) return
+  const seq = ++previewSeq
+  // the file or account changed, or a newer preview was asked for, while this one was in flight
+  const stale = () =>
+    seq !== previewSeq || file.value !== body.file || bankAccountId.value !== body.bankAccountId
   uploadError.value = null
   reviewError.value = null
   try {
     const response = await previewImport.mutateAsync(body)
+    if (stale()) return
     preview.value = response
     mapping.value = productMapping
     rows.value = initReview(response.rows)
     previewKey.value++
     step.value = 'review'
   } catch (e) {
-    uploadError.value = importError(e)
+    if (!stale()) uploadError.value = importError(e)
   }
 }
 
@@ -100,6 +110,7 @@ function onMap(product: string, accountId: string | null) {
 
 /** The file on disk no longer matches what was reviewed: it has to be chosen again. */
 function backToUpload(message: string | null) {
+  previewSeq++
   step.value = 'upload'
   preview.value = null
   file.value = null
@@ -142,6 +153,8 @@ function restart() {
       :accounts="accountOptions"
       :products="step === 'review' ? otherProducts : []"
       :pending="previewImport.isPending.value"
+      :locked="commitImport.isPending.value"
+      :reviewing="step === 'review'"
       :error="uploadError"
       @submit="runPreview()"
       @map="onMap"

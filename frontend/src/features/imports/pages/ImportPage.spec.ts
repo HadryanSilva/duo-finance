@@ -1,8 +1,8 @@
 import { Blob as NodeBlob, File as NodeFile } from 'node:buffer'
-import { screen, waitFor, within } from '@testing-library/dom'
+import { fireEvent, screen, waitFor, within } from '@testing-library/dom'
 import { http, HttpResponse, type RequestHandler } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { PreviewResponse, PreviewRow } from '@/shared/api/types'
+import type { CommitResponse, PreviewResponse, PreviewRow } from '@/shared/api/types'
 import { renderRoute, testUser } from '@/test/render'
 
 const api = `${window.location.origin}/api/v1`
@@ -141,6 +141,11 @@ function setup(
     preview?: PreviewResponse | ((n: number, sent: Sent) => PreviewResponse)
     extra?: RequestHandler[]
     batches?: unknown[]
+    commit?: CommitResponse
+    /** Holds the n-th preview response (1-based) until the returned promise settles. */
+    previewGate?: (n: number) => Promise<void> | undefined
+    /** Holds the commit response until it settles. */
+    commitGate?: Promise<void>
   } = {},
 ) {
   const previews: Sent[] = []
@@ -164,12 +169,16 @@ function setup(
     http.post(`${api}/imports/revolut/preview`, async ({ request }) => {
       const sent = await readForm(request)
       previews.push(sent)
+      await opts.previewGate?.(previews.length)
       const p = opts.preview ?? preview()
       return HttpResponse.json(typeof p === 'function' ? p(previews.length, sent) : p)
     }),
     http.post(`${api}/imports/revolut/commit`, async ({ request }) => {
       commits.push(await readForm(request))
-      return HttpResponse.json({ batchId: 'batch1', created: 5, skippedDuplicates: 1 })
+      await opts.commitGate
+      return HttpResponse.json(
+        opts.commit ?? { batchId: 'batch1', created: 5, skippedDuplicates: 2 },
+      )
     }),
     http.get(`${api}/imports`, () => {
       const content = opts.batches ?? []
@@ -192,6 +201,24 @@ function setup(
     undone,
     render: () => renderRoute({ route: '/transactions/import', session: {}, handlers }),
   }
+}
+
+/** A statement with a Savings product besides Current, mapped as the request asked. */
+const withSavings = (_n: number, sent: Sent) =>
+  preview({
+    products: [
+      { product: 'Current', bankAccountId: 'b1' },
+      {
+        product: 'Savings',
+        bankAccountId: (sent.productMapping as Record<string, string> | undefined)?.Savings ?? null,
+      },
+    ],
+  })
+
+const deferred = () => {
+  let release!: () => void
+  const promise = new Promise<void>((r) => (release = r))
+  return { promise, release }
 }
 
 const csv = () => new File(['Type,Product\n'], 'extrato.csv', { type: 'text/csv' })
@@ -286,19 +313,7 @@ describe('ImportPage', () => {
   })
 
   it('upload_otherProducts_showsMappingAndRepreviews', async () => {
-    const s = setup({
-      preview: (_n, sent) =>
-        preview({
-          products: [
-            { product: 'Current', bankAccountId: 'b1' },
-            {
-              product: 'Savings',
-              bankAccountId:
-                (sent.productMapping as Record<string, string> | undefined)?.Savings ?? null,
-            },
-          ],
-        }),
-    })
+    const s = setup({ preview: withSavings })
     const { user } = await upload(s)
     const savings = (await screen.findByLabelText('Savings')) as HTMLSelectElement
     expect(optionTexts(savings)).toEqual(['Ignorar', 'Revolut', 'Cofre'])
@@ -462,7 +477,7 @@ describe('ImportPage', () => {
     const { user } = await upload(s)
     await screen.findByRole('tab', { name: /Novas/ })
     await user.click(submitButton())
-    expect(await screen.findByText('5 lançamentos importados, 1 já existiam')).toBeTruthy()
+    expect(await screen.findByText('5 lançamentos importados, 2 já existiam')).toBeTruthy()
     expect(screen.queryByRole('tab')).toBeNull()
     expect(screen.getByRole('link', { name: 'Ver lançamentos' }).getAttribute('href')).toBe(
       '/transactions',
@@ -478,6 +493,86 @@ describe('ImportPage', () => {
     await waitFor(() => expect(s.undone).toEqual(['batch1']))
     expect(await screen.findByText('Importação desfeita.')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Desfazer importação' })).toBeNull()
+  })
+
+  it('upload_changeFileWhilePreviewPending_discardsStalePreview', async () => {
+    const first = deferred()
+    const s = setup({ previewGate: (n) => (n === 1 ? first.promise : undefined) })
+    const { user } = await upload(s)
+    await waitFor(() => expect(s.previews).toHaveLength(1))
+    const other = new File(['Type,Product,Other\n'], 'outro.csv', { type: 'text/csv' })
+    await user.upload(screen.getByLabelText('Arquivo CSV'), other)
+    first.release()
+    // the response for the old file lands, and is dropped
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Revisar' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+    expect(screen.queryByRole('tab')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Revisar' }))
+    await screen.findByRole('tab', { name: /Novas/ })
+    await user.click(submitButton())
+    await waitFor(() => expect(s.commits).toHaveLength(1))
+    expect(s.commits[0]).toMatchObject({ fileName: 'outro.csv', fileText: 'Type,Product,Other\n' })
+  })
+
+  it('review_uploadControlsDisabledWhileCommitPending', async () => {
+    const commit = deferred()
+    const s = setup({ preview: withSavings, commitGate: commit.promise })
+    const { user } = await upload(s)
+    await screen.findByLabelText('Savings')
+    await user.click(submitButton())
+    await waitFor(() => expect(s.commits).toHaveLength(1))
+    const disabled = (label: string) =>
+      (screen.getByLabelText(label) as HTMLInputElement | HTMLSelectElement).disabled
+    expect(disabled('Conta de destino')).toBe(true)
+    expect(disabled('Arquivo CSV')).toBe(true)
+    expect(disabled('Savings')).toBe(true)
+    expect((submitButton() as HTMLButtonElement).disabled).toBe(true)
+
+    commit.release()
+    expect(await screen.findByText('5 lançamentos importados, 2 já existiam')).toBeTruthy()
+    expect(s.previews).toHaveLength(1)
+  })
+
+  it('review_revisarNotAvailableDuringReview', async () => {
+    const s = setup()
+    await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    expect(screen.queryByRole('button', { name: 'Revisar' })).toBeNull()
+    // nor by submitting the form some other way (Enter)
+    fireEvent.submit(screen.getByLabelText('Conta de destino').closest('form')!)
+    await new Promise((r) => setTimeout(r, 50))
+    expect(s.previews).toHaveLength(1)
+  })
+
+  it('review_remapResetsCategoryEdits', async () => {
+    const s = setup({ preview: withSavings })
+    const { user } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    const firstPingo = () =>
+      within(panel()).getAllByRole('combobox', {
+        name: `Categoria de ${PINGO}`,
+      })[0] as HTMLSelectElement
+    await waitFor(() => expect(optionTexts(firstPingo())).toContain('Lazer'))
+    await user.selectOptions(firstPingo(), 'c4')
+    expect(firstPingo().value).toBe('c4')
+
+    await user.selectOptions(screen.getByLabelText('Savings'), 'b2')
+    await waitFor(() => expect(s.previews).toHaveLength(2))
+    // a new plan: the review starts again from the suggestions
+    await waitFor(() => expect(firstPingo().value).toBe('c1'))
+    expect(screen.queryByText(/Aplicar às outras/)).toBeNull()
+  })
+
+  it('result_singularCounts', async () => {
+    const s = setup({ commit: { batchId: 'batch1', created: 1, skippedDuplicates: 1 } })
+    const { user } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    await user.click(submitButton())
+    expect(await screen.findByText('1 lançamento importado, 1 já existia')).toBeTruthy()
   })
 
   it('history_listsBatchesWithUndoOnlyForActive', async () => {

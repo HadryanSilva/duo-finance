@@ -43,8 +43,12 @@ async function onUndo() {
           <p class="text-muted-foreground">
             {{
               t('imports.result.summary', {
-                created: result.created,
-                skipped: result.skippedDuplicates,
+                created: t('imports.result.created', { n: result.created }, result.created),
+                skipped: t(
+                  'imports.result.skipped',
+                  { n: result.skippedDuplicates },
+                  result.skippedDuplicates,
+                ),
               })
             }}
           </p>

@@ -7,12 +7,17 @@ import { Label } from '@/shared/ui/label'
 import SelectField from '@/shared/ui/SelectField.vue'
 
 /** Step 1: destination account and CSV file; after a preview, the other products' mapping. */
-defineProps<{
+const props = defineProps<{
   /** Active bank accounts. */
   accounts: { id: string; label: string }[]
   /** Products besides the default one, with the account they map to (null = ignored). */
   products: { product: string; bankAccountId: string | null }[]
+  /** A preview is running. */
   pending: boolean
+  /** A commit is running: nothing here may change until it settles. */
+  locked: boolean
+  /** A preview is under review: only a new file, account or mapping previews again. */
+  reviewing: boolean
   error: string | null
 }>()
 const bankAccountId = defineModel<string>('bankAccountId', { required: true })
@@ -22,6 +27,10 @@ const emit = defineEmits<{ submit: []; map: [product: string, bankAccountId: str
 const { t } = useI18n()
 const fileId = useId()
 
+function onSubmit() {
+  if (!props.reviewing && !props.locked) emit('submit')
+}
+
 function onFile(event: Event) {
   file.value = (event.target as HTMLInputElement).files?.[0] ?? null
 }
@@ -30,7 +39,7 @@ function onFile(event: Event) {
 <template>
   <Card>
     <CardContent>
-      <form class="grid gap-4" novalidate @submit.prevent="emit('submit')">
+      <form class="grid gap-4" novalidate @submit.prevent="onSubmit">
         <p v-if="error" role="alert" class="rounded-md bg-muted p-3 text-sm text-destructive">
           {{ error }}
         </p>
@@ -41,6 +50,7 @@ function onFile(event: Event) {
             :label="t('imports.upload.bankAccount')"
             :options="accounts"
             :placeholder="t('imports.upload.choose')"
+            :disabled="locked"
           />
           <div class="grid gap-2">
             <Label :for="fileId">{{ t('imports.upload.file') }}</Label>
@@ -48,6 +58,7 @@ function onFile(event: Event) {
               :id="fileId"
               type="file"
               accept=".csv,text/csv"
+              :disabled="locked"
               class="text-sm file:mr-3 file:rounded-md file:border file:border-input file:bg-background file:px-3 file:py-1.5 file:text-sm"
               @change="onFile"
             />
@@ -71,12 +82,12 @@ function onFile(event: Event) {
             :label="p.product"
             :options="accounts"
             :empty-label="t('imports.upload.ignore')"
-            :disabled="pending"
+            :disabled="pending || locked"
             @update:model-value="emit('map', p.product, $event || null)"
           />
         </fieldset>
 
-        <div class="flex justify-end">
+        <div v-if="!reviewing" class="flex justify-end">
           <Button type="submit" :disabled="!bankAccountId || !file || pending">
             {{ pending ? t('imports.upload.loading') : t('imports.upload.submit') }}
           </Button>

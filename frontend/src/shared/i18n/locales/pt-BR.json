@@ -428,7 +428,9 @@
     },
     "result": {
       "title": "Importação concluída",
-      "summary": "{created} lançamentos importados, {skipped} já existiam",
+      "summary": "{created}, {skipped}",
+      "created": "{n} lançamento importado | {n} lançamentos importados",
+      "skipped": "{n} já existia | {n} já existiam",
       "viewTransactions": "Ver lançamentos",
       "undo": "Desfazer importação",
       "undone": "Importação desfeita.",
