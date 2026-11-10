@@ -28,15 +28,17 @@ describe('LandingPage', () => {
     expect(r.router.currentRoute.value.path).toBe('/dashboard')
   })
 
-  it('legal_privacyRendersPlaceholderText', async () => {
+  it('legal_privacyRendersPolicyParagraphs', async () => {
     await renderRoute({ route: '/privacy' })
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Política de privacidade')
-    expect(screen.getByText('[texto jurídico a ser fornecido]')).toBeTruthy()
+    expect(screen.getByText(/^Política de Privacidade do Duo Finance\./)).toBeTruthy()
+    expect(screen.getByText('1. Responsável pelo tratamento')).toBeTruthy()
   })
 
-  it('legal_termsRendersPlaceholderText', async () => {
+  it('legal_termsRendersTermsParagraphs', async () => {
     await renderRoute({ route: '/terms', locale: 'en' })
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Terms of use')
-    expect(screen.getByText('[legal text to be provided]')).toBeTruthy()
+    expect(screen.getByText(/^Duo Finance Terms of Use\. Version 2026-11,/)).toBeTruthy()
+    expect(screen.getByText('18. Contact')).toBeTruthy()
   })
 })
