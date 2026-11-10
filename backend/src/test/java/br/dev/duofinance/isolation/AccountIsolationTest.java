@@ -233,6 +233,29 @@ class AccountIsolationTest {
     }
 
     @Test
+    void foreignImportBatchUndo_returns404AndKeepsBatch() {
+        TestSession owner = testUsers.verified("ana@mail.com");
+        TestSession intruder = testUsers.verified("rui@mail.com");
+        UUID batch = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO import_batches (id, account_id, source, created_by, row_count, created_at)"
+                        + " VALUES (?, ?, 'REVOLUT', ?, 0, now())",
+                batch,
+                owner.accountId(),
+                owner.userId());
+
+        var result = mvc.post()
+                .uri("/api/v1/imports/" + batch + "/undo")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(intruder))
+                .exchange();
+
+        assertNotFound(result);
+        assertThat(jdbc.queryForObject(
+                        "SELECT count(*) FROM import_batches WHERE id = ? AND undone_at IS NULL", Long.class, batch))
+                .isEqualTo(1);
+    }
+
+    @Test
     void lists_neverShowOtherAccountsData() throws Exception {
         TestSession owner = testUsers.verified("ana@mail.com");
         TestSession intruder = testUsers.verified("rui@mail.com");

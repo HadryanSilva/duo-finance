@@ -1,22 +1,28 @@
 package br.dev.duofinance.imports.controller;
 
 import br.dev.duofinance.imports.dto.CommitResponse;
+import br.dev.duofinance.imports.dto.ImportBatchResponse;
 import br.dev.duofinance.imports.dto.PreviewResponse;
 import br.dev.duofinance.imports.dto.RowDecision;
+import br.dev.duofinance.imports.service.ImportBatchService;
 import br.dev.duofinance.imports.service.ImportCommitService;
 import br.dev.duofinance.imports.service.ImportContextLoader;
 import br.dev.duofinance.imports.service.ImportPlan;
 import br.dev.duofinance.imports.service.ImportPreviewService;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.security.CurrentUser;
+import br.dev.duofinance.shared.web.PageResponse;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -35,11 +41,14 @@ public class ImportController {
 
     private final ImportPreviewService previews;
     private final ImportCommitService commits;
+    private final ImportBatchService batches;
     private final JsonMapper json;
 
-    public ImportController(ImportPreviewService previews, ImportCommitService commits, JsonMapper json) {
+    public ImportController(
+            ImportPreviewService previews, ImportCommitService commits, ImportBatchService batches, JsonMapper json) {
         this.previews = previews;
         this.commits = commits;
+        this.batches = batches;
         this.json = json;
     }
 
@@ -69,6 +78,20 @@ public class ImportController {
         Map<String, UUID> mapping = parseMapping(productMapping);
         List<RowDecision> parsed = parseDecisions(decisions);
         return commits.commit(current.accountId(), current.userId(), file.getBytes(), bank, mapping, parsed);
+    }
+
+    @GetMapping
+    public PageResponse<ImportBatchResponse> list(
+            CurrentUser current,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return batches.list(current.accountId(), page, size);
+    }
+
+    @PostMapping("/{batchId}/undo")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void undo(CurrentUser current, @PathVariable UUID batchId) {
+        batches.undo(current.accountId(), batchId);
     }
 
     private List<RowDecision> parseDecisions(String raw) {
