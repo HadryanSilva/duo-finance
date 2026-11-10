@@ -767,13 +767,16 @@ real acontece com 30 dias restantes).
 
 ## 12. Antes do lançamento
 
-- [ ] Inserir o texto jurídico real da política de privacidade e dos termos de uso em
-  `frontend/src/shared/i18n/locales/pt-BR.json` (e `en.json`), nas chaves `legal.privacy.body` e
-  `legal.terms.body`, hoje com `[texto jurídico a ser fornecido]`. O vue-i18n interpreta caracteres
-  especiais: escape `@` como `{'@'}`, `{` como `{'{'}`, `}` como `{'}'}` e `|` como `{'|'}`. Confira as
-  páginas de privacidade e termos no navegador depois do build. Atualize também os testes que
-  afirmam o texto provisório: `frontend/src/features/landing/pages/LandingPage.spec.ts` (linha 34, e
-  o teste dos termos logo abaixo) espera `[texto jurídico a ser fornecido]` e falhará com o texto real.
+- [ ] Revisar com um advogado e preencher os marcadores entre colchetes da política de privacidade e
+  dos termos de uso (redigidos segundo o RGPD e o direito do consumidor da UE) em
+  `frontend/src/shared/i18n/locales/pt-BR.json` e `en.json`, chaves `legal.privacy.body` e
+  `legal.terms.body`: responsável, identificação fiscal, endereço, representante na UE (se aplicável),
+  `[E-MAIL DE CONTATO]`, `[PAÍS]`, prazo dos registros técnicos, mecanismo de transferência de cada
+  provedor e datas de publicação. Para achar os que faltam: `grep -o '\[[A-ZÁÉÍÓÚÂÊÔÃÕÇ][^]]*\]'`
+  nos dois arquivos. O vue-i18n interpreta caracteres especiais: escreva o e-mail com `{'@'}` no
+  lugar de `@` (ex.: `contato{'@'}duofinance.dev.br`) e escape `{`, `}` e `|` como `{'{'}`, `{'}'}` e
+  `{'|'}`. Os parágrafos são separados por uma linha em branco (`\n\n`). Confira as páginas de
+  privacidade e termos no navegador depois do build.
 - [ ] Revisar `TERMS_VERSION` em `frontend/src/shared/lib/legal.ts` (hoje `'2026-11'`): altere se o
   texto mudou em relação ao que os usuários já aceitaram.
 - [ ] Conferir `PUBLIC_BASE_URL=https://duofinance.dev.br` no `.env` (links dos e-mails).
