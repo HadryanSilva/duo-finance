@@ -420,4 +420,59 @@ describe('msw setup', () => {
     const { http } = setup()
     await expect(http.get('/nothing-registered')).rejects.toMatchObject({ code: 'NETWORK_ERROR' })
   })
+
+  it('postForm_sendsFormDataWithoutJsonContentType', async () => {
+    let seen: { auth: string | null; ct: string | null; name: string | null } | undefined
+    server.use(
+      rest.post(`${base}/upload`, async ({ request }) => {
+        const form = await request.formData()
+        seen = {
+          auth: request.headers.get('authorization'),
+          ct: request.headers.get('content-type'),
+          name: form.get('name') as string | null,
+        }
+        return HttpResponse.json({ ok: true })
+      }),
+    )
+    const { http } = setup()
+    const form = new FormData()
+    form.append('name', 'x')
+    expect(await http.postForm('/upload', form)).toEqual({ ok: true })
+    expect(seen?.auth).toBe('Bearer old')
+    expect(seen?.name).toBe('x')
+    expect(seen?.ct).toMatch(/^multipart\/form-data; boundary=/)
+  })
+
+  it('postForm_refreshesOn401AndRetries', async () => {
+    server.use(
+      rest.post(`${base}/upload`, async ({ request }) => {
+        if (request.headers.get('authorization') !== 'Bearer new')
+          return problem(401, 'UNAUTHENTICATED')
+        const form = await request.formData()
+        return HttpResponse.json({ name: form.get('name') })
+      }),
+    )
+    const { http, deps } = setup()
+    const form = new FormData()
+    form.append('name', 'x')
+    expect(await http.postForm('/upload', form)).toEqual({ name: 'x' })
+    expect(deps.refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('postForm_413WithHtmlBody_throwsApiError413', async () => {
+    server.use(
+      rest.post(
+        `${base}/upload`,
+        () =>
+          new HttpResponse('<html><body>413 Request Entity Too Large</body></html>', {
+            status: 413,
+            headers: { 'Content-Type': 'text/html' },
+          }),
+      ),
+    )
+    const { http } = setup()
+    const err = await http.postForm('/upload', new FormData()).catch((e: unknown) => e)
+    expect(isApiError(err)).toBe(true)
+    expect(err).toMatchObject({ status: 413 })
+  })
 })

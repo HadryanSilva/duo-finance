@@ -180,6 +180,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/imports/{batchId}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["undo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/revolut/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/imports/revolut/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["commit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/categories": {
         parameters: {
             query?: never;
@@ -580,6 +628,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_6"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard": {
         parameters: {
             query?: never;
@@ -603,7 +667,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_6"];
+        get: operations["list_7"];
         put?: never;
         post?: never;
         delete?: never;
@@ -635,7 +699,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["preview"];
+        get: operations["preview_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -859,6 +923,58 @@ export interface components {
             email: string;
             locale: string;
         };
+        PlannedRow: {
+            rowId?: string;
+            /** Format: date */
+            date?: string;
+            /** @enum {string} */
+            kind?: "INCOME" | "EXPENSE" | "TRANSFER";
+            /** Format: int64 */
+            amountCents?: number;
+            description?: string;
+            descriptionKey?: string;
+            /** Format: uuid */
+            bankAccountId?: string;
+            /** Format: uuid */
+            destinationBankAccountId?: string;
+            /** Format: uuid */
+            suggestedCategoryId?: string;
+            /** @enum {string} */
+            status?: "NEW" | "ALREADY_IMPORTED" | "POSSIBLE_DUPLICATE";
+        };
+        PreviewResponse: {
+            products: components["schemas"]["ProductMapping"][];
+            rows: components["schemas"]["PlannedRow"][];
+            skipped: components["schemas"]["Skipped"];
+        };
+        ProductMapping: {
+            product: string;
+            bankAccountId: string | null;
+        };
+        Skipped: {
+            counts: {
+                [key: string]: number;
+            };
+            rows: components["schemas"]["SkippedRow"][];
+        };
+        SkippedRow: {
+            /** Format: int32 */
+            lineNumber?: number;
+            /** Format: date */
+            date?: string;
+            description?: string;
+            amountRaw?: string;
+            currency?: string;
+            /** @enum {string} */
+            reason?: "PENDING" | "REVERTED" | "OTHER_CURRENCY" | "EXCHANGE" | "PRODUCT_IGNORED" | "ZERO_AMOUNT";
+        };
+        CommitResponse: {
+            batchId: string | null;
+            /** Format: int32 */
+            created: number;
+            /** Format: int32 */
+            skippedDuplicates: number;
+        };
         CategoryRequest: {
             name: string;
             /** @enum {string} */
@@ -987,6 +1103,31 @@ export interface components {
         RegistrationModeResponse: {
             /** @enum {string} */
             mode: "INVITE_ONLY" | "OPEN";
+        };
+        ImportBatchResponse: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            source: "REVOLUT";
+            bankAccountId: string | null;
+            createdBy: string | null;
+            createdByName: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: int32 */
+            rowCount: number;
+            undoneAt: string | null;
+        };
+        PageResponseImportBatchResponse: {
+            content: components["schemas"]["ImportBatchResponse"][];
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            size: number;
+            /** Format: int64 */
+            totalElements: number;
+            /** Format: int32 */
+            totalPages: number;
         };
         AccountBalance: {
             /** Format: uuid */
@@ -1598,6 +1739,85 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    undo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    bankAccountId: string;
+                    productMapping?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PreviewResponse"];
+                };
+            };
+        };
+    };
+    commit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    bankAccountId: string;
+                    productMapping?: string;
+                    decisions: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CommitResponse"];
+                };
             };
         };
     };
@@ -2306,6 +2526,29 @@ export interface operations {
             };
         };
     };
+    list_6: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PageResponseImportBatchResponse"];
+                };
+            };
+        };
+    };
     dashboard: {
         parameters: {
             query?: {
@@ -2328,7 +2571,7 @@ export interface operations {
             };
         };
     };
-    list_6: {
+    list_7: {
         parameters: {
             query?: {
                 status?: "PENDING" | "APPROVED" | "REJECTED";
@@ -2372,7 +2615,7 @@ export interface operations {
             };
         };
     };
-    preview: {
+    preview_1: {
         parameters: {
             query?: never;
             header?: never;
