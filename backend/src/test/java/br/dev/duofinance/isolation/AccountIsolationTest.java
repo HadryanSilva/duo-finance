@@ -175,6 +175,15 @@ class AccountIsolationTest {
                         ownBank,
                         "destinationBankAccountId",
                         ids.get("bank-accounts"))));
+        assertNotFound(mvc.post()
+                .uri("/api/v1/imports/revolut/preview")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(intruder))
+                .multipart()
+                .file(new org.springframework.mock.web.MockMultipartFile(
+                        "file", "s.csv", "text/csv", "x".getBytes()))
+                .file(new org.springframework.mock.web.MockMultipartFile(
+                        "bankAccountId", "", "text/plain", ids.get("bank-accounts").toString().getBytes()))
+                .exchange());
         assertNotFound(post(
                 intruder,
                 "/api/v1/recurring-rules",

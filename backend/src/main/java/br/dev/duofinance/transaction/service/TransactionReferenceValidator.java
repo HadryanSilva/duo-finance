@@ -93,6 +93,11 @@ public class TransactionReferenceValidator {
         requireNotArchivedUnlessKept(destination, current.destinationBankAccountId());
     }
 
+    /** Ownership (404) and archival (409) checks only, for references that are not part of a transaction yet. */
+    public void validateBankAccount(UUID accountId, UUID bankAccountId) {
+        requireNotArchivedUnlessKept(bankAccount(accountId, bankAccountId, false), null);
+    }
+
     private BankAccount bankAccount(UUID accountId, UUID id, boolean lock) {
         return lock ? bankAccounts.requireOwnedForShare(accountId, id) : bankAccounts.requireOwned(accountId, id);
     }
