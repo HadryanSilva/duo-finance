@@ -52,6 +52,10 @@ public class ImportBatch {
         this.createdAt = now;
     }
 
+    public void setRowCount(int rowCount) {
+        this.rowCount = rowCount;
+    }
+
     public void markUndone(Instant now) {
         this.undoneAt = now;
     }

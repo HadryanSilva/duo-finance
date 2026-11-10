@@ -88,6 +88,7 @@ class ResponseNullabilityTest {
             "RecurringRuleResponse.nextRunDate",
             "RecurringRuleResponse.startDate",
             "RegistrationModeResponse.mode",
+            "RowDecision.rowId",
             "Skipped.counts",
             "Skipped.rows",
             "SubscriptionResponse.plan",

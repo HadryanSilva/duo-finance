@@ -2,6 +2,8 @@ package br.dev.duofinance.imports.repository;
 
 import br.dev.duofinance.imports.service.PlanContext.MemoryKey;
 import br.dev.duofinance.transaction.model.TransactionKind;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -35,5 +37,21 @@ public class CategoryMemoryRepository {
                 },
                 accountId);
         return out;
+    }
+
+    /** Remembers the category for the description key and kind; the last call wins. */
+    public void upsert(UUID accountId, String descriptionKey, TransactionKind kind, UUID categoryId, Instant now) {
+        jdbc.update(
+                """
+                INSERT INTO category_memory (account_id, description_key, kind, category_id, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT (account_id, description_key, kind)
+                DO UPDATE SET category_id = EXCLUDED.category_id, updated_at = EXCLUDED.updated_at
+                """,
+                accountId,
+                descriptionKey,
+                kind.name(),
+                categoryId,
+                Timestamp.from(now));
     }
 }
