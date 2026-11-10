@@ -233,24 +233,71 @@ class ImportCommitTest {
             }));
         }
         start.countDown();
-        int created = 0;
-        int skipped = 0;
+        int winners = 0;
         for (Future<MvcTestResult> f : futures) {
             MvcTestResult result = f.get();
-            assertThat(result).hasStatus(HttpStatus.CREATED);
-            created += body(result).path("created").asInt();
-            skipped += body(result).path("skippedDuplicates").asInt();
+            if (result.getResponse().getStatus() == HttpStatus.CREATED.value()) {
+                winners++;
+            } else {
+                // the other request planned after the first committed: correct, not a duplicate write
+                assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+                JsonNode errors = body(result).path("errors");
+                assertThat(errors.size()).isGreaterThan(0);
+                for (JsonNode e : errors) {
+                    assertThat(e.path("code").asString()).isEqualTo("ROW_ALREADY_IMPORTED");
+                }
+            }
         }
         pool.shutdown();
+        assertThat(winners).isGreaterThanOrEqualTo(1);
 
         assertThat(count("SELECT count(*) FROM transactions WHERE import_fingerprint IS NOT NULL"))
                 .isEqualTo(included);
-        assertThat(created).isEqualTo(included);
-        assertThat(skipped).isEqualTo(included);
         assertThat(count("SELECT coalesce(sum(row_count), 0) FROM import_batches"))
                 .isEqualTo(included);
         assertThat(count("SELECT count(*) FROM import_batches WHERE row_count = 0"))
                 .isZero();
+    }
+
+    @Autowired
+    br.dev.duofinance.imports.service.ImportedTransactionWriter writer;
+
+    @Autowired
+    br.dev.duofinance.imports.repository.ImportBatchRepository batchRepository;
+
+    @Autowired
+    org.springframework.transaction.PlatformTransactionManager txManager;
+
+    @Test
+    void writer_insertSameFingerprintTwice_returnsOneThenZero() {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID cat = fixtures.category(s, "Cafes", CategoryKind.EXPENSE);
+        var row = new br.dev.duofinance.imports.service.PlannedRow(
+                "fp-writer-test",
+                java.time.LocalDate.of(2026, 10, 4),
+                br.dev.duofinance.transaction.model.TransactionKind.EXPENSE,
+                1250,
+                "Cafe Aurora",
+                "cafe aurora",
+                bank,
+                null,
+                null,
+                br.dev.duofinance.imports.service.RowStatus.NEW);
+        java.time.Instant now = java.time.Instant.parse("2026-11-10T10:00:00Z");
+
+        int[] results = new org.springframework.transaction.support.TransactionTemplate(txManager).execute(status -> {
+            var batch = batchRepository.saveAndFlush(new br.dev.duofinance.imports.model.ImportBatch(
+                    s.accountId(), br.dev.duofinance.imports.model.ImportSource.REVOLUT, bank, s.userId(), 0, now));
+            return new int[] {
+                writer.insert(s.accountId(), s.userId(), batch.getId(), row, cat, now),
+                writer.insert(s.accountId(), s.userId(), batch.getId(), row, cat, now)
+            };
+        });
+
+        assertThat(results).containsExactly(1, 0);
+        assertThat(count("SELECT count(*) FROM transactions WHERE import_fingerprint = 'fp-writer-test'"))
+                .isEqualTo(1);
     }
 
     @Test
