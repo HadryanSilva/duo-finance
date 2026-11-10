@@ -30,6 +30,11 @@ public class ApiException extends RuntimeException {
                 ErrorCode.VALIDATION_FAILED, "Request validation failed", List.of(new FieldError(field, fieldCode)));
     }
 
+    /** VALIDATION_FAILED carrying every given field error. */
+    public static ApiException invalidFields(List<FieldError> errors) {
+        return new ApiException(ErrorCode.VALIDATION_FAILED, "Request validation failed", List.copyOf(errors));
+    }
+
     public ErrorCode code() {
         return code;
     }
