@@ -923,29 +923,38 @@ export interface components {
             email: string;
             locale: string;
         };
-        PlannedRow: {
-            rowId?: string;
-            /** Format: date */
-            date?: string;
-            /** @enum {string} */
-            kind?: "INCOME" | "EXPENSE" | "TRANSFER";
-            /** Format: int64 */
-            amountCents?: number;
-            description?: string;
-            descriptionKey?: string;
-            /** Format: uuid */
-            bankAccountId?: string;
-            /** Format: uuid */
-            destinationBankAccountId?: string;
-            /** Format: uuid */
-            suggestedCategoryId?: string;
-            /** @enum {string} */
-            status?: "NEW" | "ALREADY_IMPORTED" | "POSSIBLE_DUPLICATE";
-        };
         PreviewResponse: {
             products: components["schemas"]["ProductMapping"][];
-            rows: components["schemas"]["PlannedRow"][];
+            rows: components["schemas"]["PreviewRow"][];
             skipped: components["schemas"]["Skipped"];
+        };
+        PreviewRow: {
+            rowId: string;
+            /** Format: date */
+            date: string;
+            /** @enum {string} */
+            kind: "INCOME" | "EXPENSE" | "TRANSFER";
+            /** Format: int64 */
+            amountCents: number;
+            description: string;
+            descriptionKey: string;
+            /** Format: uuid */
+            bankAccountId: string;
+            destinationBankAccountId: string | null;
+            suggestedCategoryId: string | null;
+            /** @enum {string} */
+            status: "NEW" | "ALREADY_IMPORTED" | "POSSIBLE_DUPLICATE";
+        };
+        PreviewSkippedRow: {
+            /** Format: int32 */
+            lineNumber: number;
+            /** Format: date */
+            date: string;
+            description: string;
+            amountRaw: string;
+            currency: string;
+            /** @enum {string} */
+            reason: "PENDING" | "REVERTED" | "OTHER_CURRENCY" | "EXCHANGE" | "PRODUCT_IGNORED" | "ZERO_AMOUNT";
         };
         ProductMapping: {
             product: string;
@@ -955,18 +964,7 @@ export interface components {
             counts: {
                 [key: string]: number;
             };
-            rows: components["schemas"]["SkippedRow"][];
-        };
-        SkippedRow: {
-            /** Format: int32 */
-            lineNumber?: number;
-            /** Format: date */
-            date?: string;
-            description?: string;
-            amountRaw?: string;
-            currency?: string;
-            /** @enum {string} */
-            reason?: "PENDING" | "REVERTED" | "OTHER_CURRENCY" | "EXCHANGE" | "PRODUCT_IGNORED" | "ZERO_AMOUNT";
+            rows: components["schemas"]["PreviewSkippedRow"][];
         };
         CommitResponse: {
             batchId: string | null;

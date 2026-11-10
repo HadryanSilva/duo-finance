@@ -53,7 +53,8 @@ export type CreateInvitationRequest = Schemas['CreateInvitationRequest']
 export type RegistrationModeResponse = Schemas['RegistrationModeResponse']
 
 export type PreviewResponse = Schemas['PreviewResponse']
-export type PlannedRow = Schemas['PlannedRow']
+export type PreviewRow = Schemas['PreviewRow']
+export type PlannedRow = PreviewRow
 export type CommitResponse = Schemas['CommitResponse']
 export type ImportBatchResponse = Schemas['ImportBatchResponse']
 export type PageResponseImportBatchResponse = Schemas['PageResponseImportBatchResponse']
