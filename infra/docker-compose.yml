@@ -1,0 +1,86 @@
+# Production stack (Lightsail, 2 GB). Run from this directory with a .env next to this file
+# (see .env.example). Only nginx publishes ports; api and postgres live on the internal network.
+# Files: docker-compose.local.yml = HTTP smoke override, docker-compose.dev.yml = dev Postgres only.
+name: duo-finance
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "5"
+
+services:
+  nginx:
+    image: ghcr.io/hadryansilva/duo-finance-nginx:${IMAGE_TAG:?set IMAGE_TAG in .env}
+    restart: unless-stopped
+    logging: *logging
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - certbot-etc:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
+  api:
+    image: ghcr.io/hadryansilva/duo-finance-api:${IMAGE_TAG:?set IMAGE_TAG in .env}
+    restart: unless-stopped
+    logging: *logging
+    env_file: ${DUO_ENV_FILE:-.env}
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    mem_limit: 900m
+    # Backend graceful-shutdown phase is 20 s.
+    stop_grace_period: 30s
+    # The JRE image has no curl/wget but has bash: probe the actuator over /dev/tcp.
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /api/actuator/health HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3 && grep -q '\"status\":\"UP\"' <&3"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 90s
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16
+    mem_limit: 512m
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # Renew loop only. The FIRST issuance (runbook, Task 8) must cover both the apex and www:
+  #   certbot certonly --webroot -w /var/www/certbot -d duofinance.dev.br -d www.duofinance.dev.br
+  certbot:
+    image: certbot/certbot:v5.9.0
+    restart: unless-stopped
+    logging: *logging
+    entrypoint:
+      - /bin/sh
+      - -c
+      - "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done"
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+
+volumes:
+  pgdata:
+  certbot-etc:
+  certbot-www:

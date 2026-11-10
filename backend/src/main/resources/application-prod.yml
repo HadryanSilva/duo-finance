@@ -1,0 +1,39 @@
+# Production profile (SPRING_PROFILES_ACTIVE=prod). Every value comes from the environment; see infra/.env.example.
+#
+# JWT_PRIVATE_KEY / JWT_PUBLIC_KEY format (what JwtKeyConfig parses): inline PEM text, NOT a file path.
+#   - JWT_PRIVATE_KEY: PKCS#8 RSA key ("-----BEGIN PRIVATE KEY-----...-----END PRIVATE KEY-----")
+#   - JWT_PUBLIC_KEY:  X.509 SubjectPublicKeyInfo ("-----BEGIN PUBLIC KEY-----...-----END PUBLIC KEY-----")
+#   RECOMMENDED: a SINGLE-LINE value with no newline escapes, which survives any quoting style (compose .env,
+#   docker run --env-file, single/double/no quotes, `source .env`). For example:
+#     openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out key.pem
+#     JWT_PRIVATE_KEY=$(openssl pkcs8 -topk8 -nocrypt -in key.pem | tr -d '\n')
+#     JWT_PUBLIC_KEY=$(openssl rsa -in key.pem -pubout | tr -d '\n')
+#   JwtKeyConfig strips the BEGIN/END markers and all whitespace, and also tolerates a literal backslash-n
+#   sequence, so real newlines and \n-escaped values work too. Both keys must be set and match, or startup fails.
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+
+app:
+  public-base-url: ${PUBLIC_BASE_URL}
+  auth:
+    jwt-private-key: ${JWT_PRIVATE_KEY}
+    jwt-public-key: ${JWT_PUBLIC_KEY}
+    cookie-secure: true
+  email:
+    provider: RESEND
+    resend-api-key: ${RESEND_API_KEY}
+    from: ${EMAIL_FROM}
+
+logging:
+  structured:
+    format:
+      console: ecs
+
+server:
+  # Behind nginx: honour X-Forwarded-For / X-Forwarded-Proto (Tomcat RemoteIpValve, internal proxies only).
+  forward-headers-strategy: native

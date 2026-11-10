@@ -1,0 +1,25 @@
+# Local full-stack smoke override (plain HTTP, local images, no certbot):
+#   DUO_ENV_FILE=/path/to/env docker compose --env-file /path/to/env \
+#     -f docker-compose.yml -f docker-compose.local.yml up -d --build --wait
+# .env.local.example only holds placeholders; supply a real env file (see infra/tests/stack.bats).
+services:
+  nginx:
+    image: duo-nginx:local
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+    environment:
+      NGINX_TEMPLATE: app-local
+    ports: !override
+      - "8088:80"
+    volumes: !reset []
+
+  api:
+    image: duo-api:local
+    build:
+      context: ../backend
+    env_file: !override
+      - ${DUO_ENV_FILE:-.env.local.example}
+
+  certbot:
+    profiles: [never]

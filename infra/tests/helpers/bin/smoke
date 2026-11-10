@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Test stub for smoke.sh (deploy.bats, via SMOKE_CMD). Checks what the docker stub last "started"
+# ($STUB_STATE/running-tag and running-compose) and logs "smoke <url> <tag>" and
+# "smoke-env SMOKE_RESOLVE=<value or unset>" to $STUB_LOG.
+#   SMOKE_FAIL_FOR_TAG      space-separated tags whose smoke fails
+#   SMOKE_FAIL_FOR_COMPOSE  fail when the started compose file contains this text
+#   SMOKE_FAIL_TIMES        fail this many calls first, then apply the rules above
+set -euo pipefail
+
+tag="$(cat "$STUB_STATE/running-tag" 2>/dev/null || true)"
+echo "smoke $* $tag" >>"$STUB_LOG"
+echo "smoke-env SMOKE_RESOLVE=${SMOKE_RESOLVE-unset}" >>"$STUB_LOG"
+
+count_file="$STUB_STATE/smoke-calls"
+calls=$(( $(cat "$count_file" 2>/dev/null || echo 0) + 1 ))
+echo "$calls" >"$count_file"
+if [ "$calls" -le "${SMOKE_FAIL_TIMES:-0}" ]; then
+  echo "smoke: FAIL: not up yet ($calls)" >&2
+  exit 1
+fi
+
+[ -n "$tag" ] || { echo "smoke: FAIL: nothing running" >&2; exit 1; }
+for bad in ${SMOKE_FAIL_FOR_TAG:-}; do
+  if [ "$bad" = "$tag" ]; then
+    echo "smoke: FAIL: $tag unhealthy" >&2
+    exit 1
+  fi
+done
+if [ -n "${SMOKE_FAIL_FOR_COMPOSE:-}" ] && grep -qF -- "$SMOKE_FAIL_FOR_COMPOSE" "$STUB_STATE/running-compose"; then
+  echo "smoke: FAIL: broken compose file" >&2
+  exit 1
+fi
+echo "smoke: all checks passed"

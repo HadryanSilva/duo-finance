@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+# Usage: restore.sh <dump-file | s3-uri> --yes [--stop-api] [--drop-schema]
+#
+# Restores a backup.sh dump into the running postgres service, in DEPLOY_PATH next to
+# docker-compose.yml and .env. Prints the plan and refuses to run without --yes.
+# Runs `pg_restore --clean --if-exists --no-owner --single-transaction -d $POSTGRES_DB` inside the
+# postgres container, reading the dump from stdin. A failure rolls the database back untouched.
+# Existing objects of the dump are dropped and recreated.
+# --drop-schema: drops and recreates schema public first (restore an older dump over a newer schema,
+# where Flyway objects would otherwise clash); same single transaction, via psql.
+# The api should be stopped first (the restore drops tables it is using): pass --stop-api to stop
+# it before and start it again afterwards, or run `docker compose stop api` yourself.
+# POSTGRES_USER and POSTGRES_DB come from .env. An s3:// source is downloaded with the aws CLI,
+# with BACKUP_S3_ENDPOINT and AWS_* from backup.env, as in backup.sh (an environment variable of the
+# same name wins).
+# Env overrides (tests): COMPOSE_FILES (default "-f docker-compose.yml").
+set -euo pipefail
+
+env_file=.env
+backup_env_file=backup.env
+
+log() { printf '%s restore: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
+usage() {
+  echo "usage: $0 <dump-file | s3://bucket/key> --yes [--stop-api] [--drop-schema]" >&2
+  exit 64
+}
+
+# Value of a single key of a file (default .env; empty when the file is absent), without sourcing
+# it (values are not shell-safe).
+env_value() {
+  local value file="${2:-$env_file}"
+  [ -f "$file" ] || return 0
+  value="$(grep -m 1 "^$1=" "$file" | cut -d= -f2- | tr -d '\r')" || true
+  value="${value#\"}"
+  value="${value%\"}"
+  printf '%s' "$value"
+}
+
+# Backup setting: environment first, then backup.env.
+setting() {
+  local current="${!1:-}"
+  if [ -n "$current" ]; then printf '%s' "$current"; else env_value "$1" "$backup_env_file"; fi
+}
+
+source_arg=""
+yes=false
+stop_api=false
+drop_schema=false
+for arg in "$@"; do
+  case "$arg" in
+    --yes) yes=true ;;
+    --stop-api) stop_api=true ;;
+    --drop-schema) drop_schema=true ;;
+    -*) usage ;;
+    *)
+      [ -z "$source_arg" ] || usage
+      source_arg="$arg"
+      ;;
+  esac
+done
+[ -n "$source_arg" ] || usage
+
+read -ra compose_args <<<"${COMPOSE_FILES:--f docker-compose.yml}"
+compose() { docker compose "${compose_args[@]}" "$@"; }
+
+[ -f "$env_file" ] || { log "$env_file not found (run from the deploy directory)"; exit 2; }
+pg_db="$(env_value POSTGRES_DB)"
+pg_user="$(env_value POSTGRES_USER)"
+if [ -z "$pg_db" ] || [ -z "$pg_user" ]; then
+  log "POSTGRES_USER/POSTGRES_DB missing in $env_file"
+  exit 2
+fi
+
+echo "Restore plan:"
+echo "  source:   $source_arg"
+echo "  database: $pg_db (objects in the dump are dropped and recreated: --clean --if-exists --no-owner)"
+if $stop_api; then
+  echo "  api:      will be stopped before and started after the restore"
+else
+  echo "  api:      NOT stopped; stopping it first is recommended (use --stop-api)"
+fi
+if $drop_schema; then
+  echo "  schema:   public is DROPPED and recreated first, in the same transaction as the restore"
+fi
+if ! $yes; then
+  echo "Refusing to run without --yes." >&2
+  exit 64
+fi
+
+work="$(mktemp -d)"
+api_stopped=false
+cleanup() {
+  rm -rf "$work"
+  if $api_stopped; then
+    log "starting api"
+    compose start api || log "could not start api: start it manually"
+  fi
+}
+trap cleanup EXIT
+
+dump="$source_arg"
+case "$source_arg" in
+  s3://*)
+    endpoint="$(setting BACKUP_S3_ENDPOINT)"
+    for key in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION; do
+      value="$(setting "$key")"
+      [ -z "$value" ] || export "$key=$value"
+    done
+    dump="$work/restore.dump"
+    log "downloading $source_arg"
+    if [ -n "$endpoint" ]; then
+      aws s3 cp --endpoint-url "$endpoint" "$source_arg" "$dump" --only-show-errors
+    else
+      aws s3 cp "$source_arg" "$dump" --only-show-errors
+    fi
+    ;;
+esac
+[ -s "$dump" ] || { log "dump not found or empty: $dump"; exit 1; }
+
+log "validating dump"
+compose exec -T postgres pg_restore --list <"$dump" >/dev/null
+
+if $stop_api; then
+  log "stopping api"
+  api_stopped=true
+  compose stop api
+fi
+
+# Everything below runs in ONE transaction: a failure rolls back to the pre-restore state.
+if $drop_schema; then
+  # pg_restore cannot run a statement of its own in its transaction, so the dump is rendered to SQL
+  # first (a failure there leaves the database untouched), then psql applies "drop schema + dump"
+  # as a single transaction.
+  log "rendering dump to SQL"
+  compose exec -T postgres pg_restore --no-owner -f - <"$dump" >"$work/restore.sql"
+  log "restoring into $pg_db (dropping schema public first)"
+  { echo "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"; cat "$work/restore.sql"; } |
+    compose exec -T postgres psql -U "$pg_user" -d "$pg_db" -q -v ON_ERROR_STOP=1 --single-transaction >/dev/null
+else
+  log "restoring into $pg_db"
+  compose exec -T postgres pg_restore -U "$pg_user" --clean --if-exists --no-owner --single-transaction \
+    -d "$pg_db" <"$dump"
+fi
+log "done"

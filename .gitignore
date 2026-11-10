@@ -3,6 +3,7 @@ node_modules/
 dist/
 target/
 .env
+backup.env
 *.local
 .idea/
 .vscode/

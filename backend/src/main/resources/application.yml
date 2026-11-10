@@ -1,6 +1,8 @@
 spring:
   application:
     name: duo-finance
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
   threads:
     virtual:
       enabled: true
@@ -16,6 +18,9 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+
+server:
+  shutdown: graceful
 
 management:
   endpoints:

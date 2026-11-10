@@ -1,0 +1,13 @@
+*.sh text eol=lf
+*.bats text eol=lf
+Dockerfile text eol=lf
+mvnw text eol=lf
+.dockerignore text eol=lf
+*.dockerignore text eol=lf
+.gitattributes text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.conf text eol=lf
+*.template text eol=lf
+*.example text eol=lf
+infra/tests/helpers/** text eol=lf

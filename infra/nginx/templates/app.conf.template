@@ -1,0 +1,49 @@
+# Production (NGINX_TEMPLATE=app). ${NGINX_SERVER_NAME} is filled in by the image's envsubst;
+# nginx variables ($request_uri, ...) are left alone (NGINX_ENVSUBST_FILTER=^NGINX_).
+# The certificate must cover ${NGINX_SERVER_NAME} and www.${NGINX_SERVER_NAME}.
+
+ssl_certificate /etc/letsencrypt/live/${NGINX_SERVER_NAME}/fullchain.pem;
+ssl_certificate_key /etc/letsencrypt/live/${NGINX_SERVER_NAME}/privkey.pem;
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
+ssl_prefer_server_ciphers off;
+ssl_session_cache shared:SSL:10m;
+ssl_session_timeout 1d;
+ssl_session_tickets off;
+
+# HTTP: ACME challenges for certbot; everything else goes to the HTTPS apex.
+server {
+    listen 80 default_server;
+    server_name ${NGINX_SERVER_NAME} www.${NGINX_SERVER_NAME};
+
+    # Headers on the redirects and ACME responses too (HSTS stays empty over HTTP).
+    include snippets/security-headers.conf;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://${NGINX_SERVER_NAME}$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name www.${NGINX_SERVER_NAME};
+
+    include snippets/security-headers.conf;
+    return 301 https://${NGINX_SERVER_NAME}$request_uri;
+}
+
+server {
+    listen 443 ssl default_server;
+    http2 on;
+    server_name ${NGINX_SERVER_NAME};
+
+    # Strict-Transport-Security "max-age=31536000; includeSubDomains" goes out on every HTTPS
+    # response through snippets/security-headers.conf ($hsts_header, see nginx.conf), including
+    # the locations that set their own add_header, where a server-level add_header would be lost.
+    include snippets/app-common.conf;
+}

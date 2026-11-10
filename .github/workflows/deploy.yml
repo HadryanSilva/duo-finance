@@ -1,0 +1,206 @@
+# Continuous deployment. Trigger: workflow_run of "CI" (ci.yml), chosen over duplicating CI's jobs
+# as `needs`: it runs only after CI finished green on a push to main, so every deployed commit
+# passed the same required checks as its pull request.
+#   images: builds api (context backend/, backend/Dockerfile) and nginx (context: the repo root,
+#           frontend/Dockerfile, trimmed by frontend/Dockerfile.dockerignore) and pushes
+#           ghcr.io/hadryansilva/duo-finance-{api,nginx}:sha-<12> and :main. The context/file
+#           pairs must match docker-compose.local.yml and the image tests (infra/tests/config.bats).
+#           Every action is pinned to a full commit SHA (version in the trailing comment).
+#   deploy: stages the compose file and scripts in DEPLOY_PATH/.incoming/ and runs the staged
+#           .incoming/deploy.sh sha-<12>. Under its lock it backs up the live files, swaps the
+#           staged ones in and rolls files and tag back together on failure; the job fails with
+#           the script's exit code.
+# Settings (environment "production"): secrets DEPLOY_SSH_KEY (private key), DEPLOY_KNOWN_HOSTS
+# (ssh-keyscan output, verified by hand); variables DEPLOY_HOST, DEPLOY_USER, DEPLOY_PATH,
+# AWS_DEPLOY_ROLE_ARN, AWS_REGION, LIGHTSAIL_INSTANCE.
+# Port 22 of the instance is open only to the administrator; the deploy job (OIDC role, Lightsail
+# port actions only) adds the runner's /32 for the length of the deploy and removes it afterwards.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Concurrency is per job, not per workflow, so it only applies once a job's `if` passed: runs that
+# will be skipped (failed CI, fork branches) can never replace a pending good deploy. Separate
+# groups, so a pending images job and a pending deploy job never cancel each other. Never
+# cancel-in-progress; GitHub keeps one pending job per group, so the newest commit wins.
+jobs:
+  images:
+    # `branches` matches the head branch name only: also require a push in this repository, so a
+    # pull request from a fork's "main" branch can never deploy.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: images-main
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Compute image tag
+        id: tag
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: echo "tag=sha-${HEAD_SHA:0:12}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push api
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: backend
+          file: backend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/hadryansilva/duo-finance-api:${{ steps.tag.outputs.tag }}
+            ghcr.io/hadryansilva/duo-finance-api:main
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+      - name: Build and push nginx
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: frontend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/hadryansilva/duo-finance-nginx:${{ steps.tag.outputs.tag }}
+            ghcr.io/hadryansilva/duo-finance-nginx:main
+          cache-from: type=gha,scope=nginx
+          cache-to: type=gha,scope=nginx,mode=max
+
+  deploy:
+    needs: images
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      TAG: ${{ needs.images.outputs.tag }}
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      # Adds this runner's public IPv4 /32 to the instance's SSH rule, keeping the existing CIDRs
+      # (so it works whether open-instance-public-ports replaces or merges the rule). The original
+      # CIDRs and the runner CIDR are step outputs for the always() close step.
+      - name: Open SSH for this runner
+        id: ports
+        env:
+          INSTANCE: ${{ vars.LIGHTSAIL_INSTANCE }}
+        run: |
+          if [ -z "$INSTANCE" ]; then
+            echo "::error::LIGHTSAIL_INSTANCE must be set"
+            exit 1
+          fi
+          runner_ip="$(curl -fsS https://checkip.amazonaws.com | tr -d '[:space:]')"
+          if ! [[ "$runner_ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+            echo "::error::could not determine the runner IPv4 address"
+            exit 1
+          fi
+          # Existing rule of port 22 as JSON, keeping only the non-empty lists: cidrs, ipv6Cidrs and
+          # cidrListAliases (lightsail-connect, the browser SSH). "{}" when there is no rule.
+          original="$(aws lightsail get-instance-port-states --instance-name "$INSTANCE" --output json |
+            jq -c '[.portStates[] | select(.fromPort == 22 and .protocol == "tcp")] | first // {} |
+              {cidrs: (.cidrs // []), ipv6Cidrs: (.ipv6Cidrs // []), cidrListAliases: (.cidrListAliases // [])} |
+              with_entries(select(.value | length > 0))')"
+          echo "original=$original" >> "$GITHUB_OUTPUT"
+          echo "runner=$runner_ip/32" >> "$GITHUB_OUTPUT"
+          port_info="$(jq -c --arg ip "$runner_ip/32" \
+            '{fromPort: 22, toPort: 22, protocol: "tcp"} + . + {cidrs: ((.cidrs // []) + [$ip])}' <<<"$original")"
+          aws lightsail open-instance-public-ports --instance-name "$INSTANCE" --port-info "$port_info"
+          sleep 5
+      - uses: webfactory/ssh-agent@dc588b651fe13675774614f8e6a936a468676387 # v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+      # Host keys come only from the secret; ssh and scp run with StrictHostKeyChecking=yes, so an
+      # unknown or changed host key fails the job.
+      - name: Trust the instance host key
+        env:
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          if [ -z "$KNOWN_HOSTS" ] || [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_USER" ] || [ -z "$DEPLOY_PATH" ]; then
+            echo "::error::DEPLOY_KNOWN_HOSTS, DEPLOY_HOST, DEPLOY_USER and DEPLOY_PATH must be set"
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+      # Staging only: the live compose file and scripts are untouched until deploy.sh holds its lock.
+      - name: Stage compose file and scripts
+        run: |
+          incoming="$DEPLOY_PATH/.incoming"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "rm -rf $(printf '%q' "$incoming") && mkdir -p $(printf '%q' "$incoming")"
+          files=(infra/docker-compose.yml)
+          for name in deploy smoke backup restore install-cron; do
+            path="infra/scripts/$name.sh"
+            if [ -f "$path" ]; then
+              files+=("$path")
+            else
+              echo "skipping $path (not in this commit)"
+            fi
+          done
+          scp -p -o BatchMode=yes -o StrictHostKeyChecking=yes "${files[@]}" "$DEPLOY_USER@$DEPLOY_HOST:$incoming/"
+      - name: Deploy
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd $(printf '%q' "$DEPLOY_PATH") && ./.incoming/deploy.sh $(printf '%q' "$TAG")"
+      # Always runs, even when the deploy failed. Removes only the runner CIDR, then re-asserts the
+      # original rule (cidrs, ipv6Cidrs and cidrListAliases; idempotent), so the administrator's
+      # rule and browser SSH survive either API semantics, and fails the job if the runner CIDR is
+      # still open.
+      - name: Close SSH for this runner
+        if: always() && steps.ports.outputs.runner != ''
+        env:
+          INSTANCE: ${{ vars.LIGHTSAIL_INSTANCE }}
+          RUNNER_CIDR: ${{ steps.ports.outputs.runner }}
+          ORIGINAL_RULE: ${{ steps.ports.outputs.original }}
+        run: |
+          close_info="$(jq -cn --arg ip "$RUNNER_CIDR" '{fromPort: 22, toPort: 22, protocol: "tcp", cidrs: [$ip]}')"
+          aws lightsail close-instance-public-ports --instance-name "$INSTANCE" \
+            --port-info "$close_info" || echo "::warning::close failed"
+          if [ -n "$ORIGINAL_RULE" ] && [ "$ORIGINAL_RULE" != "{}" ]; then
+            reassert="$(jq -c '{fromPort: 22, toPort: 22, protocol: "tcp"} + .' <<<"$ORIGINAL_RULE")"
+            aws lightsail open-instance-public-ports --instance-name "$INSTANCE" --port-info "$reassert"
+          fi
+          current="$(aws lightsail get-instance-port-states --instance-name "$INSTANCE" --output json |
+            jq -r '[.portStates[] | select(.fromPort == 22 and .protocol == "tcp") | (.cidrs // [])[]] | join(",")')"
+          case ",$current," in
+            *",$RUNNER_CIDR,"*)
+              echo "::error::port 22 is still open to $RUNNER_CIDR"
+              exit 1
+              ;;
+          esac

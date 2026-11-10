@@ -45,6 +45,34 @@ describe('tooltip theme', () => {
   })
 })
 
+describe('tooltip text', () => {
+  type Formatter = (p: { name: string; value: number }) => string
+  const formatterOf = (opt: unknown) =>
+    (opt as { tooltip: { formatter: Formatter } }).tooltip.formatter
+
+  it('spendingTooltip_escapesUserEnteredNames', () => {
+    const name = '<img src=x onerror=alert(1)>'
+    const opt = spendingOption(
+      [{ categoryId: 'c1', name, color: '#0ea5e9', icon: 'x', totalCents: 1250 }],
+      colors,
+      'en',
+    )
+    const html = formatterOf(opt)({ name, value: 1250 })
+    expect(html).not.toContain('<img')
+    expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;')
+  })
+
+  it('incomeExpenseTooltip_escapesLabels', () => {
+    const opt = incomeExpenseOption(
+      { incomeCents: 1, expenseCents: 1 },
+      colors,
+      { income: '<b>in</b>', expense: 'out' },
+      'en',
+    )
+    expect(formatterOf(opt)({ name: '<b>in</b>', value: 1 })).toMatch(/^&lt;b&gt;in&lt;\/b&gt;: /)
+  })
+})
+
 describe('chart options with the registered ECharts modules', () => {
   it('incomeExpenseOption_drawsBarsOnAxes', () => {
     const svg = renderSvg(

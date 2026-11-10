@@ -1,14 +1,19 @@
 import type { EChartsCoreOption } from 'echarts/core'
 import type { DashboardResponse } from '@/shared/api/types'
+import { escapeHtml } from '@/shared/lib/html'
 import { formatMoney, type Locale } from '@/shared/lib/money'
 import type { ChartColors } from './chart-colors'
 
 type Tooltip = { name: string; value: number }
 
-/** The tooltip is drawn by ECharts, so it takes the theme colors explicitly. */
-const tooltip = (colors: ChartColors, formatter: (p: Tooltip) => string) => ({
+/**
+ * The tooltip is drawn by ECharts, so it takes the theme colors explicitly.
+ * ECharts writes the formatter's string with innerHTML and names are user input (category names,
+ * shared between partners), so the whole text is HTML-escaped.
+ */
+const tooltip = (colors: ChartColors, text: (p: Tooltip) => string) => ({
   trigger: 'item',
-  formatter,
+  formatter: (p: Tooltip) => escapeHtml(text(p)),
   backgroundColor: colors.surface,
   borderColor: colors.border,
   textStyle: { color: colors.text },
