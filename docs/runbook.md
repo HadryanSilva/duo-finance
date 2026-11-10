@@ -652,6 +652,27 @@ IAM que só enxerga o prefixo `daily/` desse bucket.
 
 ## 10. Admin
 
+O cadastro em produção (`INVITE_ONLY`) exige um código de acesso, e os códigos são gerados pelo
+admin, que ainda não existe. Crie o primeiro código direto no banco: uso único, só para o seu e-mail,
+válido por 24 horas. O backend guarda o SHA-256 do código em maiúsculas, sem hífens e sem espaços:
+
+```bash
+cd /opt/duo-finance
+code="$(openssl rand -hex 8 | tr 'a-f' 'A-F')"
+email='voce@exemplo.com'
+docker compose exec -T postgres psql -U duofinance -d duofinance -v ON_ERROR_STOP=1 \
+  -v code="$code" -v email="$email" <<'SQL'
+INSERT INTO access_codes (id, code_hash, email, max_uses, expires_at, note, created_at)
+VALUES (gen_random_uuid(), encode(sha256(convert_to(:'code', 'UTF8')), 'hex'),
+        lower(trim(:'email')), 1, now() + interval '1 day', 'bootstrap admin', now());
+SQL
+echo "Access code: $code"
+unset code
+```
+
+Resultado esperado: `INSERT 0 1` e o código impresso. Cadastre-se no site com **esse e-mail** e esse
+código.
+
 Depois de criar a sua conta pelo site e verificar o e-mail, promova-a a administradora:
 
 ```bash

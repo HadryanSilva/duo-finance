@@ -142,6 +142,12 @@ jobs:
             jq -c '[.portStates[] | select(.fromPort == 22 and .protocol == "tcp")] | first // {} |
               {cidrs: (.cidrs // []), ipv6Cidrs: (.ipv6Cidrs // []), cidrListAliases: (.cidrListAliases // [])} |
               with_entries(select(.value | length > 0))')"
+          # The API rejects any CIDR next to an open-to-all one, and port 22 must not be open anyway.
+          if jq -e '((.cidrs // []) + (.ipv6Cidrs // [])) | any(. == "0.0.0.0/0" or . == "::/0")' \
+            <<<"$original" >/dev/null; then
+            echo "::error::port 22 of $INSTANCE is open to the internet; restrict it to the administrator IP (runbook section 2)"
+            exit 1
+          fi
           echo "original=$original" >> "$GITHUB_OUTPUT"
           echo "runner=$runner_ip/32" >> "$GITHUB_OUTPUT"
           port_info="$(jq -c --arg ip "$runner_ip/32" \
