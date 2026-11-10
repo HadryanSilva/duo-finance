@@ -141,6 +141,9 @@ public final class RevolutCsvParser {
                 field.append(c);
             }
         }
+        if (quoted) {
+            throw new ApiException(ErrorCode.IMPORT_ROW_INVALID, "line " + recordLine);
+        }
         endRecord(records, fields, field, recordLine);
         return records;
     }

@@ -129,6 +129,19 @@ class RevolutCsvParserTest {
     }
 
     @Test
+    void parse_unterminatedQuote_throwsRowInvalidWithLine() {
+        String csv = HEADER + ROW
+                + "CARD_PAYMENT,Current,2026-10-03 12:04:51,2026-10-04 08:15:02,Cafe,-1.00,0.00,EUR,COMPLETED,\"1.00\n"
+                + ROW + ROW;
+
+        assertThatThrownBy(() -> RevolutCsvParser.parse(bytes(csv)))
+                .isInstanceOfSatisfying(ApiException.class, e -> {
+                    assertThat(e.code()).isEqualTo(ErrorCode.IMPORT_ROW_INVALID);
+                    assertThat(e.getMessage()).isEqualTo("line 3");
+                });
+    }
+
+    @Test
     void parse_amountWithThreeDecimals_throwsRowInvalid() {
         String csv = HEADER
                 + "CARD_PAYMENT,Current,2026-10-03 12:04:51,2026-10-04 08:15:02,Cafe,-1.005,0.00,EUR,COMPLETED,1\n";
