@@ -236,6 +236,56 @@ class ImportPreviewTest {
     }
 
     @Test
+    void preview_missingFilePart_returns400() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+
+        var result = mvc.post()
+                .uri(URI)
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                .multipart()
+                .file(new MockMultipartFile("bankAccountId", "", "text/plain", bank.toString().getBytes()))
+                .exchange();
+
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
+    void preview_missingBankAccountIdPart_returns400() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+
+        var result = mvc.post()
+                .uri(URI)
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                .multipart()
+                .file(new MockMultipartFile("file", "statement.csv", "text/csv", sample()))
+                .exchange();
+
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("VALIDATION_FAILED");
+    }
+
+    /**
+     * MockMvc does not enforce the servlet container's multipart limits, so the oversize upload is exercised at the
+     * handler: the exception the container raises must answer 413 with a stable code, never 500.
+     */
+    @Test
+    void preview_fileOver1MB_returns413() throws Exception {
+        var handler = new br.dev.duofinance.shared.error.GlobalExceptionHandler();
+        var request = new org.springframework.web.context.request.ServletWebRequest(
+                new org.springframework.mock.web.MockHttpServletRequest());
+
+        var response = handler.handleException(
+                new org.springframework.web.multipart.MaxUploadSizeExceededException(1_048_576), request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONTENT_TOO_LARGE);
+        assertThat(response.getBody()).isInstanceOf(org.springframework.http.ProblemDetail.class);
+        var problem = (org.springframework.http.ProblemDetail) response.getBody();
+        assertThat(problem.getProperties()).containsEntry("code", "VALIDATION_FAILED");
+    }
+
+    @Test
     void preview_inactiveSubscription_returns402() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         UUID bank = fixtures.bankAccount(s, "Revolut", 0);
