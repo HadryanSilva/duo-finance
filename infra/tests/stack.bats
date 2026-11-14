@@ -73,9 +73,11 @@ teardown_file() {
 }
 
 @test "flyway migrated on startup" {
+  # Highest V<n>__*.sql in the backend, so a new migration does not need a test change.
+  expected="$(ls "$REPO_ROOT/backend/src/main/resources/db/migration" | sed -n 's/^V\([0-9]*\)__.*/\1/p' | sort -n | tail -n 1)"
   run stack exec -T postgres psql -U duo -d duo -tA -c "SELECT max(version::int) FROM flyway_schema_history"
   [ "$status" -eq 0 ]
-  [ "$(echo "$output" | tr -d '[:space:]')" = "4" ]
+  [ "$(echo "$output" | tr -d '[:space:]')" = "$expected" ]
 }
 
 @test "public api works through nginx" {
