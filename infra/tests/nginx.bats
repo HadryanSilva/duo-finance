@@ -203,6 +203,17 @@ assert_security_headers() {
   done
 }
 
+@test "importCommit_allowsTwoMegabyteBody" {
+  # The commit body (statement + decisions) may exceed the server-wide 1m; only its route gets 2m.
+  head -c 1500000 /dev/zero > "$BATS_TEST_TMPDIR/big"
+  head -c 2500000 /dev/zero > "$BATS_TEST_TMPDIR/huge"
+  [ "$(fetch /api/v1/imports/revolut/commit -X POST --data-binary "@$BATS_TEST_TMPDIR/big")" = "200" ]
+  [ -n "$(header X-Echo-Real-IP)" ] || { echo "commit: not proxied" >&2; return 1; }
+  [ "$(fetch /api/v1/imports/revolut/commit -X POST --data-binary "@$BATS_TEST_TMPDIR/huge")" = "413" ]
+  [ "$(fetch /api/v1/imports/revolut/preview -X POST --data-binary "@$BATS_TEST_TMPDIR/big")" = "413" ]
+  [ -z "$(header X-Echo-Real-IP)" ] || { echo "preview: reached the api" >&2; return 1; }
+}
+
 make_dummy_cert() {
   docker volume create "$RUN_ID-certs" >/dev/null
   docker run --rm -v "$RUN_ID-certs:/etc/letsencrypt" --entrypoint sh alpine/openssl -c "

@@ -133,17 +133,22 @@ describe('canSubmit', () => {
 })
 
 describe('toDecisions', () => {
-  it('toDecisions_omitsAlreadyImported', () => {
-    const rows = initReview([
+  it('toDecisions_sendsOnlyIncludedRows', () => {
+    // a missing decision means "not imported", so excluded rows are left out to keep the body small
+    let rows = initReview([
       row({ rowId: 'a', suggestedCategoryId: 'c' }),
       row({ rowId: 'd', status: 'ALREADY_IMPORTED' }),
       row({ rowId: 't', kind: 'TRANSFER', suggestedCategoryId: 'c' }),
       row({ rowId: 'p', status: 'POSSIBLE_DUPLICATE' }),
+      row({ rowId: 'q', status: 'POSSIBLE_DUPLICATE', suggestedCategoryId: 'c' }),
+      row({ rowId: 'x', suggestedCategoryId: 'c' }),
     ])
+    rows = setInclude(rows, 'q', true)
+    rows = setInclude(rows, 'x', false)
     expect(toDecisions(rows)).toEqual([
       { rowId: 'a', include: true, categoryId: 'c' },
       { rowId: 't', include: true, categoryId: null },
-      { rowId: 'p', include: false, categoryId: null },
+      { rowId: 'q', include: true, categoryId: 'c' },
     ])
   })
 })

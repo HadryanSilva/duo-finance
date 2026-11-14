@@ -445,6 +445,39 @@ describe('ImportPage', () => {
     expect(decisions.map((d) => d.rowId)).not.toContain('r5')
   })
 
+  it('commit_sendsDecisionsOnlyForIncludedRows', async () => {
+    // the unchecked possible duplicate r6 and the locked r5 get no decision: missing means "not imported"
+    const s = setup()
+    const { user } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    await user.click(submitButton())
+    await waitFor(() => expect(s.commits).toHaveLength(1))
+    const decisions = s.commits[0]!.decisions as { rowId: string; include: boolean }[]
+    expect(decisions.map((d) => d.rowId).sort()).toEqual(['r1', 'r2', 'r3', 'r7', 'r8'])
+    expect(decisions.every((d) => d.include)).toBe(true)
+  })
+
+  it('commit_413_showsTooLargeMessage', async () => {
+    const s = setup({
+      extra: [
+        http.post(
+          `${api}/imports/revolut/commit`,
+          () =>
+            new HttpResponse('<html><body>413 Request Entity Too Large</body></html>', {
+              status: 413,
+              headers: { 'Content-Type': 'text/html' },
+            }),
+        ),
+      ],
+    })
+    const { user } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    await user.click(submitButton())
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'O arquivo é grande demais (máximo de 1 MB).',
+    )
+  })
+
   it('review_rowUnknownError_asksToReloadPreview', async () => {
     const s = setup({
       extra: [

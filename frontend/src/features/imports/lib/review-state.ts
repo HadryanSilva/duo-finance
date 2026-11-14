@@ -20,9 +20,7 @@ export function sameGroup(rows: ReviewRow[], rowId: string): string[] {
   return rows
     .filter(
       (r) =>
-        r.rowId !== rowId &&
-        r.descriptionKey === target.descriptionKey &&
-        r.kind === target.kind,
+        r.rowId !== rowId && r.descriptionKey === target.descriptionKey && r.kind === target.kind,
     )
     .map((r) => r.rowId)
 }
@@ -65,17 +63,17 @@ export function totals(rows: ReviewRow[]): {
 export function canSubmit(rows: ReviewRow[]): boolean {
   const included = rows.filter((r) => r.include)
   return (
-    included.length > 0 &&
-    included.every((r) => r.kind === 'TRANSFER' || r.categoryId !== null)
+    included.length > 0 && included.every((r) => r.kind === 'TRANSFER' || r.categoryId !== null)
   )
 }
 
+/** Decisions for the included rows only: the backend treats a row without a decision as not imported. */
 export function toDecisions(rows: ReviewRow[]): RowDecision[] {
   return rows
-    .filter((r) => !locked(r))
+    .filter((r) => r.include && !locked(r))
     .map((r) => ({
       rowId: r.rowId,
-      include: r.include,
+      include: true,
       categoryId: r.kind === 'TRANSFER' ? null : r.categoryId,
     }))
 }

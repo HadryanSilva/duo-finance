@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -283,6 +284,17 @@ class ImportPreviewTest {
         assertThat(response.getBody()).isInstanceOf(org.springframework.http.ProblemDetail.class);
         var problem = (org.springframework.http.ProblemDetail) response.getBody();
         assertThat(problem.getProperties()).containsEntry("code", "VALIDATION_FAILED");
+    }
+
+    /** The file stays at 1 MB; the commit request (file + decisions) may reach 2 MB and is kept in memory. */
+    @Test
+    void multipartLimits_fileOneMegabyteRequestTwoInMemory(
+            @Value("${spring.servlet.multipart.max-file-size}") String maxFile,
+            @Value("${spring.servlet.multipart.max-request-size}") String maxRequest,
+            @Value("${spring.servlet.multipart.file-size-threshold}") String threshold) {
+        assertThat(maxFile).isEqualTo("1MB");
+        assertThat(maxRequest).isEqualTo("2MB");
+        assertThat(threshold).isEqualTo("2MB");
     }
 
     @Test
