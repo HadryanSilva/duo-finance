@@ -32,7 +32,7 @@ Critérios de sucesso:
 
 **`import_batches`**
 
-- `id uuid PK`, `account_id uuid NOT NULL → accounts ON DELETE CASCADE`, `source varchar(20) NOT NULL` (`REVOLUT`), `bank_account_id uuid → bank_accounts` (conta escolhida no upload), `created_by uuid → users ON DELETE SET NULL`, `row_count int NOT NULL` (lançamentos criados), `undone_at timestamptz`, `created_at timestamptz NOT NULL`.
+- `id uuid PK`, `account_id uuid NOT NULL → accounts ON DELETE CASCADE`, `source varchar(20) NOT NULL` (`REVOLUT`), `bank_account_id uuid → bank_accounts ON DELETE SET NULL`, opcional (conta escolhida no upload; fica `null` se a conta bancária for excluída), `created_by uuid → users ON DELETE SET NULL`, `row_count int NOT NULL` (lançamentos criados), `undone_at timestamptz`, `created_at timestamptz NOT NULL`.
 - Índice em `(account_id, created_at DESC)`.
 
 **`transactions`** ganha duas colunas opcionais:
@@ -47,7 +47,7 @@ Critérios de sucesso:
 
 **`description_key`:** descrição em minúsculas, sem acentos (NFD sem marcas), espaços colapsados e sem sequências finais de dígitos, `*` ou `#` (números de cartão, referências).
 
-**Impressão digital:** SHA-256 hexadecimal de `REVOLUT|<Started Date com hora>|<Amount>|<Currency>|<Description>|<Product>`, com os campos como estão no arquivo (sem a descrição cortada). `Started Date` não muda quando a linha passa de PENDING para COMPLETED, então uma linha pulada hoje como PENDING gera a mesma impressão digital quando for importada depois. A tarifa separada (seção 5) usa a impressão digital da linha com o sufixo `:fee` antes do hash. Um TRANSFER formado por duas linhas usa a impressão digital da ponta de saída (valor negativo).
+**Impressão digital:** SHA-256 hexadecimal de `REVOLUT|<Started Date com hora>|<Amount>|<Currency>|<Description>|<Product>|<n>`, com os campos como estão no arquivo (sem a descrição cortada) e `n` o índice de ocorrência (a partir de 0) daquela mesma combinação no arquivo, para que linhas idênticas (duas compras iguais no mesmo segundo) tenham impressões digitais diferentes. `Started Date` não muda quando a linha passa de PENDING para COMPLETED, então uma linha pulada hoje como PENDING gera a mesma impressão digital quando for importada depois. A tarifa separada (seção 5) usa a impressão digital da linha com o sufixo `:fee` antes do hash. Um TRANSFER formado por duas linhas usa a impressão digital da ponta de saída (valor negativo).
 
 ## 5. Leitura e regras da Revolut
 
@@ -56,7 +56,7 @@ Critérios de sucesso:
 - Cabeçalho obrigatório com as colunas `Type, Product, Started Date, Completed Date, Description, Amount, Fee, Currency, State, Balance`, em qualquer ordem; colunas extras são ignoradas. Faltando alguma: `IMPORT_FORMAT_UNSUPPORTED`.
 - UTF-8, com ou sem BOM; separador vírgula; campos entre aspas conforme RFC 4180.
 - Datas `yyyy-MM-dd HH:mm:ss`; valores com ponto decimal, convertidos para centavos com `BigDecimal` (sem ponto flutuante). Linha com data ou valor ilegível: `IMPORT_ROW_INVALID`, indicando o número da linha.
-- No máximo 5.000 linhas de dados (`IMPORT_TOO_MANY_ROWS`). O nginx já limita a requisição a 1 MB.
+- No máximo 5.000 linhas de dados (`IMPORT_TOO_MANY_ROWS`). O arquivo tem no máximo 1 MB (seção 6).
 
 **Planejamento (`ImportPlanner`)**: aplica as regras e não toca no banco; recebe as linhas, o mapeamento de produtos, a moeda da conta, as impressões digitais existentes, a memória de categorias e os candidatos a possível duplicata.
 
@@ -64,7 +64,7 @@ Critérios de sucesso:
 | --- | --- |
 | `State = COMPLETED` | importável |
 | `State = PENDING` | pulada (`PENDING`); entra numa importação futura, quando estiver COMPLETED |
-| `State = REVERTED` ou `DECLINED` | pulada (`REVERTED`) |
+| `State = REVERTED`, `DECLINED` ou qualquer outro valor desconhecido | pulada (`REVERTED`) |
 | `Currency` diferente da moeda da conta | pulada (`OTHER_CURRENCY`) |
 | `Type = EXCHANGE` | pulada (`EXCHANGE`) |
 | `Product` mapeado para "ignorar" | pulada (`PRODUCT_IGNORED`) |
@@ -78,7 +78,8 @@ Critérios de sucesso:
 **Produtos e transferências**
 
 - O preview lista os valores distintos de `Product` do arquivo. O produto `Current` é mapeado por padrão para a conta bancária escolhida no upload; os demais começam como "ignorar" e o usuário pode mapeá-los para outra conta bancária do Duo Finance.
-- Duas linhas importáveis de produtos mapeados para contas bancárias diferentes, com o mesmo `Started Date` e valores opostos (mesmo valor absoluto), viram um único `TRANSFER` da conta da ponta negativa para a da ponta positiva. Linha sem par vira receita ou despesa normal.
+- Duas linhas importáveis de produtos mapeados para contas bancárias diferentes, com o mesmo `Started Date` e valores opostos (mesmo valor absoluto), viram um único `TRANSFER` da conta da ponta negativa para a da ponta positiva. Linha sem par vira receita ou despesa normal. Havendo mais de um par possível, vale o primeiro na ordem do arquivo.
+- Reimportação: o `TRANSFER` é gravado com a impressão digital da ponta negativa. Se essa impressão digital já existe na conta como `TRANSFER`, o par é formado de novo e o `TRANSFER` aparece uma única vez como `ALREADY_IMPORTED` (a ponta positiva não aparece separada). Se qualquer das duas pontas já existe como `INCOME` ou `EXPENSE` (o mapeamento de produtos mudou entre as importações), as linhas não formam par: cada ponta é planejada separadamente, com o próprio status. As tarifas mantêm as próprias impressões digitais e status.
 
 **Status de cada linha planejada**
 
@@ -95,12 +96,12 @@ Tudo sob `/api/v1/imports`, com as mesmas verificações das rotas financeiras: 
 **`POST /revolut/preview`** (multipart): `file`, `bankAccountId`, `productMapping` opcional (JSON `{ "<Product>": "<bankAccountId>" | null }`, `null` = ignorar). Não grava nada. Resposta:
 
 - `products`: produtos encontrados e o mapeamento aplicado;
-- `rows`: `rowId` (impressão digital), `date`, `kind`, `amountCents`, `description`, `bankAccountId`, `destinationBankAccountId` (TRANSFER), `suggestedCategoryId`, `status`;
+- `rows`: `rowId` (impressão digital), `date`, `kind`, `amountCents`, `description`, `descriptionKey` (para agrupar linhas iguais na revisão), `bankAccountId`, `destinationBankAccountId` (TRANSFER), `suggestedCategoryId`, `status`;
 - `skipped`: contagem por motivo (`PENDING`, `REVERTED`, `OTHER_CURRENCY`, `EXCHANGE`, `PRODUCT_IGNORED`, `ZERO_AMOUNT`) e, para cada linha pulada, data, descrição, valor original e motivo.
 
-**`POST /revolut/commit`** (multipart): o mesmo `file`, `bankAccountId` e `productMapping` do preview, e `decisions` (JSON `[{ "rowId", "include", "categoryId" }]`). O backend lê e planeja o arquivo de novo e aplica as decisões às linhas recalculadas: valores, datas e tipos vêm sempre do arquivo. Numa única transação: cria o lote, insere os lançamentos incluídos com `import_batch_id` e `import_fingerprint` (`ON CONFLICT DO NOTHING` no índice da impressão digital) e grava ou atualiza `category_memory` com a categoria escolhida para cada `(description_key, kind)`. Linhas `NEW` sem decisão não entram. Resposta: `{ batchId, created, skippedDuplicates }`. Se nada for criado, o lote não é gravado e `batchId` é `null`.
+**`POST /revolut/commit`** (multipart): o mesmo `file`, `bankAccountId` e `productMapping` do preview, e `decisions` (JSON `[{ "rowId", "include", "categoryId" }]`). Só as linhas incluídas precisam de decisão; o frontend envia apenas essas. O backend lê e planeja o arquivo de novo e aplica as decisões às linhas recalculadas: valores, datas e tipos vêm sempre do arquivo. Numa única transação: cria o lote, insere os lançamentos incluídos com `import_batch_id` e `import_fingerprint` (`ON CONFLICT DO NOTHING` no índice da impressão digital) e grava ou atualiza `category_memory` com a categoria escolhida para cada `(description_key, kind)`. Linha sem decisão não entra. A requisição do commit pode ter até 2 MB (arquivo de até 1 MB mais as decisões); a rota tem esse limite no nginx e o Spring usa `max-request-size: 2MB`, com o arquivo mantido em memória. Resposta: `{ batchId, created, skippedDuplicates }`. Se nada for criado, o lote não é gravado e `batchId` é `null`.
 
-**`GET /`**: lotes da conta, mais recentes primeiro, paginado: `id`, `source`, `bankAccountId`, `createdBy` (nome, ou "Ex-membro"), `createdAt`, `rowCount`, `undoneAt`.
+**`GET /`**: lotes da conta, mais recentes primeiro, paginado: `id`, `source`, `bankAccountId`, `createdBy` (id de quem importou) e `createdByName` (nome), ambos `null` quando a pessoa já saiu da conta (o frontend mostra "Ex-membro"), `createdAt`, `rowCount`, `undoneAt`.
 
 **`POST /{batchId}/undo`**: apaga os lançamentos da conta que ainda têm aquele `import_batch_id`, inclusive os editados depois da importação, e marca `undone_at`. Qualquer membro da conta pode desfazer. Lote já desfeito: `409 IMPORT_ALREADY_UNDONE`. A memória de categorias não é revertida.
 
@@ -108,12 +109,13 @@ Tudo sob `/api/v1/imports`, com as mesmas verificações das rotas financeiras: 
 
 | Código | Quando |
 | --- | --- |
-| `413` | requisição acima de 1 MB (nginx) ou do limite multipart do Spring, que deve ser igual |
+| `413` | arquivo acima de 1 MB ou requisição acima do limite (1 MB no nginx para o preview, 2 MB na rota do commit; o Spring usa os mesmos limites: `max-file-size: 1MB`, `max-request-size: 2MB`) |
 | `422 IMPORT_FORMAT_UNSUPPORTED` | cabeçalho sem as colunas da Revolut |
 | `422 IMPORT_ROW_INVALID` | data ou valor ilegível; indica a linha |
 | `422 IMPORT_TOO_MANY_ROWS` | mais de 5.000 linhas |
-| `422 VALIDATION_FAILED` | `bankAccountId` ou conta do mapeamento arquivada ou de outra conta; categoria inválida, arquivada ou de tipo diferente do lançamento; `rowId` inexistente no arquivo; linha `ALREADY_IMPORTED` com `include = true`; receita ou despesa incluída sem categoria; `categoryId` enviado para um TRANSFER. Cada erro indica o `rowId` |
-| `404` | lote inexistente ou de outra conta (undo) |
+| `400 VALIDATION_FAILED` | decisões inválidas, todas de uma vez em `errors[{ field: "decisions[<rowId>]", code }]`: `rowId` inexistente no arquivo (`ROW_UNKNOWN`); linha `ALREADY_IMPORTED` com `include = true` (`ROW_ALREADY_IMPORTED`); receita ou despesa incluída sem categoria (`CATEGORY_REQUIRED`); `categoryId` enviado para um TRANSFER (`CATEGORY_NOT_ALLOWED`); categoria de outra conta (`NOT_FOUND`), arquivada (`CATEGORY_ARCHIVED`) ou de tipo diferente do lançamento (`CATEGORY_KIND_MISMATCH`) |
+| `404 NOT_FOUND` | `bankAccountId` ou conta do mapeamento de outra conta ou inexistente; lote inexistente ou de outra conta (undo) |
+| `409 BANK_ACCOUNT_ARCHIVED` | `bankAccountId` ou conta do mapeamento arquivada |
 | `409 IMPORT_ALREADY_UNDONE` | undo de lote já desfeito |
 
 Um conflito de impressão digital no commit (outro commit gravou a mesma linha antes) não é erro: a linha só entra em `skippedDuplicates`.
@@ -146,20 +148,21 @@ Abaixo do assistente, o histórico de importações, com desfazer em cada lote a
 **Backend, unidade**
 
 - Parser: arquivo de exemplo anônimo; cabeçalho fora de ordem e com colunas extras; coluna faltando; BOM; campos entre aspas com vírgula; data e valor inválidos; limite de linhas.
-- Planner: uma regra por teste (cada `State`, outra moeda, EXCHANGE, `Amount = 0`, tarifa separada, produto ignorado, transferência com e sem par, status `ALREADY_IMPORTED` e `POSSIBLE_DUPLICATE`, sugestão pela memória, pela categoria padrão e sem sugestão).
-- Impressão digital igual para a mesma linha em PENDING e em COMPLETED; diferente para a tarifa.
+- Planner: uma regra por teste (cada `State`, inclusive desconhecido, outra moeda, EXCHANGE, `Amount = 0`, tarifa separada, produto ignorado, transferência com e sem par, transferência já importada como `TRANSFER` (uma linha `ALREADY_IMPORTED`) e com uma ponta já importada como receita ou despesa (pontas separadas), status `ALREADY_IMPORTED` e `POSSIBLE_DUPLICATE`, sugestão pela memória, pela categoria padrão e sem sugestão).
+- Impressão digital igual para a mesma linha em PENDING e em COMPLETED; diferente para a tarifa e para linhas idênticas no mesmo arquivo.
 - `DescriptionKeys`: acentos, caixa, espaços, sufixos numéricos.
 
 **Backend, integração** (mesma infraestrutura dos testes de lançamento)
 
 - preview não grava nada;
 - commit cria lote, lançamentos com impressão digital e memória;
-- reimportar o mesmo arquivo cria 0 lançamentos;
+- reimportar o mesmo arquivo cria 0 lançamentos, inclusive com uma transferência mapeada (nenhuma linha `NEW` no novo preview);
 - dois commits simultâneos do mesmo arquivo não geram duplicata;
 - possível duplicata desmarcada não entra, marcada entra;
 - valores do commit vêm do arquivo, não das decisões;
 - desfazer apaga só os lançamentos do lote, inclusive editados, e um segundo desfazer responde `409`;
-- conta bancária ou categoria de outra conta, arquivada ou de tipo errado: `422`;
+- decisões inválidas (linha desconhecida ou já importada, categoria faltando, sobrando, de outra conta, arquivada ou de tipo errado): `400 VALIDATION_FAILED` com um erro por `decisions[<rowId>]`;
+- conta bancária de outra conta: `404 NOT_FOUND`; arquivada: `409 BANK_ACCOUNT_ARCHIVED`;
 - assinatura sem acesso: `402`;
 - o outro membro da conta compartilhada lista e desfaz o lote.
 

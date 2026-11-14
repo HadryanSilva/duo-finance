@@ -14,7 +14,7 @@
 
 - Migrations V1–V4 are frozen; everything goes in `V5__imports.sql`.
 - Money is `long` cents, parsed with `BigDecimal` (`movePointRight(2)`, `longValueExact()`); never `double`.
-- Max 5,000 data rows per file; max request 1 MB (nginx `client_max_body_size 1m`; set `spring.servlet.multipart.max-file-size: 1MB` and `max-request-size: 1MB` to match).
+- Max 5,000 data rows per file; max file 1 MB (nginx `client_max_body_size 1m` server-wide, `spring.servlet.multipart.max-file-size: 1MB`). The commit request (file + decisions) may reach 2 MB: nginx gives `= /api/v1/imports/revolut/commit` `client_max_body_size 2m`, Spring `max-request-size: 2MB` with `file-size-threshold: 2MB` (kept in memory).
 - Description stored cut to 140 characters; fingerprint uses the uncut field.
 - Required header columns: `Type, Product, Started Date, Completed Date, Description, Amount, Fee, Currency, State, Balance` (any order, extras ignored).
 - Dates are `yyyy-MM-dd HH:mm:ss`; the transaction date is the date part of `Completed Date`, with no time-zone conversion.
@@ -61,7 +61,7 @@
   - `deletingBatchNullsTransactionBatchId`: delete an `import_batches` row → its transactions keep existing with `import_batch_id IS NULL`.
   - `categoryMemoryCascadesWithCategory`: delete the category → its `category_memory` row is gone.
 - [ ] **Step 2: Run** `./mvnw -B test -Dtest=ImportSchemaTest` → FAIL (tables missing).
-- [ ] **Step 3: Write `V5__imports.sql`** with the tables, FKs (`import_batches.account_id → accounts ON DELETE CASCADE`, `bank_account_id → bank_accounts`, `created_by → users ON DELETE SET NULL`; `transactions.import_batch_id → import_batches ON DELETE SET NULL`; `category_memory.account_id → accounts ON DELETE CASCADE`, `category_id → categories ON DELETE CASCADE`), `CHECK (source IN ('REVOLUT'))`, `CHECK (kind IN ('INCOME','EXPENSE'))`, `CHECK (row_count >= 0)`, the unique partial index, and indexes `idx_import_batches_account_created (account_id, created_at DESC)`, `idx_transactions_import_batch_id`. Add the entities, enum values, `invalidFields`, the path and `spring.servlet.multipart.max-file-size: 1MB`, `max-request-size: 1MB`.
+- [ ] **Step 3: Write `V5__imports.sql`** with the tables, FKs (`import_batches.account_id → accounts ON DELETE CASCADE`, `bank_account_id → bank_accounts`, `created_by → users ON DELETE SET NULL`; `transactions.import_batch_id → import_batches ON DELETE SET NULL`; `category_memory.account_id → accounts ON DELETE CASCADE`, `category_id → categories ON DELETE CASCADE`), `CHECK (source IN ('REVOLUT'))`, `CHECK (kind IN ('INCOME','EXPENSE'))`, `CHECK (row_count >= 0)`, the unique partial index, and indexes `idx_import_batches_account_created (account_id, created_at DESC)`, `idx_transactions_import_batch_id`. Add the entities, enum values, `invalidFields`, the path and `spring.servlet.multipart.max-file-size: 1MB`, `max-request-size: 2MB`, `file-size-threshold: 2MB`.
 - [ ] **Step 4: Run** `./mvnw -B test -Dtest='ImportSchemaTest,FinanceSchemaTest,FinanceDynamicUpdateTest'` → PASS.
 - [ ] **Step 5: Commit** `feat(imports): add V5 schema, import batch entity and error codes`.
 
@@ -124,7 +124,7 @@
 **Interfaces:**
 - Consumes: `RevolutRow`, `RowFingerprints`, `DescriptionKeys`, `TransactionKind`.
 - Produces:
-  - `record PlanContext(String accountCurrency, Map<String, UUID /* null = ignore */> productMapping, Set<String> existingFingerprints, Map<MemoryKey, UUID> memory, Map<TransactionKind, UUID> defaultCategories, Set<DuplicateKey> manualTransactions, String feeDescription)` with `record MemoryKey(String descriptionKey, TransactionKind kind)` and `record DuplicateKey(LocalDate date, TransactionKind kind, long amountCents, UUID bankAccountId)`.
+  - `record PlanContext(String accountCurrency, Map<String, UUID /* null = ignore */> productMapping, Map<String, TransactionKind> existingFingerprints /* fingerprint → stored kind */, Map<MemoryKey, UUID> memory, Map<TransactionKind, UUID> defaultCategories, Set<DuplicateKey> manualTransactions, String feeDescription)` with `record MemoryKey(String descriptionKey, TransactionKind kind)` and `record DuplicateKey(LocalDate date, TransactionKind kind, long amountCents, UUID bankAccountId)`.
   - `enum RowStatus { NEW, ALREADY_IMPORTED, POSSIBLE_DUPLICATE }`; `enum SkipReason { PENDING, REVERTED, OTHER_CURRENCY, EXCHANGE, PRODUCT_IGNORED, ZERO_AMOUNT }`.
   - `record PlannedRow(String rowId, LocalDate date, TransactionKind kind, long amountCents, String description, String descriptionKey, UUID bankAccountId, UUID destinationBankAccountId, UUID suggestedCategoryId, RowStatus status)`.
   - `record SkippedRow(int lineNumber, LocalDate date, String description, String amountRaw, String currency, SkipReason reason)`.
@@ -144,7 +144,7 @@
   - `plan_cutsDescriptionTo140`.
   - `plan_listsDistinctProductsInFileOrder`.
 - [ ] **Step 2: Run** `./mvnw -B test -Dtest=ImportPlannerTest` → FAIL.
-- [ ] **Step 3: Implement.** Order: compute fingerprints for all rows; filter skips; pair transfers by key `(startedRaw, abs(amountCents))` taking the first unpaired opposite-sign row whose mapped bank account differs, in file order; build rows and fee rows; set status (`ALREADY_IMPORTED` wins over `POSSIBLE_DUPLICATE`); suggestion only for `INCOME`/`EXPENSE` (`memory` then `defaultCategories`; callers pass only active categories).
+- [ ] **Step 3: Implement.** Order: compute fingerprints for all rows; filter skips; pair transfers by key `(startedRaw, abs(amountCents))` taking the first unpaired opposite-sign row whose mapped bank account differs, in file order (a pair whose negative leg is stored as `TRANSFER` pairs and is `ALREADY_IMPORTED`; a pair with either leg stored as `INCOME`/`EXPENSE` is not paired); build rows and fee rows; set status (`ALREADY_IMPORTED` wins over `POSSIBLE_DUPLICATE`); suggestion only for `INCOME`/`EXPENSE` (`memory` then `defaultCategories`; callers pass only active categories).
 - [ ] **Step 4: Run** → PASS.
 - [ ] **Step 5: Commit** `feat(imports): plan Revolut rows into transactions`.
 
@@ -268,9 +268,9 @@
   - `setCategory(rows, rowId, categoryId, applyToGroup: boolean): ReviewRow[]`.
   - `totals(rows): { count: number; incomeCents: number; expenseCents: number }` over included rows (transfers count, no totals).
   - `canSubmit(rows): boolean` — at least one included row and every included `INCOME`/`EXPENSE` has a category.
-  - `toDecisions(rows): RowDecision[]` — every non-`ALREADY_IMPORTED` row, `categoryId` null for transfers.
+  - `toDecisions(rows): RowDecision[]` — included rows only (a missing decision means not imported), `categoryId` null for transfers.
 
-- [ ] **Step 1: Write the failing tests** for each function, including `sameGroup_ignoresTrailingCardNumbers` (`"UBER *TRIP 4821"` and `"Uber *Trip 9911"` grouped), `canSubmit_falseWithIncludedRowWithoutCategory`, `toDecisions_omitsAlreadyImported`.
+- [ ] **Step 1: Write the failing tests** for each function, including `sameGroup_ignoresTrailingCardNumbers` (`"UBER *TRIP 4821"` and `"Uber *Trip 9911"` grouped), `canSubmit_falseWithIncludedRowWithoutCategory`, `toDecisions_sendsOnlyIncludedRows`.
 - [ ] **Step 2: Run** `npx vitest run src/features/imports/lib` → FAIL.
 - [ ] **Step 3: Implement** as pure functions returning new arrays.
 - [ ] **Step 4: Run** → PASS.
