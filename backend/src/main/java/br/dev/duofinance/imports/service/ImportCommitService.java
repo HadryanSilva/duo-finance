@@ -14,6 +14,7 @@ import br.dev.duofinance.transaction.service.TransactionReferenceValidator.Refer
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -116,19 +117,26 @@ public class ImportCommitService {
         Instant now = Instant.now(clock);
         ImportBatch batch =
                 batches.saveAndFlush(new ImportBatch(accountId, ImportSource.REVOLUT, bankAccountId, userId, 0, now));
-        int created = 0;
-        int included = 0;
+        List<PlannedRow> toInsert = new ArrayList<>();
         Map<MemoryTarget, UUID> remembered = new LinkedHashMap<>();
         for (PlannedRow row : plan.rows()) {
             RowDecision d = chosen.get(row.rowId());
             if (d == null || !d.include()) {
                 continue;
             }
-            included++;
-            created += writer.insert(accountId, userId, batch.getId(), row, d.categoryId(), now);
+            toInsert.add(row);
             if (row.kind() != TransactionKind.TRANSFER) {
                 remembered.put(new MemoryTarget(row.descriptionKey(), row.kind()), d.categoryId());
             }
+        }
+        // Inserted in fingerprint order, so concurrent commits of overlapping files lock the unique-index entries in
+        // the same order and cannot deadlock. The category memory keeps file order (the last choice wins).
+        toInsert.sort(Comparator.comparing(PlannedRow::rowId));
+        int included = toInsert.size();
+        int created = 0;
+        for (PlannedRow row : toInsert) {
+            created += writer.insert(
+                    accountId, userId, batch.getId(), row, chosen.get(row.rowId()).categoryId(), now);
         }
         remembered.forEach((t, category) -> memory.upsert(accountId, t.key(), t.kind(), category, now));
 
