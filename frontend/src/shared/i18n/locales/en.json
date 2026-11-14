@@ -32,6 +32,10 @@
     "BUDGET_EXISTS": "A budget already exists for this category.",
     "BUDGET_CATEGORY_INVALID": "Budgets can only be created for expense categories.",
     "IN_USE_BY_ACTIVE_RULE": "This item is used by an active recurring transaction.",
+    "IMPORT_FORMAT_UNSUPPORTED": "This file doesn't look like a Revolut CSV statement.",
+    "IMPORT_ROW_INVALID": "The file has a row with an unreadable date or amount.",
+    "IMPORT_TOO_MANY_ROWS": "The file has too many rows (at most 5,000).",
+    "IMPORT_ALREADY_UNDONE": "This import was already undone.",
     "INTERNAL_ERROR": "Something went wrong on our side. Please try again shortly.",
     "NETWORK_ERROR": "Can't reach the server. Check your connection and try again.",
     "UNKNOWN": "Something went wrong. Please try again."
@@ -373,7 +377,83 @@
       "sameAccounts": "The destination account must differ from the origin."
     },
     "deleteTitle": "Delete transaction?",
-    "deleteMessage": "This permanently removes the transaction and updates the balances."
+    "deleteMessage": "This permanently removes the transaction and updates the balances.",
+    "importStatement": "Import statement"
+  },
+  "imports": {
+    "title": "Import a Revolut statement",
+    "subtitle": "Bring in the transactions of a CSV statement, review them and import.",
+    "upload": {
+      "bankAccount": "Destination account",
+      "choose": "Select",
+      "file": "CSV file",
+      "submit": "Review",
+      "loading": "Reading the file…",
+      "helpTitle": "How to export from Revolut",
+      "help": "In the Revolut app: Account → Statement → Excel/CSV → choose the period → Generate",
+      "mappingTitle": "Other products in the statement",
+      "mappingHint": "Choose the account for each product or ignore its rows.",
+      "ignore": "Ignore"
+    },
+    "review": {
+      "tabs": {
+        "new": "New",
+        "duplicates": "Possible duplicates",
+        "skipped": "Skipped"
+      },
+      "tabCount": "{label} ({n})",
+      "include": "Include {description}",
+      "category": "Category of {description}",
+      "chooseCategory": "Choose a category",
+      "alreadyImported": "Already imported",
+      "transferRoute": "{from} → {to}",
+      "applyPrompt": "Apply to the other matching row? | Apply to the other {n} matching rows?",
+      "apply": "Apply",
+      "dismiss": "Only this one",
+      "empty": "No rows here.",
+      "summary": "Import summary",
+      "included": "{n} row included | {n} rows included",
+      "income": "Income",
+      "expense": "Expenses",
+      "missingCategory": "Choose a category for every included row.",
+      "submit": "Import {n} transaction | Import {n} transactions"
+    },
+    "skipReason": {
+      "PENDING": "Pending",
+      "REVERTED": "Reverted or declined",
+      "OTHER_CURRENCY": "Other currency",
+      "EXCHANGE": "Exchange",
+      "PRODUCT_IGNORED": "Product ignored",
+      "ZERO_AMOUNT": "Zero amount"
+    },
+    "result": {
+      "title": "Import finished",
+      "summary": "{created}, {skipped}",
+      "created": "{n} transaction imported | {n} transactions imported",
+      "skipped": "{n} already existed | {n} already existed",
+      "viewTransactions": "View transactions",
+      "undo": "Undo import",
+      "undone": "Import undone.",
+      "another": "Import another file"
+    },
+    "undo": {
+      "title": "Undo this import?",
+      "message": "Its transactions will be deleted, including the ones you edited afterwards.",
+      "confirm": "Undo"
+    },
+    "history": {
+      "title": "Previous imports",
+      "empty": "No imports yet.",
+      "rows": "{n} transaction | {n} transactions",
+      "undone": "Undone",
+      "undoLabel": "Undo import of {date}",
+      "previous": "Newer",
+      "next": "Older"
+    },
+    "errors": {
+      "tooLarge": "The file is too large (1 MB at most).",
+      "fileChanged": "The file changed since the review. Upload it again to review it."
+    }
   },
   "monthSelector": {
     "label": "Month",

@@ -407,4 +407,10 @@ describe('TransactionsPage', () => {
     )
     expect(screen.queryByText('Nenhum lançamento aqui')).toBeNull()
   })
+
+  it('transactions_hasImportStatementLink', async () => {
+    await setup().render('/transactions')
+    const link = screen.getByRole('link', { name: 'Importar extrato' })
+    expect(link.getAttribute('href')).toBe('/transactions/import')
+  })
 })

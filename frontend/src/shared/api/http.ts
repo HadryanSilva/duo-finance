@@ -29,6 +29,8 @@ type Query = Record<string, string | number | undefined>
 export interface Http {
   get<T>(path: string, query?: Query): Promise<T>
   post<T, B = unknown>(path: string, body?: B): Promise<T>
+  /** Multipart upload: the browser sets the Content-Type boundary, the body goes as-is. */
+  postForm<T>(path: string, form: FormData): Promise<T>
   put<T, B = unknown>(path: string, body: B): Promise<T>
   patch<T, B = unknown>(path: string, body: B): Promise<T>
   del<B = unknown>(path: string, body?: B): Promise<void>
@@ -108,13 +110,14 @@ export function createHttp(deps: HttpDeps): Http {
     const token = deps.getToken()
     const sentIn = epoch()
     if (token) headers.Authorization = `Bearer ${token}`
-    if (body !== undefined) headers['Content-Type'] = 'application/json'
+    const isForm = body instanceof FormData
+    if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
     try {
       const res = await fetch(url, {
         method,
         headers,
         credentials: 'same-origin',
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body: body === undefined || isForm ? (body as FormData | undefined) : JSON.stringify(body),
       })
       return { res, token, epoch: sentIn }
     } catch {
@@ -160,6 +163,7 @@ export function createHttp(deps: HttpDeps): Http {
   return {
     get: (path, query) => request('GET', path, query),
     post: (path, body) => request('POST', path, undefined, body),
+    postForm: (path, form) => request('POST', path, undefined, form),
     put: (path, body) => request('PUT', path, undefined, body),
     patch: (path, body) => request('PATCH', path, undefined, body),
     del: (path, body) => request('DELETE', path, undefined, body),

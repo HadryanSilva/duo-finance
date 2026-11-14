@@ -10,6 +10,13 @@ spring:
     url: ${DB_URL:}
     username: ${DB_USER:}
     password: ${DB_PASSWORD:}
+  servlet:
+    multipart:
+      # The statement is at most 1 MB; the commit request adds one decision per included row, so the
+      # whole request may reach 2 MB. The threshold keeps uploads in memory: the file is never stored.
+      max-file-size: 1MB
+      max-request-size: 2MB
+      file-size-threshold: 2MB
   jpa:
     open-in-view: false
     hibernate:

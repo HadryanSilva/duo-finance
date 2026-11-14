@@ -175,6 +175,15 @@ class AccountIsolationTest {
                         ownBank,
                         "destinationBankAccountId",
                         ids.get("bank-accounts"))));
+        assertNotFound(mvc.post()
+                .uri("/api/v1/imports/revolut/preview")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(intruder))
+                .multipart()
+                .file(new org.springframework.mock.web.MockMultipartFile(
+                        "file", "s.csv", "text/csv", "x".getBytes()))
+                .file(new org.springframework.mock.web.MockMultipartFile(
+                        "bankAccountId", "", "text/plain", ids.get("bank-accounts").toString().getBytes()))
+                .exchange());
         assertNotFound(post(
                 intruder,
                 "/api/v1/recurring-rules",
@@ -221,6 +230,29 @@ class AccountIsolationTest {
     private static void assertNotFound(org.springframework.test.web.servlet.assertj.MvcTestResult result) {
         assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("NOT_FOUND");
+    }
+
+    @Test
+    void foreignImportBatchUndo_returns404AndKeepsBatch() {
+        TestSession owner = testUsers.verified("ana@mail.com");
+        TestSession intruder = testUsers.verified("rui@mail.com");
+        UUID batch = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO import_batches (id, account_id, source, created_by, row_count, created_at)"
+                        + " VALUES (?, ?, 'REVOLUT', ?, 0, now())",
+                batch,
+                owner.accountId(),
+                owner.userId());
+
+        var result = mvc.post()
+                .uri("/api/v1/imports/" + batch + "/undo")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(intruder))
+                .exchange();
+
+        assertNotFound(result);
+        assertThat(jdbc.queryForObject(
+                        "SELECT count(*) FROM import_batches WHERE id = ? AND undone_at IS NULL", Long.class, batch))
+                .isEqualTo(1);
     }
 
     @Test
