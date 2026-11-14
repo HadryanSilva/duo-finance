@@ -380,6 +380,34 @@ class ImportCommitTest {
         assertThat(count("SELECT count(*) FROM category_memory")).isZero();
     }
 
+    @Test
+    void commit_reimportMappedTransferSameMapping_createsNothing() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID savings = fixtures.bankAccount(s, "Savings", 0);
+        UUID expense = fixtures.category(s, "Shopping", CategoryKind.EXPENSE);
+        UUID income = fixtures.category(s, "Salary", CategoryKind.INCOME);
+        String mapping = "{\"Savings\":\"" + savings + "\"}";
+        JsonNode rows = previewRows(s, bank, mapping);
+        assertThat(row(rows, "To Savings").path("kind").asString()).isEqualTo("TRANSFER");
+        var first = post(COMMIT, s, sample(), bank.toString(), mapping, decisions(everything(rows, expense, income)));
+        assertThat(first).hasStatus(HttpStatus.CREATED);
+        long transactions = count("SELECT count(*) FROM transactions");
+        long batches = count("SELECT count(*) FROM import_batches");
+
+        JsonNode again = previewRows(s, bank, mapping);
+
+        assertThat(again.size()).isEqualTo(rows.size());
+        assertThat(again).noneMatch(r -> r.path("status").asString().equals("NEW"));
+        assertThat(again).noneMatch(r -> r.path("description").asString().equals("From Current"));
+        assertThat(row(again, "To Savings").path("status").asString()).isEqualTo("ALREADY_IMPORTED");
+        var second = post(COMMIT, s, sample(), bank.toString(), mapping, decisions(List.of()));
+        assertThat(second).hasStatus(HttpStatus.CREATED);
+        assertThat(body(second).path("created").asInt()).isZero();
+        assertThat(count("SELECT count(*) FROM transactions")).isEqualTo(transactions);
+        assertThat(count("SELECT count(*) FROM import_batches")).isEqualTo(batches);
+    }
+
     private void assertSingleError(MvcTestResult result, String field, String code) throws Exception {
         assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
         JsonNode root = body(result);

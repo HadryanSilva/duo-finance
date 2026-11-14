@@ -6,11 +6,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-/** Everything the planner needs besides the rows; loaded from the database by the caller. */
+/**
+ * Everything the planner needs besides the rows; loaded from the database by the caller. {@code existingFingerprints}
+ * maps each stored import fingerprint to the kind of the transaction stored under it.
+ */
 public record PlanContext(
         String accountCurrency,
         Map<String, UUID> productMapping,
-        Set<String> existingFingerprints,
+        Map<String, TransactionKind> existingFingerprints,
         Map<MemoryKey, UUID> memory,
         Map<TransactionKind, UUID> defaultCategories,
         Set<DuplicateKey> manualTransactions,

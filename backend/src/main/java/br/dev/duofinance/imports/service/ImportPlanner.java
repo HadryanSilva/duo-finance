@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /** Pure rule engine: parsed Revolut rows plus a context in, planned transactions and skipped rows out. */
@@ -62,23 +63,27 @@ public final class ImportPlanner {
         return new ImportPlan(List.copyOf(products), planned, skipped);
     }
 
-    /** Pairs opposite-sign rows with the same Started Date on different mapped accounts, first match in file order. */
+    /**
+     * Pairs opposite-sign rows with the same Started Date on different mapped accounts, first match in file order. A
+     * pair whose negative leg is stored as a TRANSFER is the already imported transfer; a pair with either leg stored
+     * otherwise (INCOME/EXPENSE: the mapping changed between imports) is not paired, so each leg keeps its own status.
+     */
     private static int[] pairTransfers(
             List<RevolutRow> rows, List<Integer> importable, List<String> fingerprints, PlanContext ctx) {
         int[] partner = new int[rows.size()];
         Arrays.fill(partner, -1);
         for (int a = 0; a < importable.size(); a++) {
             int i = importable.get(a);
-            if (partner[i] != -1 || ctx.existingFingerprints().contains(fingerprints.get(i))) continue;
+            if (partner[i] != -1) continue;
             RevolutRow ri = rows.get(i);
             for (int b = a + 1; b < importable.size(); b++) {
                 int j = importable.get(b);
                 RevolutRow rj = rows.get(j);
                 if (partner[j] == -1
-                        && !ctx.existingFingerprints().contains(fingerprints.get(j))
                         && rj.startedRaw().equals(ri.startedRaw())
                         && rj.amountCents() == -ri.amountCents()
-                        && !account(ri, ctx).equals(account(rj, ctx))) {
+                        && !account(ri, ctx).equals(account(rj, ctx))
+                        && pairable(fingerprints.get(i), ri, fingerprints.get(j), ctx)) {
                     partner[i] = j;
                     partner[j] = i;
                     break;
@@ -86,6 +91,13 @@ public final class ImportPlanner {
             }
         }
         return partner;
+    }
+
+    private static boolean pairable(String fpI, RevolutRow ri, String fpJ, PlanContext ctx) {
+        Map<String, TransactionKind> stored = ctx.existingFingerprints();
+        String negative = ri.amountCents() < 0 ? fpI : fpJ;
+        if (stored.get(negative) == TransactionKind.TRANSFER) return true;
+        return !stored.containsKey(fpI) && !stored.containsKey(fpJ);
     }
 
     private static SkipReason skipReason(RevolutRow row, PlanContext ctx) {
@@ -126,7 +138,7 @@ public final class ImportPlanner {
             if (category == null) category = ctx.defaultCategories().get(kind);
         }
         RowStatus status = RowStatus.NEW;
-        if (ctx.existingFingerprints().contains(rowId)) {
+        if (ctx.existingFingerprints().containsKey(rowId)) {
             status = RowStatus.ALREADY_IMPORTED;
         } else if (ctx.manualTransactions().contains(new DuplicateKey(date, kind, amount, account))) {
             status = RowStatus.POSSIBLE_DUPLICATE;

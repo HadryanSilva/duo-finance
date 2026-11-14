@@ -31,10 +31,10 @@ class ImportPlannerTest {
     }
 
     private static PlanContext ctx() {
-        return ctx(Set.of(), Map.of(), Set.of());
+        return ctx(Map.of(), Map.of(), Set.of());
     }
 
-    private static PlanContext ctx(Set<String> known, Map<MemoryKey, UUID> memory, Set<DuplicateKey> manual) {
+    private static PlanContext ctx(Map<String, TransactionKind> known, Map<MemoryKey, UUID> memory, Set<DuplicateKey> manual) {
         return new PlanContext("BRL", mapping(), known, memory,
                 Map.of(TransactionKind.EXPENSE, CAT_EXPENSE, TransactionKind.INCOME, CAT_INCOME), manual,
                 "Revolut fee");
@@ -178,7 +178,7 @@ class ImportPlannerTest {
     void plan_knownFingerprint_isAlreadyImported() {
         RevolutRow r = card(-100);
         String fp = RowFingerprints.of(List.of(r)).get(0);
-        assertThat(ImportPlanner.plan(List.of(r), ctx(Set.of(fp), Map.of(), Set.of())).rows().get(0).status())
+        assertThat(ImportPlanner.plan(List.of(r), ctx(Map.of(fp, TransactionKind.EXPENSE), Map.of(), Set.of())).rows().get(0).status())
                 .isEqualTo(RowStatus.ALREADY_IMPORTED);
     }
 
@@ -186,7 +186,7 @@ class ImportPlannerTest {
     void plan_matchingManualTransaction_isPossibleDuplicate() {
         Set<DuplicateKey> manual = new HashSet<>();
         manual.add(new DuplicateKey(LocalDate.of(2026, 1, 11), TransactionKind.EXPENSE, 100, CURRENT));
-        assertThat(ImportPlanner.plan(List.of(card(-100)), ctx(Set.of(), Map.of(), manual)).rows().get(0).status())
+        assertThat(ImportPlanner.plan(List.of(card(-100)), ctx(Map.of(), Map.of(), manual)).rows().get(0).status())
                 .isEqualTo(RowStatus.POSSIBLE_DUPLICATE);
     }
 
@@ -195,11 +195,11 @@ class ImportPlannerTest {
         UUID remembered = UUID.randomUUID();
         Map<MemoryKey, UUID> memory = Map.of(new MemoryKey(DescriptionKeys.of("Shop"), TransactionKind.EXPENSE),
                 remembered);
-        assertThat(ImportPlanner.plan(List.of(card(-100)), ctx(Set.of(), memory, Set.of())).rows().get(0)
+        assertThat(ImportPlanner.plan(List.of(card(-100)), ctx(Map.of(), memory, Set.of())).rows().get(0)
                 .suggestedCategoryId()).isEqualTo(remembered);
         assertThat(ImportPlanner.plan(List.of(card(-100)), ctx()).rows().get(0).suggestedCategoryId())
                 .isEqualTo(CAT_EXPENSE);
-        PlanContext bare = new PlanContext("BRL", mapping(), Set.of(), Map.of(), Map.of(), Set.of(), "Revolut fee");
+        PlanContext bare = new PlanContext("BRL", mapping(), Map.of(), Map.of(), Map.of(), Set.of(), "Revolut fee");
         assertThat(ImportPlanner.plan(List.of(card(-100)), bare).rows().get(0).suggestedCategoryId()).isNull();
     }
 
@@ -234,7 +234,8 @@ class ImportPlannerTest {
         List<String> fps = RowFingerprints.of(List.of(out, in));
         String known = positiveKnown ? fps.get(1) : fps.get(0);
         List<PlannedRow> rows =
-                ImportPlanner.plan(List.of(out, in), ctx(Set.of(known), Map.of(), Set.of())).rows();
+                ImportPlanner.plan(List.of(out, in), ctx(Map.of(known, positiveKnown ? TransactionKind.INCOME : TransactionKind.EXPENSE), Map.of(),
+                        Set.of())).rows();
         assertThat(rows).extracting(PlannedRow::kind).containsExactly(TransactionKind.EXPENSE, TransactionKind.INCOME);
         assertThat(rows).extracting(PlannedRow::bankAccountId).containsExactly(CURRENT, SAVINGS);
         assertThat(rows).extracting(PlannedRow::rowId).containsExactly(fps.get(0), fps.get(1));
@@ -249,8 +250,25 @@ class ImportPlannerTest {
     }
 
     @Test
-    void plan_transferWithNegativeLegAlreadyImported_plansLegsSeparately() {
+    void plan_transferWithNegativeLegStoredAsExpense_plansLegsSeparately() {
         assertLegsSeparate(false);
+    }
+
+    @Test
+    void plan_transferWithNegativeLegStoredAsTransfer_isOneAlreadyImportedTransfer() {
+        RevolutRow out = with("Current", "2026-01-10 10:00:00", "To savings", -5000);
+        RevolutRow in = with("Savings", "2026-01-10 10:00:00", "From current", 5000);
+        List<String> fps = RowFingerprints.of(List.of(in, out));
+        List<PlannedRow> rows = ImportPlanner.plan(
+                        List.of(in, out), ctx(Map.of(fps.get(1), TransactionKind.TRANSFER), Map.of(), Set.of()))
+                .rows();
+        assertThat(rows).singleElement().satisfies(t -> {
+            assertThat(t.kind()).isEqualTo(TransactionKind.TRANSFER);
+            assertThat(t.rowId()).isEqualTo(fps.get(1));
+            assertThat(t.bankAccountId()).isEqualTo(CURRENT);
+            assertThat(t.destinationBankAccountId()).isEqualTo(SAVINGS);
+            assertThat(t.status()).isEqualTo(RowStatus.ALREADY_IMPORTED);
+        });
     }
 
     @Test
@@ -259,7 +277,7 @@ class ImportPlannerTest {
         String fp = RowFingerprints.of(List.of(r)).get(0);
         Set<DuplicateKey> manual =
                 Set.of(new DuplicateKey(LocalDate.of(2026, 1, 11), TransactionKind.EXPENSE, 100, CURRENT));
-        assertThat(ImportPlanner.plan(List.of(r), ctx(Set.of(fp), Map.of(), manual)).rows().get(0).status())
+        assertThat(ImportPlanner.plan(List.of(r), ctx(Map.of(fp, TransactionKind.EXPENSE), Map.of(), manual)).rows().get(0).status())
                 .isEqualTo(RowStatus.ALREADY_IMPORTED);
     }
 
@@ -327,7 +345,7 @@ class ImportPlannerTest {
         UUID feeCat = UUID.randomUUID();
         Map<MemoryKey, UUID> memory =
                 Map.of(new MemoryKey(DescriptionKeys.of("Revolut fee"), TransactionKind.EXPENSE), feeCat);
-        List<PlannedRow> rows = ImportPlanner.plan(List.of(r), ctx(Set.of(), memory, Set.of())).rows();
+        List<PlannedRow> rows = ImportPlanner.plan(List.of(r), ctx(Map.of(), memory, Set.of())).rows();
         assertThat(rows.get(1).suggestedCategoryId()).isEqualTo(feeCat);
         assertThat(rows.get(0).suggestedCategoryId()).isEqualTo(CAT_EXPENSE);
     }

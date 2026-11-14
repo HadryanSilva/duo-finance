@@ -54,10 +54,15 @@ public class ImportContextLoader {
         String locale = jdbc.queryForObject("SELECT locale FROM users WHERE id = ?", String.class, userId);
         String feeDescription = "en".equals(locale) ? "Revolut fee" : "Tarifa Revolut";
 
-        Set<String> fingerprints = new HashSet<>(jdbc.queryForList(
-                "SELECT import_fingerprint FROM transactions WHERE account_id = ? AND import_fingerprint IS NOT NULL",
-                String.class,
-                accountId));
+        Map<String, TransactionKind> fingerprints = new HashMap<>();
+        jdbc.query(
+                "SELECT import_fingerprint, kind FROM transactions"
+                        + " WHERE account_id = ? AND import_fingerprint IS NOT NULL",
+                rs -> {
+                    fingerprints.put(
+                            rs.getString("import_fingerprint"), TransactionKind.valueOf(rs.getString("kind")));
+                },
+                accountId);
 
         return new PlanContext(
                 currency,
