@@ -64,6 +64,7 @@ class RegisterTest {
         assertThat(result).hasStatus(201);
         assertThat(result).bodyJson().extractingPath("$.accessToken").isNotNull();
         assertThat(result).bodyJson().extractingPath("$.user.emailVerified").isEqualTo(false);
+        assertThat(result).bodyJson().extractingPath("$.user.onboarded").isEqualTo(false);
         assertThat(result.getResponse().getHeader(HttpHeaders.SET_COOKIE)).contains("df_refresh=");
         Awaitility.await().untilAsserted(() -> {
             EmailMessage mail = emails.lastTo("ana@mail.com");

@@ -433,6 +433,17 @@ class InvitationTest {
     }
 
     @Test
+    void register_withInvitation_isOnboarded() {
+        TestSession ana = testUsers.verified("ana@mail.com");
+        String token = inviteAndGetToken(ana, "rui@mail.com");
+
+        var result = registerWithInvitation("rui@mail.com", token);
+
+        assertThat(result).hasStatus(HttpStatus.CREATED);
+        assertThat(result).bodyJson().extractingPath("$.user.onboarded").isEqualTo(true);
+    }
+
+    @Test
     void register_withInvitationTokenForOtherEmail_returns400InviteInvalid() {
         TestSession ana = testUsers.verified("ana@mail.com");
         String token = inviteAndGetToken(ana, "rui@mail.com");

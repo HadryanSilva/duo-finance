@@ -11,7 +11,6 @@ import { installProviders } from '@/app/providers'
 import { createAppRouter } from '@/app/router'
 import type { MeResponse } from '@/shared/api/types'
 import { setLocale, type Locale } from '@/shared/i18n'
-import { markOnboarded } from '@/shared/session/onboarding'
 import { server } from './msw'
 
 const mounted: { unmount: () => void; host: HTMLElement; queryClient: QueryClient }[] = []
@@ -36,6 +35,7 @@ export const testUser: MeResponse = {
   displayName: 'Ana Souza',
   locale: 'pt-BR',
   emailVerified: true,
+  onboarded: true,
   role: 'USER',
   accountId: '00000000-0000-4000-8000-0000000000a1',
 }
@@ -68,10 +68,9 @@ export async function render<C extends Component>(
 
   const pinia = createPinia()
   if (session) {
-    const user = { ...testUser, ...session }
+    const user = { ...testUser, onboarded, ...session }
     // Hydrates the setup store's state when it is created.
     pinia.state.value.session = { accessToken: TEST_TOKEN, user, status: 'authenticated' }
-    if (onboarded) markOnboarded(user.id)
   } else {
     pinia.state.value.session = { accessToken: null, user: null, status: 'anonymous' }
   }

@@ -2,7 +2,6 @@ import { screen, waitFor } from '@testing-library/dom'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import type { AuthResponse } from '@/shared/api/types'
-import { markOnboarded } from '@/shared/session/onboarding'
 import { useSession } from '@/shared/session/session-store'
 import { renderRoute, testUser } from '@/test/render'
 
@@ -17,7 +16,6 @@ async function fillAndSubmit(r: Awaited<ReturnType<typeof renderRoute>>) {
 
 describe('LoginPage', () => {
   it('login_success_redirectsToRedirectParam', async () => {
-    markOnboarded(testUser.id)
     let body: unknown
     const r = await renderRoute({
       route: '/login?redirect=/transactions?x=1',
@@ -35,7 +33,6 @@ describe('LoginPage', () => {
   })
 
   it('login_openRedirect_fallsBackToDashboard', async () => {
-    markOnboarded(testUser.id)
     const r = await renderRoute({
       route: '/login?redirect=//evil.com',
       handlers: [http.post(`${api}/auth/login`, () => HttpResponse.json(authResponse))],

@@ -112,8 +112,7 @@ class ImportSchemaTest {
 
         jdbc.update("DELETE FROM categories WHERE id = ?", cat);
 
-        assertThat(jdbc.queryForObject(
-                        "SELECT count(*) FROM category_memory WHERE account_id = ?", Integer.class, acc))
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM category_memory WHERE account_id = ?", Integer.class, acc))
                 .isZero();
     }
 
@@ -127,5 +126,14 @@ class ImportSchemaTest {
 
         assertThat(jdbc.queryForObject("SELECT bank_account_id FROM import_batches WHERE id = ?", UUID.class, batch))
                 .isNull();
+    }
+
+    @Test
+    void categoryMemory_hasCategoryIdIndex() {
+        assertThat(jdbc.queryForObject(
+                        "SELECT count(*) FROM pg_indexes WHERE tablename = 'category_memory'"
+                                + " AND indexname = 'idx_category_memory_category_id'",
+                        Integer.class))
+                .isEqualTo(1);
     }
 }

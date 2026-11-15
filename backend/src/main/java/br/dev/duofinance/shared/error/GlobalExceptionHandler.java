@@ -40,6 +40,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ErrorCode code = ex.code();
         String detail = ex.getMessage();
         ProblemDetail problem = problem(code, detail);
+        ex.properties().forEach(problem::setProperty);
         if (!ex.fieldErrors().isEmpty()) {
             problem.setProperty(
                     "errors",

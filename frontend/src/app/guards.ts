@@ -1,6 +1,5 @@
 import type { Pinia } from 'pinia'
 import type { Router } from 'vue-router'
-import { isOnboarded } from '@/shared/session/onboarding'
 import { useSession } from '@/shared/session/session-store'
 
 const NO_ONBOARDING_REDIRECT = ['/onboarding', '/suspended']
@@ -23,7 +22,7 @@ export function installGuards(router: Router, pinia: Pinia): void {
     if (user && needsAuth && onboardingCheckedFor !== user.id) {
       onboardingCheckedFor = user.id
       const exempt = NO_ONBOARDING_REDIRECT.includes(to.path) || to.path.startsWith('/invite/')
-      if (!exempt && !isOnboarded(user.id)) return '/onboarding'
+      if (!exempt && !user.onboarded) return '/onboarding'
     }
     return true
   })

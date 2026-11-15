@@ -19,7 +19,15 @@ public final class RevolutCsvParser {
     static final int MAX_ROWS = 5000;
 
     private static final List<String> REQUIRED = List.of(
-            "Type", "Product", "Started Date", "Completed Date", "Description", "Amount", "Fee", "Currency", "State",
+            "Type",
+            "Product",
+            "Started Date",
+            "Completed Date",
+            "Description",
+            "Amount",
+            "Fee",
+            "Currency",
+            "State",
             "Balance");
     /**
      * Header names of localized exports (lower-cased) mapped to the canonical English column. Revolut translates the
@@ -54,6 +62,7 @@ public final class RevolutCsvParser {
     private static final Map<String, String> PRODUCT_ALIASES = Map.of("Atual", "Current");
     /** Localized {@code Type} values the planner acts on, mapped to the canonical English ones. */
     private static final Map<String, String> TYPE_ALIASES = Map.of("Câmbio", "EXCHANGE");
+
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     /** A record's fields plus the 1-based physical line it starts on. */
@@ -111,7 +120,6 @@ public final class RevolutCsvParser {
     }
 
     private static RevolutRow toRow(Record record, Map<String, Integer> columns) {
-        String line = "line " + record.line();
         try {
             String startedRaw = field(record, columns, "Started Date");
             String completedRaw = field(record, columns, "Completed Date");
@@ -120,7 +128,7 @@ public final class RevolutCsvParser {
             String currency = field(record, columns, "Currency");
             String state = canonical(STATE_ALIASES, field(record, columns, "State"));
             if (startedRaw.isEmpty() || amountRaw.isEmpty() || currency.isEmpty() || state.isEmpty()) {
-                throw new ApiException(ErrorCode.IMPORT_ROW_INVALID, line);
+                throw ApiException.importRowInvalid(record.line());
             }
             return new RevolutRow(
                     record.line(),
@@ -136,7 +144,7 @@ public final class RevolutCsvParser {
                     currency,
                     state);
         } catch (DateTimeParseException | ArithmeticException | NumberFormatException e) {
-            throw new ApiException(ErrorCode.IMPORT_ROW_INVALID, line);
+            throw ApiException.importRowInvalid(record.line());
         }
     }
 
@@ -147,7 +155,7 @@ public final class RevolutCsvParser {
     private static String field(Record record, Map<String, Integer> columns, String name) {
         int index = columns.get(name);
         if (index >= record.fields().size()) {
-            throw new ApiException(ErrorCode.IMPORT_ROW_INVALID, "line " + record.line());
+            throw ApiException.importRowInvalid(record.line());
         }
         return record.fields().get(index).trim();
     }
@@ -196,7 +204,7 @@ public final class RevolutCsvParser {
             }
         }
         if (quoted) {
-            throw new ApiException(ErrorCode.IMPORT_ROW_INVALID, "line " + recordLine);
+            throw ApiException.importRowInvalid(recordLine);
         }
         endRecord(records, fields, field, recordLine);
         return records;

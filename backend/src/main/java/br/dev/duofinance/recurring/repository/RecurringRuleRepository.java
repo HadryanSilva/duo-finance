@@ -23,6 +23,22 @@ public interface RecurringRuleRepository extends JpaRepository<RecurringRule, UU
     @Query("select r.accountId from RecurringRule r where r.id = :id")
     Optional<UUID> findAccountId(UUID id);
 
+    /**
+     * Takes {@code FOR KEY SHARE} on the rule's account and returns its id; empty when the rule or account is gone.
+     * Deletions lock the account before cascading into its rules, so taking this lock before the rule's keeps both in
+     * the same order. KEY SHARE does not block non-key account updates such as a rename.
+     */
+    @Query(value = """
+                    SELECT a.id FROM accounts a JOIN recurring_rules r ON r.account_id = a.id
+                    WHERE r.id = :ruleId
+                    FOR KEY SHARE OF a
+                    """, nativeQuery = true)
+    Optional<UUID> lockAccountOfRule(UUID ruleId);
+
+    /** {@code FOR KEY SHARE} on the account, for rule writes; same lock order as {@link #lockAccountOfRule}. */
+    @Query(value = "SELECT id FROM accounts WHERE id = :accountId FOR KEY SHARE", nativeQuery = true)
+    Optional<UUID> lockAccount(UUID accountId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from RecurringRule r where r.id = :id")
     Optional<RecurringRule> findByIdForUpdate(UUID id);

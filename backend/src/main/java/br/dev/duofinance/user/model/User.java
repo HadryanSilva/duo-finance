@@ -47,6 +47,9 @@ public class User {
     @Column(name = "locked_until")
     private Instant lockedUntil;
 
+    @Column(name = "onboarded_at")
+    private Instant onboardedAt;
+
     @Column(name = "terms_version", nullable = false)
     private String termsVersion;
 
@@ -105,6 +108,15 @@ public class User {
 
     public void setEmailVerifiedAt(Instant emailVerifiedAt) {
         this.emailVerifiedAt = emailVerifiedAt;
+    }
+
+    /** When the user finished or skipped onboarding; null while it is still to be offered. */
+    public Instant getOnboardedAt() {
+        return onboardedAt;
+    }
+
+    public void setOnboardedAt(Instant onboardedAt) {
+        this.onboardedAt = onboardedAt;
     }
 
     public UserRole getRole() {

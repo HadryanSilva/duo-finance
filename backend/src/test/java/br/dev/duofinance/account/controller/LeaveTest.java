@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import tools.jackson.databind.json.JsonMapper;
@@ -45,6 +46,9 @@ class LeaveTest {
     @Autowired
     CategoryRepository categories;
 
+    @Autowired
+    JdbcTemplate jdbc;
+
     private final JsonMapper json = JsonMapper.builder().build();
 
     @BeforeEach
@@ -64,6 +68,23 @@ class LeaveTest {
                 .uri("/api/v1/account")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .exchange();
+    }
+
+    @Test
+    void leave_clearsOnboarded() throws Exception {
+        TestSession rui = testUsers.couple("ana@mail.com", "rui@mail.com")[1];
+        assertThat(mvc.post()
+                        .uri("/api/v1/me/onboarding")
+                        .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(rui))
+                        .exchange())
+                .hasStatus(HttpStatus.OK);
+
+        var result = leave(rui);
+
+        assertThat(result).hasStatus(HttpStatus.OK);
+        assertThat(result).bodyJson().extractingPath("$.user.onboarded").isEqualTo(false);
+        assertThat(jdbc.queryForObject("SELECT onboarded_at FROM users WHERE id = ?", Instant.class, rui.userId()))
+                .isNull();
     }
 
     @Test

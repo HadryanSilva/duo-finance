@@ -54,6 +54,7 @@ public class RecurringRuleService {
     /** Occurrences dated up to today are generated in the same transaction. */
     @Transactional
     public RecurringRuleResponse create(UUID accountId, UUID userId, CreateRecurringRuleRequest request) {
+        lockAccount(accountId);
         LocalDate start = request.startDate();
         if (start.isBefore(FinanceValidation.MIN_DATE) || start.isAfter(FinanceValidation.MAX_DATE)) {
             throw ApiException.invalidField("startDate", "OutOfRange");
@@ -158,12 +159,20 @@ public class RecurringRuleService {
     }
 
     /**
-     * Writes lock the rule row first (then, in validation, the referenced rows FOR SHARE), so they serialize with
-     * {@link RecurringGenerator#generateDue} and never overwrite its nextRunDate.
+     * Writes lock the account (KEY SHARE), then the rule row, then, in validation, the referenced rows FOR SHARE. The
+     * rule lock serializes them with {@link RecurringGenerator#generateDue} so they never overwrite its nextRunDate;
+     * taking the account first matches account and user deletion, which lock the account before touching its rules,
+     * so the two cannot deadlock.
      */
     private RecurringRule requireOwnedForUpdate(UUID accountId, UUID id) {
+        lockAccount(accountId);
         return rules.findByIdAndAccountIdForUpdate(id, accountId)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+    }
+
+    /** The account is gone only if it was deleted meanwhile: the caller's session is then stale. */
+    private void lockAccount(UUID accountId) {
+        rules.lockAccount(accountId).orElseThrow(() -> new ApiException(ErrorCode.SESSION_STALE));
     }
 
     private static void validateEndDate(LocalDate start, LocalDate end) {

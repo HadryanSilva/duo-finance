@@ -3,6 +3,7 @@ import type { PlannedRow } from '@/shared/api/types'
 import {
   canSubmit,
   initReview,
+  rowErrorsFrom,
   sameGroup,
   setCategory,
   setInclude,
@@ -150,5 +151,18 @@ describe('toDecisions', () => {
       { rowId: 't', include: true, categoryId: null },
       { rowId: 'q', include: true, categoryId: 'c' },
     ])
+  })
+})
+
+describe('rowErrorsFrom', () => {
+  it('mapsDecisionFieldsToRowIds_skippingRowUnknownAndOtherFields', () => {
+    expect(
+      rowErrorsFrom([
+        { field: 'decisions[r1]', code: 'CATEGORY_ARCHIVED' },
+        { field: 'decisions[r2]', code: 'ROW_UNKNOWN' },
+        { field: 'bankAccountId', code: 'NotNull' },
+        { field: 'decisions[r1]', code: 'CATEGORY_REQUIRED' },
+      ]),
+    ).toEqual({ r1: 'CATEGORY_ARCHIVED' })
   })
 })

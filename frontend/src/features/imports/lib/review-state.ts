@@ -1,3 +1,4 @@
+import type { FieldError } from '@/shared/api/problem'
 import type { PlannedRow } from '@/shared/api/types'
 import type { RowDecision } from '../api/imports-api'
 
@@ -76,4 +77,19 @@ export function toDecisions(rows: ReviewRow[]): RowDecision[] {
       include: true,
       categoryId: r.kind === 'TRANSFER' ? null : r.categoryId,
     }))
+}
+
+const DECISION_FIELD = /^decisions\[(.+)\]$/
+
+/**
+ * The commit's per-row field errors (`decisions[<rowId>]`) as rowId → code, first code per row.
+ * ROW_UNKNOWN is left out: it means the file changed, which the page handles as a whole.
+ */
+export function rowErrorsFrom(errors: FieldError[]): Record<string, string> {
+  const byRow: Record<string, string> = {}
+  for (const { field, code } of errors) {
+    const rowId = DECISION_FIELD.exec(field)?.[1]
+    if (rowId && code !== 'ROW_UNKNOWN' && !(rowId in byRow)) byRow[rowId] = code
+  }
+  return byRow
 }
