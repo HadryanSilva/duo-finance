@@ -10,6 +10,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /** Parses a Revolut CSV statement into rows. Pure and stateless; never logs or retains file contents. */
@@ -20,6 +21,32 @@ public final class RevolutCsvParser {
     private static final List<String> REQUIRED = List.of(
             "Type", "Product", "Started Date", "Completed Date", "Description", "Amount", "Fee", "Currency", "State",
             "Balance");
+    /**
+     * Header names of localized exports (lower-cased) mapped to the canonical English column. Revolut translates the
+     * header and some values to the app language; everything past this parser works with the English forms.
+     */
+    private static final Map<String, String> HEADER_ALIASES = Map.ofEntries(
+            // pt-PT
+            Map.entry("tipo", "Type"),
+            Map.entry("produto", "Product"),
+            Map.entry("data de início", "Started Date"),
+            Map.entry("data de conclusão", "Completed Date"),
+            Map.entry("descrição", "Description"),
+            Map.entry("montante", "Amount"),
+            Map.entry("comissão", "Fee"),
+            Map.entry("moeda", "Currency"),
+            Map.entry("estado", "State"),
+            Map.entry("saldo", "Balance"));
+    /** Localized {@code State} values mapped to the canonical English ones the planner checks. */
+    private static final Map<String, String> STATE_ALIASES = Map.of(
+            "CONCLUÍDA", "COMPLETED",
+            "PENDENTE", "PENDING",
+            "REVERTIDA", "REVERTED",
+            "RECUSADA", "DECLINED");
+    /** Localized {@code Product} values mapped to the canonical English ones (default mapping, fingerprints). */
+    private static final Map<String, String> PRODUCT_ALIASES = Map.of("Atual", "Current");
+    /** Localized {@code Type} values the planner acts on, mapped to the canonical English ones. */
+    private static final Map<String, String> TYPE_ALIASES = Map.of("Câmbio", "EXCHANGE");
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     /** A record's fields plus the 1-based physical line it starts on. */
@@ -48,12 +75,32 @@ public final class RevolutCsvParser {
     private static Map<String, Integer> indexHeader(List<String> header) {
         Map<String, Integer> columns = new HashMap<>();
         for (int i = 0; i < header.size(); i++) {
-            columns.putIfAbsent(header.get(i).trim(), i);
+            columns.putIfAbsent(canonicalColumn(header.get(i)), i);
         }
         if (!columns.keySet().containsAll(REQUIRED)) {
             throw new ApiException(ErrorCode.IMPORT_FORMAT_UNSUPPORTED);
         }
         return columns;
+    }
+
+    private static String canonicalColumn(String name) {
+        String trimmed = name.trim();
+        String lower = trimmed.toLowerCase(Locale.ROOT);
+        for (String required : REQUIRED) {
+            if (required.toLowerCase(Locale.ROOT).equals(lower)) {
+                return required;
+            }
+        }
+        return HEADER_ALIASES.getOrDefault(lower, trimmed);
+    }
+
+    private static String canonical(Map<String, String> aliases, String value) {
+        for (Map.Entry<String, String> alias : aliases.entrySet()) {
+            if (alias.getKey().equalsIgnoreCase(value)) {
+                return alias.getValue();
+            }
+        }
+        return value;
     }
 
     private static RevolutRow toRow(Record record, Map<String, Integer> columns) {
@@ -64,14 +111,14 @@ public final class RevolutCsvParser {
             String amountRaw = field(record, columns, "Amount");
             String feeRaw = field(record, columns, "Fee");
             String currency = field(record, columns, "Currency");
-            String state = field(record, columns, "State");
+            String state = canonical(STATE_ALIASES, field(record, columns, "State"));
             if (startedRaw.isEmpty() || amountRaw.isEmpty() || currency.isEmpty() || state.isEmpty()) {
                 throw new ApiException(ErrorCode.IMPORT_ROW_INVALID, line);
             }
             return new RevolutRow(
                     record.line(),
-                    field(record, columns, "Type"),
-                    field(record, columns, "Product"),
+                    canonical(TYPE_ALIASES, field(record, columns, "Type")),
+                    canonical(PRODUCT_ALIASES, field(record, columns, "Product")),
                     LocalDateTime.parse(startedRaw, DATE_TIME),
                     startedRaw,
                     completedRaw.isEmpty() ? null : LocalDateTime.parse(completedRaw, DATE_TIME),

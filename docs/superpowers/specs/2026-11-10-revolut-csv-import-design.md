@@ -53,7 +53,8 @@ Critérios de sucesso:
 
 **Parser (`RevolutCsvParser`)**: só transforma bytes em linhas normalizadas.
 
-- Cabeçalho obrigatório com as colunas `Type, Product, Started Date, Completed Date, Description, Amount, Fee, Currency, State, Balance`, em qualquer ordem; colunas extras são ignoradas. Faltando alguma: `IMPORT_FORMAT_UNSUPPORTED`.
+- Cabeçalho obrigatório com as colunas `Type, Product, Started Date, Completed Date, Description, Amount, Fee, Currency, State, Balance`, em qualquer ordem e sem diferenciar maiúsculas; colunas extras são ignoradas. Faltando alguma: `IMPORT_FORMAT_UNSUPPORTED`.
+- Extrato exportado em português (pt-PT): o cabeçalho traduzido (`Tipo, Produto, Data de início, Data de Conclusão, Descrição, Montante, Comissão, Moeda, Estado, Saldo`) é aceito, e o parser traduz os valores que as regras usam para a forma em inglês: `State` (`CONCLUÍDA` → `COMPLETED`, `PENDENTE` → `PENDING`, `REVERTIDA` → `REVERTED`, `RECUSADA` → `DECLINED`), `Product` (`Atual` → `Current`) e `Type` (`Câmbio` → `EXCHANGE`). O resto do fluxo só vê os valores em inglês.
 - UTF-8, com ou sem BOM; separador vírgula; campos entre aspas conforme RFC 4180.
 - Datas `yyyy-MM-dd HH:mm:ss`; valores com ponto decimal, convertidos para centavos com `BigDecimal` (sem ponto flutuante). Linha com data ou valor ilegível: `IMPORT_ROW_INVALID`, indicando o número da linha.
 - No máximo 5.000 linhas de dados (`IMPORT_TOO_MANY_ROWS`). O arquivo tem no máximo 1 MB (seção 6).

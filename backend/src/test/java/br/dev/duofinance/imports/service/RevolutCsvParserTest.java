@@ -70,6 +70,40 @@ class RevolutCsvParserTest {
     }
 
     @Test
+    void parse_portugueseStatement_normalizesHeaderAndValues() {
+        String csv = "Tipo,Produto,Data de início,Data de Conclusão,Descrição,Montante,Comissão,Moeda,Estado,Saldo\n"
+                + "Pagamento com cartão,Atual,2026-11-03 15:00:02,2026-11-04 09:00:00,Cafe,-12.50,0.10,EUR,"
+                + "CONCLUÍDA,87.40\n"
+                + "Pagamento com cartão,Atual,2026-11-05 10:00:00,,Loja,-3.00,0.00,EUR,PENDENTE,84.40\n"
+                + "Câmbio,Atual,2026-11-06 10:00:00,2026-11-06 10:00:00,Para USD,-10.00,0.00,EUR,REVERTIDA,74.40\n";
+
+        List<RevolutRow> rows = RevolutCsvParser.parse(bytes(csv));
+
+        assertThat(rows).hasSize(3);
+        RevolutRow first = rows.get(0);
+        assertThat(first.type()).isEqualTo("Pagamento com cartão");
+        assertThat(first.product()).isEqualTo("Current");
+        assertThat(first.startedAt()).isEqualTo(LocalDateTime.of(2026, 11, 3, 15, 0, 2));
+        assertThat(first.description()).isEqualTo("Cafe");
+        assertThat(first.amountCents()).isEqualTo(-1250);
+        assertThat(first.feeCents()).isEqualTo(10);
+        assertThat(first.currency()).isEqualTo("EUR");
+        assertThat(first.state()).isEqualTo("COMPLETED");
+        assertThat(rows.get(1).state()).isEqualTo("PENDING");
+        assertThat(rows.get(1).completedAt()).isNull();
+        assertThat(rows.get(2).type()).isEqualTo("EXCHANGE");
+        assertThat(rows.get(2).state()).isEqualTo("REVERTED");
+    }
+
+    @Test
+    void parse_portugueseHeaderInAnyCase_works() {
+        String csv = "TIPO,produto,DATA DE INÍCIO,data de conclusão,Descrição,Montante,Comissão,Moeda,Estado,Saldo\n"
+                + "Transferência,Atual,2026-11-03 15:00:02,2026-11-03 15:00:02,Para X,-5.00,0.00,EUR,CONCLUÍDA,1\n";
+
+        assertThat(RevolutCsvParser.parse(bytes(csv))).hasSize(1);
+    }
+
+    @Test
     void parse_missingColumn_throwsFormatUnsupported() {
         String csv = "Type,Product,Started Date,Completed Date,Description,Amount,Fee,State,Balance\n";
 
