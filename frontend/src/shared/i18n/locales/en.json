@@ -67,6 +67,7 @@
     "archived": "Archived",
     "showArchived": "Show archived",
     "close": "Close",
+    "actionsFor": "Actions for {name}",
     "viewRecurring": "View recurring transactions"
   },
   "nav": {
@@ -509,6 +510,8 @@
     "activate": "Activate {name}",
     "deactivate": "Deactivate {name}",
     "remove": "Delete {name}",
+    "activateShort": "Activate",
+    "deactivateShort": "Deactivate",
     "deleteTitle": "Delete recurring transaction?",
     "deleteMessage": "It stops generating transactions. The transactions already generated remain.",
     "frequency": {

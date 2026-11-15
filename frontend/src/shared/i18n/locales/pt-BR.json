@@ -67,6 +67,7 @@
     "archived": "Arquivada",
     "showArchived": "Mostrar arquivadas",
     "close": "Fechar",
+    "actionsFor": "Ações para {name}",
     "viewRecurring": "Ver lançamentos recorrentes"
   },
   "nav": {
@@ -509,6 +510,8 @@
     "activate": "Ativar {name}",
     "deactivate": "Desativar {name}",
     "remove": "Excluir {name}",
+    "activateShort": "Ativar",
+    "deactivateShort": "Desativar",
     "deleteTitle": "Excluir recorrência?",
     "deleteMessage": "A recorrência deixa de gerar lançamentos. Os lançamentos já gerados permanecem.",
     "frequency": {

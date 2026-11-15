@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/dom'
 import { http, HttpResponse, type RequestHandler } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import App from '@/app/App.vue'
 import { render, renderRoute, testUser } from '@/test/render'
 
@@ -138,5 +138,34 @@ describe('BankAccountsPage', () => {
         holderUserId: ANA,
       }),
     )
+  })
+})
+
+describe('BankAccountsPage on a phone', () => {
+  const menuItems = () =>
+    [...document.querySelectorAll('[role="menuitem"]')].map((el) => el.textContent?.trim())
+
+  afterEach(() => {
+    window.innerWidth = 1024 // jsdom's default
+  })
+
+  it('bankAccounts_mobile_actionsMenuArchives', async () => {
+    window.innerWidth = 375
+    const s = open('/bank-accounts')
+    const { user } = await s.render()
+    await screen.findByText('Nubank')
+    expect(screen.queryByRole('button', { name: 'Arquivar Nubank' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Ações para Nubank' }))
+    await waitFor(() => expect(menuItems()).toEqual(['Editar', 'Arquivar', 'Excluir']))
+    await user.click(screen.getByRole('menuitem', { name: 'Arquivar' }))
+    await waitFor(() => expect(s.calls.archived).toBe('b1'))
+  })
+
+  it('bankAccounts_mobile_archivedRowOffersUnarchive', async () => {
+    window.innerWidth = 375
+    const { user } = await open('/bank-accounts?archived=1').render()
+    await screen.findByText('Antiga')
+    await user.click(screen.getByRole('button', { name: 'Ações para Antiga' }))
+    await waitFor(() => expect(menuItems()).toEqual(['Editar', 'Desarquivar', 'Excluir']))
   })
 })

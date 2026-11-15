@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/dom'
 import { http, HttpResponse, type RequestHandler } from 'msw'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { renderRoute, testUser } from '@/test/render'
 
 const api = `${window.location.origin}/api/v1`
@@ -97,5 +97,21 @@ describe('CategoriesPage', () => {
     const name = within(dialog).getByLabelText('Nome')
     await waitFor(() => expect(name.getAttribute('aria-invalid')).toBe('true'))
     expect(dialog.textContent).toContain('Já existe uma categoria com este nome')
+  })
+})
+
+describe('CategoriesPage on a phone', () => {
+  afterEach(() => {
+    window.innerWidth = 1024 // jsdom's default
+  })
+
+  it('categories_mobile_actionsMenuEdits', async () => {
+    window.innerWidth = 375
+    const { user } = await open().render()
+    await screen.findByText('Mercado')
+    expect(screen.queryByRole('button', { name: 'Editar Mercado' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Ações para Mercado' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Editar' }))
+    expect(await screen.findByRole('dialog', { name: 'Editar categoria' })).toBeTruthy()
   })
 })

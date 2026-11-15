@@ -31,6 +31,7 @@ const label = (action: 'edit' | 'archive' | 'unarchive' | 'delete') =>
     <MoneyText :cents="account.balanceCents" class="font-semibold text-foreground" />
     <RowActions
       :archived="account.archived"
+      :menu-label="t('common.actionsFor', { name: account.name })"
       :labels="{
         edit: label('edit'),
         archive: label('archive'),

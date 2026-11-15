@@ -6,6 +6,8 @@ import type { RecurringRuleResponse } from '@/shared/api/types'
 import { formatBusinessDate } from '@/shared/lib/dates'
 import { swatchInkClass } from '@/shared/lib/contrast'
 import type { Locale } from '@/shared/lib/money'
+import { useIsDesktop } from '@/shared/lib/breakpoints'
+import ActionsMenu, { type ActionItem } from '@/shared/ui/ActionsMenu.vue'
 import ArchivedBadge from '@/shared/ui/ArchivedBadge.vue'
 import AuthorAvatar from '@/shared/ui/AuthorAvatar.vue'
 import { Badge } from '@/shared/ui/badge'
@@ -31,6 +33,26 @@ const title = computed(
     (isTransfer.value ? t('transactions.kind.TRANSFER') : ''),
 )
 const nextDate = computed(() => formatBusinessDate(props.rule.nextRunDate, locale.value as Locale))
+
+// Below md the three icon buttons fold into a "⋯" menu; a finished rule cannot be toggled.
+const isDesktop = useIsDesktop()
+const menuItems = computed<ActionItem[]>(() => [
+  { key: 'edit', label: t('common.edit'), icon: Pencil },
+  ...(props.rule.finished
+    ? []
+    : [
+        props.rule.active
+          ? { key: 'toggle', label: t('recurring.deactivateShort'), icon: Pause }
+          : { key: 'toggle', label: t('recurring.activateShort'), icon: Play },
+      ]),
+  { key: 'remove', label: t('common.delete'), icon: Trash, destructive: true },
+])
+
+function onMenuSelect(key: string) {
+  if (key === 'edit') emit('edit')
+  else if (key === 'toggle') emit('toggle')
+  else if (key === 'remove') emit('remove')
+}
 </script>
 
 <template>
@@ -83,7 +105,14 @@ const nextDate = computed(() => formatBusinessDate(props.rule.nextRunDate, local
       :kind="rule.kind"
       class="shrink-0 text-right font-medium"
     />
-    <div class="flex shrink-0 items-center">
+    <ActionsMenu
+      v-if="!isDesktop"
+      class="shrink-0"
+      :label="t('common.actionsFor', { name: title })"
+      :items="menuItems"
+      @select="onMenuSelect"
+    />
+    <div v-else class="flex shrink-0 items-center">
       <Button
         variant="ghost"
         size="icon"
