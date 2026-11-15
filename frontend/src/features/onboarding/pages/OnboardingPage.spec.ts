@@ -2,7 +2,6 @@ import { vi } from 'vitest'
 import { screen, within } from '@testing-library/dom'
 import { http, HttpResponse, type RequestHandler } from 'msw'
 import { describe, expect, it } from 'vitest'
-import { isOnboarded } from '@/shared/session/onboarding'
 import type { AccountResponse, MemberResponse } from '@/shared/api/types'
 import { renderRoute, testUser } from '@/test/render'
 
@@ -36,6 +35,10 @@ function setup(session: Record<string, unknown> = {}, extra: RequestHandler[] = 
           // earlier handlers win, so per-test overrides come first
           ...extra,
           http.get(`${api}/me`, () => HttpResponse.json({ ...testUser, ...session })),
+          http.post(`${api}/me/onboarding`, () => {
+            calls.onboarding = ((calls.onboarding as number | undefined) ?? 0) + 1
+            return HttpResponse.json({ ...testUser, ...session, onboarded: true })
+          }),
           http.get(`${api}/account`, () => HttpResponse.json(account)),
           http.get(`${api}/bank-accounts`, () => HttpResponse.json([])),
           http.patch(`${api}/account`, async ({ request }) => {
@@ -96,7 +99,7 @@ describe('OnboardingPage', () => {
       type: 'SAVINGS',
       initialBalanceCents: 125050,
     })
-    expect(isOnboarded(testUser.id)).toBe(true)
+    expect(s.calls.onboarding).toBe(1)
   })
 
   it('skippingSteps_stillMarksOnboarded', async () => {
@@ -105,10 +108,10 @@ describe('OnboardingPage', () => {
     await toInviteStep(r)
     await r.user.click(await screen.findByRole('button', { name: 'Pular' }))
     await screen.findByLabelText('Nome da conta')
-    expect(isOnboarded(testUser.id)).toBe(false)
+    expect(s.calls.onboarding).toBeUndefined()
     await r.user.click(screen.getByRole('button', { name: 'Pular' }))
     await vi.waitFor(() => expect(r.router.currentRoute.value.path).toBe('/dashboard'))
-    expect(isOnboarded(testUser.id)).toBe(true)
+    expect(s.calls.onboarding).toBe(1)
     expect(s.calls.invite).toBeUndefined()
     expect(s.calls.bank).toBeUndefined()
   })
@@ -187,7 +190,7 @@ describe('OnboardingPage', () => {
     const s = setup({}, [http.get(`${api}/account`, () => HttpResponse.json(couple))])
     const r = await s.open()
     await vi.waitFor(() => expect(r.router.currentRoute.value.path).toBe('/dashboard'))
-    expect(isOnboarded(testUser.id)).toBe(true)
+    await vi.waitFor(() => expect(s.calls.onboarding).toBe(1))
   })
 
   it('soloAccountWithBankAccount_onNewDevice_goesToDashboard', async () => {
@@ -196,7 +199,7 @@ describe('OnboardingPage', () => {
     ])
     const r = await s.open()
     await vi.waitFor(() => expect(r.router.currentRoute.value.path).toBe('/dashboard'))
-    expect(isOnboarded(testUser.id)).toBe(true)
+    await vi.waitFor(() => expect(s.calls.onboarding).toBe(1))
   })
 
   it('brandNewSoloAccount_stillSeesTheWizard', async () => {
@@ -204,6 +207,16 @@ describe('OnboardingPage', () => {
     const r = await s.open()
     expect(await screen.findByLabelText('Nome do casal')).toBeTruthy()
     expect(r.router.currentRoute.value.path).toBe('/onboarding')
-    expect(isOnboarded(testUser.id)).toBe(false)
+    expect(s.calls.onboarding).toBeUndefined()
+  })
+
+  it('onboardingCompleteFails_stillEntersDashboard', async () => {
+    const s = setup({}, [http.post(`${api}/me/onboarding`, () => problem(500, 'INTERNAL_ERROR'))])
+    const r = await s.open()
+    await toInviteStep(r)
+    await r.user.click(await screen.findByRole('button', { name: 'Pular' }))
+    await screen.findByLabelText('Nome da conta')
+    await r.user.click(screen.getByRole('button', { name: 'Pular' }))
+    await vi.waitFor(() => expect(r.router.currentRoute.value.path).toBe('/dashboard'))
   })
 })

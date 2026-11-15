@@ -35,7 +35,9 @@ describe('VerifyEmailPage', () => {
           verified = true
           return new HttpResponse(null, { status: 204 })
         }),
-        http.get(`${api}/me`, () => HttpResponse.json({ ...testUser, emailVerified: verified })),
+        http.get(`${api}/me`, () =>
+          HttpResponse.json({ ...testUser, emailVerified: verified, onboarded: false }),
+        ),
         http.get(`${api}/account`, () =>
           HttpResponse.json({
             id: testUser.accountId,

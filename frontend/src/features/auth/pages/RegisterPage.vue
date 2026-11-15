@@ -10,7 +10,6 @@ import { useRegistrationMode } from '@/shared/api/queries/public'
 import { detectLocale } from '@/shared/i18n'
 import { errorMessage } from '@/shared/i18n/error-codes'
 import { TERMS_VERSION } from '@/shared/lib/legal'
-import { markOnboarded } from '@/shared/session/onboarding'
 import { useSession } from '@/shared/session/session-store'
 import { Button } from '@/shared/ui/button'
 import { applyFieldErrors } from '@/shared/ui/FormErrors'
@@ -85,9 +84,8 @@ const submit = handleSubmit(async (v) => {
     return
   }
   session.applyAuth(auth)
+  // The server marks an invited partner as onboarded: the couple already has a name.
   if (inviteToken) {
-    // The couple already has a name and there is no partner left to invite.
-    markOnboarded(auth.user.id)
     await router.push('/dashboard')
   } else {
     await router.push('/onboarding')

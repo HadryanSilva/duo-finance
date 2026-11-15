@@ -5,8 +5,7 @@ import { useRouter } from 'vue-router'
 import { useAccount } from '@/shared/api/queries/account'
 import { useBankAccounts } from '@/shared/api/queries/bank-accounts'
 import { errorMessage } from '@/shared/i18n/error-codes'
-import { markOnboarded } from '@/shared/session/onboarding'
-import { useSession } from '@/shared/session/session-store'
+import { useCompleteOnboarding } from '@/shared/api/queries/me'
 import { Progress } from '@/shared/ui/progress'
 import StepCoupleName from '../components/StepCoupleName.vue'
 import StepFirstBankAccount from '../components/StepFirstBankAccount.vue'
@@ -16,13 +15,13 @@ const STEPS = ['couple', 'invite', 'bank'] as const
 
 const { t } = useI18n()
 const router = useRouter()
-const session = useSession()
+const completeOnboarding = useCompleteOnboarding()
 const account = useAccount()
 const bankAccounts = useBankAccounts()
 
 /**
- * The onboarded mark lives in this browser only. A partner on a new device whose account is
- * already a couple, or already has a bank account, skips the wizard. Decided once, on the first
+ * A user whose account is already a couple, or already has a bank account, has nothing left to
+ * set up and skips the wizard. Decided once, on the first
  * load: the wizard's own bank account must not cut the last step short.
  */
 const deciding = ref(true)
@@ -34,7 +33,7 @@ watch(
     if (decided || !acc || (!banks && !banksFailed)) return
     decided = true
     if (acc.members.length >= 2 || (banks?.length ?? 0) > 0) {
-      if (session.user) markOnboarded(session.user.id)
+      void markDone()
       void router.replace('/dashboard')
       return
     }
@@ -47,9 +46,18 @@ const step = ref(1)
 const progress = computed(() => Math.round((step.value / STEPS.length) * 100))
 const current = computed(() => STEPS[step.value - 1] ?? 'couple')
 
+/** A failed mark does not block the app: the guard only checks once per app session. */
+async function markDone() {
+  try {
+    await completeOnboarding.mutateAsync()
+  } catch {
+    // offered again on the next app load
+  }
+}
+
 /** Marks onboarding done (also when the last step is skipped) and enters the app. */
 async function finish() {
-  if (session.user) markOnboarded(session.user.id)
+  await markDone()
   await router.push('/dashboard')
 }
 

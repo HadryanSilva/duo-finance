@@ -5,7 +5,6 @@ import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { useAccount, useCancelInvitation, useLeaveAccount } from '@/shared/api/queries/account'
 import { errorMessage } from '@/shared/i18n/error-codes'
-import { clearOnboarded } from '@/shared/session/onboarding'
 import { useSession } from '@/shared/session/session-store'
 import { Button } from '@/shared/ui/button'
 import ConfirmDialog from '@/shared/ui/ConfirmDialog.vue'
@@ -49,8 +48,6 @@ async function leave() {
     const response = await leaveMutation.mutateAsync()
     // Clears the query cache, so nothing of the old Account is left to render.
     session.switchAccount(response)
-    // The new solo account is onboarded like a fresh one.
-    clearOnboarded(response.user.id)
   } catch (e) {
     actionError.value = errorMessage(e)
     return

@@ -2,7 +2,6 @@ import { screen, within } from '@testing-library/dom'
 import { http, HttpResponse, type RequestHandler } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 import type { AccountResponse, AuthResponse, MeResponse } from '@/shared/api/types'
-import { isOnboarded } from '@/shared/session/onboarding'
 import { useSession } from '@/shared/session/session-store'
 import { renderRoute, testUser } from '@/test/render'
 
@@ -311,7 +310,7 @@ describe('SettingsPage', () => {
       account: full,
       extra: [
         http.post(`${api}/account/leave`, () =>
-          HttpResponse.json(auth('solo-token', { accountId: 'acc-new' })),
+          HttpResponse.json(auth('solo-token', { accountId: 'acc-new', onboarded: false })),
         ),
         http.get(`${api}/account`, ({ request }) =>
           // after the switch the new token reads the user's new, empty account
@@ -323,7 +322,6 @@ describe('SettingsPage', () => {
         ),
       ],
     })
-    expect(isOnboarded(testUser.id)).toBe(true)
     r.queryClient.setQueryData(['transactions'], [{ id: 'old-account-row' }])
     const couple = within(await region('Casal'))
     await r.user.click(await couple.findByRole('button', { name: 'Sair do casal' }))
@@ -335,7 +333,7 @@ describe('SettingsPage', () => {
     expect(r.session.accessToken).toBe('solo-token')
     expect(r.session.user?.accountId).toBe('acc-new')
     expect(r.queryClient.getQueryData(['transactions'])).toBeUndefined()
-    expect(isOnboarded(testUser.id)).toBe(false)
+    expect(r.session.user?.onboarded).toBe(false)
     // nothing of the old Account stays on screen
     await screen.findByRole('heading', { level: 1 })
     expect(document.body.textContent).not.toContain('Bia Lima')

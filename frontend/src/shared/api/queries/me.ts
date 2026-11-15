@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useHttp } from '@/app/providers'
+import { useSession } from '@/shared/session/session-store'
 import type {
   AuthResponse,
   ChangePasswordRequest,
@@ -35,6 +36,20 @@ export function useUpdateMe() {
   return useMutation({
     mutationFn: (body: UpdateMeRequest) => http.patch<MeResponse>('/me', body),
     onSuccess: (me) => qc.setQueryData(ME_KEY, me),
+  })
+}
+
+/** Records on the server that onboarding was finished or skipped, and keeps the session in step. */
+export function useCompleteOnboarding() {
+  const http = useHttp()
+  const qc = useQueryClient()
+  const session = useSession()
+  return useMutation({
+    mutationFn: () => http.post<MeResponse>('/me/onboarding'),
+    onSuccess: (me) => {
+      session.updateUser(me)
+      qc.setQueryData(ME_KEY, me)
+    },
   })
 }
 

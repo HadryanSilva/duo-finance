@@ -2,7 +2,6 @@ import { screen, waitFor } from '@testing-library/dom'
 import { http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AuthResponse } from '@/shared/api/types'
-import { isOnboarded } from '@/shared/session/onboarding'
 import { renderRoute, testUser } from '@/test/render'
 
 const api = `${window.location.origin}/api/v1`
@@ -83,7 +82,7 @@ describe('RegisterPage', () => {
     })
   })
 
-  it('register_afterInvite_marksOnboardedAndGoesToDashboard', async () => {
+  it('register_afterInvite_goesToDashboard', async () => {
     let body: Record<string, unknown> = {}
     const r = await renderRoute({
       route: '/register?invite=tok123&email=bia@example.com',
@@ -94,7 +93,6 @@ describe('RegisterPage', () => {
     await waitFor(() => expect(r.router.currentRoute.value.fullPath).toBe('/dashboard'))
     expect(body.invitationToken).toBe('tok123')
     expect(body).not.toHaveProperty('accessCode')
-    expect(isOnboarded(testUser.id)).toBe(true)
   })
 
   it('register_mapsFieldErrorsFromApi', async () => {
