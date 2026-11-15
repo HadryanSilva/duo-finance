@@ -396,6 +396,12 @@
       "ignore": "Ignorar"
     },
     "review": {
+      "rowErrors": {
+        "CATEGORY_ARCHIVED": "Esta categoria foi arquivada. Escolha outra.",
+        "CATEGORY_REQUIRED": "Escolha uma categoria.",
+        "ROW_ALREADY_IMPORTED": "Esta linha já foi importada. Desmarque-a para continuar.",
+        "invalid": "Esta categoria não pode ser usada aqui. Escolha outra."
+      },
       "tabs": {
         "new": "Novas",
         "duplicates": "Possíveis duplicatas",
@@ -453,7 +459,8 @@
     "errors": {
       "tooLarge": "O arquivo é grande demais (máximo de 1 MB).",
       "fileChanged": "O arquivo mudou desde a revisão. Envie-o de novo para revisar.",
-      "rowInvalidLine": "O arquivo tem uma linha com data ou valor ilegível (linha {line})."
+      "rowInvalidLine": "O arquivo tem uma linha com data ou valor ilegível (linha {line}).",
+      "rowsNeedAttention": "{n} linha precisa de correção. | {n} linhas precisam de correção."
     }
   },
   "monthSelector": {

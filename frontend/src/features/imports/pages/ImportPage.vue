@@ -16,7 +16,7 @@ import ImportHistory from '../components/ImportHistory.vue'
 import ImportResultStep from '../components/ImportResultStep.vue'
 import ImportReviewStep from '../components/ImportReviewStep.vue'
 import ImportUploadStep from '../components/ImportUploadStep.vue'
-import { initReview, toDecisions, type ReviewRow } from '../lib/review-state'
+import { initReview, rowErrorsFrom, toDecisions, type ReviewRow } from '../lib/review-state'
 
 /** Mirrors the backend's ImportContextLoader.DEFAULT_PRODUCT: it always goes to the chosen account. */
 const DEFAULT_PRODUCT = 'Current'
@@ -38,6 +38,8 @@ const previewKey = ref(0)
 const result = ref<CommitResponse | null>(null)
 const uploadError = ref<string | null>(null)
 const reviewError = ref<string | null>(null)
+/** The last commit's per-row errors by rowId; a new preview starts clean. */
+const rowErrors = ref<Record<string, string>>({})
 
 /** Id of the latest preview request: only its response may land. */
 let previewSeq = 0
@@ -95,6 +97,7 @@ async function runPreview(productMapping = mapping.value) {
     preview.value = response
     mapping.value = productMapping
     rows.value = initReview(response.rows)
+    rowErrors.value = {}
     previewKey.value++
     step.value = 'review'
   } catch (e) {
@@ -125,16 +128,30 @@ async function runCommit() {
   const body = input(mapping.value)
   if (!body) return
   reviewError.value = null
+  rowErrors.value = {}
   try {
     result.value = await commitImport.mutateAsync({ ...body, decisions: toDecisions(rows.value) })
     step.value = 'result'
   } catch (e) {
     if (isApiError(e) && e.fieldErrors.some((f) => f.code === 'ROW_UNKNOWN')) {
       backToUpload(t('imports.errors.fileChanged'))
+      return
+    }
+    const byRow = isApiError(e) ? rowErrorsFrom(e.fieldErrors) : {}
+    const n = Object.keys(byRow).length
+    if (n) {
+      rowErrors.value = byRow
+      reviewError.value = t('imports.errors.rowsNeedAttention', { n }, n)
     } else {
       reviewError.value = importError(e)
     }
   }
+}
+
+function clearRowError(rowId: string) {
+  const rest = { ...rowErrors.value }
+  delete rest[rowId]
+  rowErrors.value = rest
 }
 
 function restart() {
@@ -169,6 +186,8 @@ function restart() {
       :account-name="accountName"
       :pending="previewImport.isPending.value || commitImport.isPending.value"
       :error="reviewError"
+      :row-errors="rowErrors"
+      @clear-row-error="clearRowError"
       @submit="runCommit"
     />
   </template>

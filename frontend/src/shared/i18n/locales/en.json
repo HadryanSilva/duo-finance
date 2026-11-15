@@ -396,6 +396,12 @@
       "ignore": "Ignore"
     },
     "review": {
+      "rowErrors": {
+        "CATEGORY_ARCHIVED": "This category was archived. Choose another one.",
+        "CATEGORY_REQUIRED": "Choose a category.",
+        "ROW_ALREADY_IMPORTED": "This row was already imported. Untick it to continue.",
+        "invalid": "This category can't be used here. Choose another one."
+      },
       "tabs": {
         "new": "New",
         "duplicates": "Possible duplicates",
@@ -453,7 +459,8 @@
     "errors": {
       "tooLarge": "The file is too large (1 MB at most).",
       "fileChanged": "The file changed since the review. Upload it again to review it.",
-      "rowInvalidLine": "The file has a row with an unreadable date or amount (line {line})."
+      "rowInvalidLine": "The file has a row with an unreadable date or amount (line {line}).",
+      "rowsNeedAttention": "{n} row needs fixing. | {n} rows need fixing."
     }
   },
   "monthSelector": {

@@ -16,6 +16,11 @@ const props = defineProps<{
   accountName: (id: string | null) => string
   /** Set when the category just changed and other rows share the description. */
   applyCount?: number
+  /**
+   * The commit rejected this row: the translated message, and whether unticking is the fix (the
+   * checkbox is then the invalid control) rather than choosing another category.
+   */
+  error?: { message: string; onInclude: boolean }
 }>()
 const emit = defineEmits<{
   include: [include: boolean]
@@ -28,6 +33,11 @@ const { t, locale } = useI18n()
 const locked = computed(() => props.row.status === 'ALREADY_IMPORTED')
 const isTransfer = computed(() => props.row.kind === 'TRANSFER')
 const date = computed(() => formatBusinessDate(props.row.date, locale.value as Locale))
+const errorId = computed(() => `row-error-${props.row.rowId}`)
+const includeInvalid = computed(() => !!props.error && (props.error.onInclude || isTransfer.value))
+const categoryInvalid = computed(
+  () => (!!props.error && !includeInvalid.value) || (props.row.include && !props.row.categoryId),
+)
 
 const SELECT =
   'h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 sm:w-56'
@@ -45,6 +55,8 @@ const SELECT =
         :checked="row.include"
         :disabled="locked"
         :aria-label="t('imports.review.include', { description: row.description })"
+        :aria-invalid="includeInvalid ? 'true' : undefined"
+        :aria-describedby="includeInvalid ? errorId : undefined"
         @change="emit('include', ($event.target as HTMLInputElement).checked)"
       />
       <div class="min-w-0 flex-1">
@@ -72,13 +84,15 @@ const SELECT =
         :value="row.categoryId ?? ''"
         :disabled="locked"
         :aria-label="t('imports.review.category', { description: row.description })"
-        :aria-invalid="row.include && !row.categoryId ? 'true' : undefined"
+        :aria-invalid="categoryInvalid ? 'true' : undefined"
+        :aria-describedby="error && !includeInvalid ? errorId : undefined"
         @change="emit('category', ($event.target as HTMLSelectElement).value)"
       >
         <option value="" disabled>{{ t('imports.review.chooseCategory') }}</option>
         <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.label }}</option>
       </select>
     </div>
+    <p v-if="error" :id="errorId" class="text-sm text-destructive">{{ error.message }}</p>
     <div
       v-if="applyCount"
       class="flex flex-wrap items-center gap-2 rounded-md bg-muted p-2 text-sm"

@@ -522,6 +522,74 @@ describe('ImportPage', () => {
     expect(s.previews).toHaveLength(2)
   })
 
+  const rowCommitError = (rowId: string, code: string) =>
+    http.post(`${api}/imports/revolut/commit`, () =>
+      problem(400, 'VALIDATION_FAILED', [{ field: `decisions[${rowId}]`, code }]),
+    )
+  const descriptionOf = (el: HTMLElement) =>
+    (el.getAttribute('aria-describedby') ?? '')
+      .split(' ')
+      .map((id) => document.getElementById(id)?.textContent?.trim() ?? '')
+      .join(' ')
+
+  it('commit_categoryArchived_marksRowAndKeepsReview', async () => {
+    const s = setup({ extra: [rowCommitError('r1', 'CATEGORY_ARCHIVED')] })
+    const { user } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    await user.click(submitButton())
+
+    expect((await screen.findByRole('alert')).textContent).toContain('1 linha precisa de correção.')
+    const [first, second] = rowsIn(panel())
+    const category = within(first!).getByRole('combobox', {
+      name: `Categoria de ${PINGO}`,
+    }) as HTMLSelectElement
+    expect(category.getAttribute('aria-invalid')).toBe('true')
+    expect(descriptionOf(category)).toBe('Esta categoria foi arquivada. Escolha outra.')
+    const other = within(second!).getByRole('combobox', { name: `Categoria de ${PINGO}` })
+    expect(other.getAttribute('aria-invalid')).toBeNull()
+    expect((other as HTMLSelectElement).value).toBe('c1')
+    expect(screen.getByRole('tab', { name: /Novas/ })).toBeTruthy()
+  })
+
+  it('commit_rowError_clearsWhenCategoryChanges', async () => {
+    const s = setup({ extra: [rowCommitError('r1', 'CATEGORY_ARCHIVED')] })
+    const { user } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    await user.click(submitButton())
+    await screen.findByText('Esta categoria foi arquivada. Escolha outra.')
+
+    const [first] = rowsIn(panel())
+    await user.selectOptions(
+      within(first!).getByRole('combobox', { name: `Categoria de ${PINGO}` }),
+      'c4',
+    )
+
+    expect(screen.queryByText('Esta categoria foi arquivada. Escolha outra.')).toBeNull()
+    expect(
+      within(first!)
+        .getByRole('combobox', { name: `Categoria de ${PINGO}` })
+        .getAttribute('aria-invalid'),
+    ).toBeNull()
+  })
+
+  it('commit_rowErrorOnDuplicate_switchesToDuplicatesTab', async () => {
+    const s = setup({ extra: [rowCommitError('r6', 'ROW_ALREADY_IMPORTED')] })
+    const { user } = await upload(s)
+    await user.click(await screen.findByRole('tab', { name: /Possíveis duplicatas/ }))
+    await user.click(
+      within(rowsIn(panel())[0]!).getByRole('checkbox', { name: 'Incluir Farmácia' }),
+    )
+    await user.click(screen.getByRole('tab', { name: /Novas/ }))
+    await user.click(submitButton())
+
+    await screen.findByText('Esta linha já foi importada. Desmarque-a para continuar.')
+    expect(
+      screen.getByRole('tab', { name: /Possíveis duplicatas/ }).getAttribute('aria-selected'),
+    ).toBe('true')
+    const box = within(rowsIn(panel())[0]!).getByRole('checkbox', { name: 'Incluir Farmácia' })
+    expect(box.getAttribute('aria-invalid')).toBe('true')
+  })
+
   it('result_showsCreatedAndAlreadyExisting_andUndoAsksConfirmation', async () => {
     const s = setup()
     const { user } = await upload(s)
