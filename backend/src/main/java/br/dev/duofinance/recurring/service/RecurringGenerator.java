@@ -4,9 +4,13 @@ import br.dev.duofinance.recurring.model.RecurringRule;
 import br.dev.duofinance.recurring.repository.RecurringRuleRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import java.sql.PreparedStatement;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
 import org.hibernate.engine.spi.SharedSessionContractImplementor;
 import org.hibernate.id.uuid.UuidVersion7Strategy;
@@ -23,15 +27,19 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class RecurringGenerator {
 
-    /** Copies the rule's current values; the rule must be flushed before this runs. */
-    private static final String INSERT_OCCURRENCE = """
+    /**
+     * Copies the rule's current values into one transaction per (id, date) pair, in a single statement however many
+     * occurrences are due; the rule must be flushed before this runs. Parameters: now, now, ids, dates, ruleId.
+     */
+    private static final String INSERT_OCCURRENCES = """
             INSERT INTO transactions (id, account_id, kind, amount_cents, date, description, category_id,
                                       bank_account_id, destination_bank_account_id, created_by, recurring_rule_id,
                                       created_at, updated_at)
-            SELECT :id, r.account_id, r.kind, r.amount_cents, :date, r.description, r.category_id,
-                   r.bank_account_id, r.destination_bank_account_id, r.created_by, r.id, :now, :now
+            SELECT o.id, r.account_id, r.kind, r.amount_cents, o.date, r.description, r.category_id,
+                   r.bank_account_id, r.destination_bank_account_id, r.created_by, r.id, ?, ?
             FROM recurring_rules r
-            WHERE r.id = :ruleId
+            CROSS JOIN unnest(?::uuid[], ?::date[]) AS o(id, date)
+            WHERE r.id = ?
             ON CONFLICT (recurring_rule_id, date) WHERE recurring_rule_id IS NOT NULL DO NOTHING
             """;
 
@@ -60,21 +68,31 @@ public class RecurringGenerator {
             return 0;
         }
         entityManager.flush();
-        Instant now = Instant.now(clock);
-        SharedSessionContractImplementor session = entityManager.unwrap(SharedSessionContractImplementor.class);
-        int inserted = 0;
-        for (LocalDate date : RecurrenceSchedule.between(
-                rule.getStartDate(), rule.getFrequency(), rule.getEndDate(), rule.getNextRunDate(), today)) {
-            inserted += entityManager
-                    .createNativeQuery(INSERT_OCCURRENCE)
-                    .setParameter("id", UuidVersion7Strategy.INSTANCE.generateUuid(session))
-                    .setParameter("date", date)
-                    .setParameter("now", now)
-                    .setParameter("ruleId", rule.getId())
-                    .executeUpdate();
-        }
+        List<LocalDate> dates = RecurrenceSchedule.between(
+                rule.getStartDate(), rule.getFrequency(), rule.getEndDate(), rule.getNextRunDate(), today);
+        int inserted = dates.isEmpty() ? 0 : insertOccurrences(rule.getId(), dates, Instant.now(clock));
         rule.setNextRunDate(
                 RecurrenceSchedule.firstOnOrAfter(rule.getStartDate(), rule.getFrequency(), today.plusDays(1)));
         return inserted;
+    }
+
+    private int insertOccurrences(UUID ruleId, List<LocalDate> dates, Instant now) {
+        SharedSessionContractImplementor session = entityManager.unwrap(SharedSessionContractImplementor.class);
+        Object[] ids = new Object[dates.size()];
+        for (int i = 0; i < ids.length; i++) {
+            ids[i] = UuidVersion7Strategy.INSTANCE.generateUuid(session);
+        }
+        Object[] days = dates.stream().map(java.sql.Date::valueOf).toArray();
+        OffsetDateTime timestamp = now.atOffset(ZoneOffset.UTC);
+        return session.doReturningWork(connection -> {
+            try (PreparedStatement insert = connection.prepareStatement(INSERT_OCCURRENCES)) {
+                insert.setObject(1, timestamp);
+                insert.setObject(2, timestamp);
+                insert.setArray(3, connection.createArrayOf("uuid", ids));
+                insert.setArray(4, connection.createArrayOf("date", days));
+                insert.setObject(5, ruleId);
+                return insert.executeUpdate();
+            }
+        });
     }
 }

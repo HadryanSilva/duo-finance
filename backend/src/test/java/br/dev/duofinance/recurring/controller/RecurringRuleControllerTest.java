@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import br.dev.duofinance.IntegrationTest;
 import br.dev.duofinance.category.model.CategoryKind;
+import br.dev.duofinance.recurring.model.Frequency;
+import br.dev.duofinance.recurring.service.RecurrenceSchedule;
 import br.dev.duofinance.recurring.service.RecurringGenerator;
 import br.dev.duofinance.support.FinanceFixtures;
 import br.dev.duofinance.support.MutableClock;
@@ -133,6 +135,38 @@ class RecurringRuleControllerTest {
 
     private int transactionCount() {
         return jdbc.queryForObject("SELECT count(*) FROM transactions", Integer.class);
+    }
+
+    @Test
+    void create_weeklyFrom1970_generatesEveryOccurrenceOnce() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        Map<String, Object> request = monthlyExpense(seeded(s, "EXPENSE"), "1970-01-01");
+        request.put("frequency", "WEEKLY");
+        int expected = RecurrenceSchedule.between(
+                        LocalDate.parse("1970-01-01"),
+                        Frequency.WEEKLY,
+                        null,
+                        LocalDate.parse("1970-01-01"),
+                        LocalDate.parse("2027-03-15"))
+                .size();
+
+        UUID ruleId = create(s, request);
+
+        assertThat(generatedDates(ruleId)).hasSize(expected).doesNotHaveDuplicates();
+        assertThat((Integer) tx.execute(status -> generator.generateDue(ruleId, LocalDate.parse("2027-03-15"))))
+                .isZero();
+        assertThat(generatedDates(ruleId)).hasSize(expected);
+    }
+
+    @Test
+    void create_monthlyOn31stFrom1970_clampsEveryShortMonth() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+
+        UUID ruleId = create(s, monthlyExpense(seeded(s, "EXPENSE"), "1970-01-31"));
+
+        assertThat(generatedDates(ruleId))
+                .contains(LocalDate.parse("1970-02-28"), LocalDate.parse("1972-02-29"), LocalDate.parse("1972-03-31"))
+                .doesNotContain(LocalDate.parse("1970-03-03"));
     }
 
     @Test
