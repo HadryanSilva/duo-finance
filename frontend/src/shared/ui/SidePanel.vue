@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { useMediaQuery } from '@vueuse/core'
 import { computed } from 'vue'
+import { useIsDesktop } from '@/shared/lib/breakpoints'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/shared/ui/sheet'
 
 defineProps<{ open: boolean; title: string; description?: string }>()
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
 
 // Right-hand sheet from md (768px) up, bottom sheet on mobile.
-const isDesktop = useMediaQuery('(min-width: 48rem)')
+const isDesktop = useIsDesktop()
 const side = computed(() => (isDesktop.value ? 'right' : 'bottom'))
 </script>
 
