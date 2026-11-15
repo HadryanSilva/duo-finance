@@ -26,23 +26,30 @@ public final class RevolutCsvParser {
      * header and some values to the app language; everything past this parser works with the English forms.
      */
     private static final Map<String, String> HEADER_ALIASES = Map.ofEntries(
-            // pt-PT
+            // pt-PT and pt-BR share all but Amount and Fee
             Map.entry("tipo", "Type"),
             Map.entry("produto", "Product"),
             Map.entry("data de início", "Started Date"),
             Map.entry("data de conclusão", "Completed Date"),
             Map.entry("descrição", "Description"),
             Map.entry("montante", "Amount"),
+            Map.entry("valor", "Amount"),
             Map.entry("comissão", "Fee"),
+            Map.entry("taxa", "Fee"),
             Map.entry("moeda", "Currency"),
             Map.entry("estado", "State"),
             Map.entry("saldo", "Balance"));
     /** Localized {@code State} values mapped to the canonical English ones the planner checks. */
     private static final Map<String, String> STATE_ALIASES = Map.of(
+            // pt-PT
             "CONCLUÍDA", "COMPLETED",
-            "PENDENTE", "PENDING",
+            "PENDENTE", "PENDING", // pt-BR too (matching ignores case)
             "REVERTIDA", "REVERTED",
-            "RECUSADA", "DECLINED");
+            "RECUSADA", "DECLINED",
+            // pt-BR
+            "Concluído(a)", "COMPLETED",
+            "Revertido(a)", "REVERTED",
+            "Recusado(a)", "DECLINED");
     /** Localized {@code Product} values mapped to the canonical English ones (default mapping, fingerprints). */
     private static final Map<String, String> PRODUCT_ALIASES = Map.of("Atual", "Current");
     /** Localized {@code Type} values the planner acts on, mapped to the canonical English ones. */

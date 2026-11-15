@@ -96,6 +96,28 @@ class RevolutCsvParserTest {
     }
 
     @Test
+    void parse_brazilianPortugueseStatement_normalizesHeaderAndValues() {
+        String csv = "Tipo,Produto,Data de início,Data de conclusão,Descrição,Valor,Taxa,Moeda,Estado,Saldo\n"
+                + "Pagamento com cartão,Atual,2026-11-03 22:01:22,2026-11-03 22:01:38,Cafe,-10.00,0.20,EUR,"
+                + "Concluído(a),90.00\n"
+                + "Pagamento com cartão,Atual,2026-11-05 10:00:00,,Loja,-3.00,0.00,EUR,Pendente,87.00\n"
+                + "Pagamento com cartão,Atual,2026-11-06 10:00:00,,Loja,-3.00,0.00,EUR,Revertido(a),87.00\n"
+                + "Pagamento com cartão,Atual,2026-11-07 10:00:00,,Loja,-3.00,0.00,EUR,Recusado(a),87.00\n";
+
+        List<RevolutRow> rows = RevolutCsvParser.parse(bytes(csv));
+
+        assertThat(rows).hasSize(4);
+        RevolutRow first = rows.get(0);
+        assertThat(first.product()).isEqualTo("Current");
+        assertThat(first.amountCents()).isEqualTo(-1000);
+        assertThat(first.feeCents()).isEqualTo(20);
+        assertThat(first.state()).isEqualTo("COMPLETED");
+        assertThat(rows.get(1).state()).isEqualTo("PENDING");
+        assertThat(rows.get(2).state()).isEqualTo("REVERTED");
+        assertThat(rows.get(3).state()).isEqualTo("DECLINED");
+    }
+
+    @Test
     void parse_portugueseHeaderInAnyCase_works() {
         String csv = "TIPO,produto,DATA DE INÍCIO,data de conclusão,Descrição,Montante,Comissão,Moeda,Estado,Saldo\n"
                 + "Transferência,Atual,2026-11-03 15:00:02,2026-11-03 15:00:02,Para X,-5.00,0.00,EUR,CONCLUÍDA,1\n";
