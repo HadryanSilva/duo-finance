@@ -17,7 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Materializes a rule's due occurrences as transactions. The rule row is locked for the caller's transaction, and the
  * unique {@code (recurring_rule_id, date)} index with {@code ON CONFLICT DO NOTHING} keeps concurrent or repeated runs
- * from duplicating an occurrence.
+ * from duplicating an occurrence. Lock order: the account ({@code KEY SHARE}) before the rule ({@code FOR UPDATE}),
+ * the same order account deletion uses, so the two cannot deadlock.
  */
 @Component
 public class RecurringGenerator {
@@ -51,6 +52,9 @@ public class RecurringGenerator {
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public int generateDue(UUID ruleId, LocalDate today) {
+        if (rules.lockAccountOfRule(ruleId).isEmpty()) {
+            return 0;
+        }
         RecurringRule rule = rules.findByIdForUpdate(ruleId).orElse(null);
         if (rule == null || !rule.isActive()) {
             return 0;
