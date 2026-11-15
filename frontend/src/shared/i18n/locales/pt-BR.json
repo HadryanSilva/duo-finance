@@ -360,7 +360,10 @@
       "author": "Autor",
       "allAuthors": "Todos",
       "search": "Buscar",
-      "searchPlaceholder": "Buscar na descrição"
+      "searchPlaceholder": "Buscar na descrição",
+      "open": "Filtros",
+      "openWithCount": "Filtros, {n} ativo | Filtros, {n} ativos",
+      "clear": "Limpar filtros"
     },
     "form": {
       "kind": "Tipo",

@@ -360,7 +360,10 @@
       "author": "Author",
       "allAuthors": "All",
       "search": "Search",
-      "searchPlaceholder": "Search descriptions"
+      "searchPlaceholder": "Search descriptions",
+      "open": "Filters",
+      "openWithCount": "Filters, {n} active | Filters, {n} active",
+      "clear": "Clear filters"
     },
     "form": {
       "kind": "Type",
