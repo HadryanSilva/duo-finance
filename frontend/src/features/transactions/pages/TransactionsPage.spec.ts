@@ -5,6 +5,7 @@ import { nextTick } from 'vue'
 import App from '@/app/App.vue'
 import { todayIso } from '@/shared/lib/dates'
 import { render, renderRoute, testUser } from '@/test/render'
+import { setViewportWidth } from '@/test/viewport'
 
 const api = `${window.location.origin}/api/v1`
 const problem = (status: number, code: string) =>
@@ -332,6 +333,21 @@ describe('TransactionsPage', () => {
       expect(query.q).toBe('mer')
       expect(screen.getByRole('button', { name: 'Filtros', hidden: true })).toBeTruthy()
     })
+  })
+
+  it('filters_mobile_rotationRoundTripLeavesSheetClosed', async () => {
+    window.innerWidth = 375
+    const { user } = await setup().render('/transactions')
+    const filters = screen.getByRole('search', { name: 'Filtros' })
+    await user.click(within(filters).getByRole('button', { name: 'Filtros, 2 ativos' }))
+    await screen.findByRole('dialog', { name: 'Filtros' })
+
+    setViewportWidth(900) // landscape: wider than md, the grid replaces the sheet
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    setViewportWidth(375) // portrait again: nothing was tapped, so no sheet
+    await screen.findByRole('button', { name: 'Filtros, 2 ativos' })
+    await nextTick()
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('filters_selects_use16pxBelowMd', async () => {

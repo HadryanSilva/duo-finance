@@ -27,6 +27,10 @@ const { t } = useI18n()
 // Below md the search stays on the page and the other filters move into a bottom sheet.
 const isDesktop = useIsDesktop()
 const sheetOpen = ref(false)
+// Rotating to landscape (wider than md) unmounts the sheet: it must not reopen on the way back.
+watch(isDesktop, (desktop) => {
+  if (desktop) sheetOpen.value = false
+})
 const count = computed(() => activeFilterCount(props.filter))
 const buttonLabel = computed(() =>
   count.value
