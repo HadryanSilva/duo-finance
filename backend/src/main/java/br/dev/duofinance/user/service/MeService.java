@@ -116,6 +116,6 @@ public class MeService {
     }
 
     private User load(CurrentUser current) {
-        return users.findById(current.userId()).orElseThrow(() -> new ApiException(ErrorCode.INVALID_CREDENTIALS));
+        return users.findById(current.userId()).orElseThrow(() -> new ApiException(ErrorCode.SESSION_STALE));
     }
 }
