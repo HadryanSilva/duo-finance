@@ -10,6 +10,7 @@ public record MeResponse(
         String displayName,
         String locale,
         boolean emailVerified,
+        boolean onboarded,
         UserRole role,
         UUID accountId) {
 
@@ -20,6 +21,7 @@ public record MeResponse(
                 user.getDisplayName(),
                 user.getLocale(),
                 user.getEmailVerifiedAt() != null,
+                user.getOnboardedAt() != null,
                 user.getRole(),
                 accountId);
     }

@@ -142,5 +142,7 @@ public class RegistrationService {
         }
         members.save(new AccountMember(invitation.getAccountId(), user.getId(), now));
         user.setEmailVerifiedAt(now);
+        // The couple already has a name and there is no partner left to invite.
+        user.setOnboardedAt(now);
     }
 }

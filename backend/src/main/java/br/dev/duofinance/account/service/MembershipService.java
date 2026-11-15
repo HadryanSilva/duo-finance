@@ -60,6 +60,8 @@ public class MembershipService {
         members.deleteById(new AccountMember.Key(current.accountId(), user.getId()));
         members.flush();
         provisioning.createSoloAccount(user);
+        // The new solo account is onboarded like a fresh one, on whichever device the user signs in next.
+        user.setOnboardedAt(null);
         return sessions.start(user);
     }
 }

@@ -74,6 +74,18 @@ public class MeService {
         return MeResponse.of(user, current.accountId());
     }
 
+    /** Marks onboarding as done (finished or skipped). Idempotent: the first completion time is kept. */
+    @Transactional
+    public MeResponse completeOnboarding(CurrentUser current) {
+        User user = load(current);
+        if (user.getOnboardedAt() == null) {
+            Instant now = Instant.now(clock);
+            user.setOnboardedAt(now);
+            user.setUpdatedAt(now);
+        }
+        return MeResponse.of(user, current.accountId());
+    }
+
     /** Replaces the password, revokes every session and starts a fresh one, atomically. */
     @Transactional
     public SessionTokens changePassword(CurrentUser current, String currentPassword, String newPassword) {

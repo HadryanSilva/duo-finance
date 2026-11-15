@@ -3,14 +3,18 @@ package br.dev.duofinance.user.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import br.dev.duofinance.IntegrationTest;
+import br.dev.duofinance.support.MutableClock;
 import br.dev.duofinance.support.TestUsers;
 import br.dev.duofinance.support.TestUsers.TestSession;
 import jakarta.servlet.http.Cookie;
+import java.time.Duration;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 @IntegrationTest
@@ -21,6 +25,58 @@ class MeControllerTest {
 
     @Autowired
     TestUsers testUsers;
+
+    @Autowired
+    JdbcTemplate jdbc;
+
+    @Autowired
+    MutableClock clock;
+
+    private org.springframework.test.web.servlet.assertj.MvcTestResult completeOnboarding(TestSession s) {
+        return mvc.post()
+                .uri("/api/v1/me/onboarding")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                .exchange();
+    }
+
+    private Instant onboardedAt(TestSession s) {
+        return jdbc.queryForObject("SELECT onboarded_at FROM users WHERE id = ?", Instant.class, s.userId());
+    }
+
+    @Test
+    void getMe_newUser_isNotOnboarded() {
+        TestSession s = testUsers.verified("ana@mail.com");
+
+        var result = mvc.get()
+                .uri("/api/v1/me")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                .exchange();
+
+        assertThat(result).bodyJson().extractingPath("$.onboarded").isEqualTo(false);
+    }
+
+    @Test
+    void completeOnboarding_setsFlagAndIsIdempotent() {
+        TestSession s = testUsers.verified("ana@mail.com");
+
+        var first = completeOnboarding(s);
+        assertThat(first).hasStatus(HttpStatus.OK);
+        assertThat(first).bodyJson().extractingPath("$.onboarded").isEqualTo(true);
+        Instant firstAt = onboardedAt(s);
+        assertThat(firstAt).isNotNull();
+
+        clock.setInstant(clock.instant().plus(Duration.ofMinutes(1)));
+        var second = completeOnboarding(s);
+
+        assertThat(second).hasStatus(HttpStatus.OK);
+        assertThat(second).bodyJson().extractingPath("$.onboarded").isEqualTo(true);
+        assertThat(onboardedAt(s)).isEqualTo(firstAt);
+    }
+
+    @Test
+    void completeOnboarding_withoutToken_returns401() {
+        assertThat(mvc.post().uri("/api/v1/me/onboarding").exchange()).hasStatus(HttpStatus.UNAUTHORIZED);
+    }
 
     private org.springframework.test.web.servlet.assertj.MvcTestResult patch(TestSession s, String body) {
         return mvc.patch()
