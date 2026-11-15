@@ -452,7 +452,8 @@
     },
     "errors": {
       "tooLarge": "O arquivo é grande demais (máximo de 1 MB).",
-      "fileChanged": "O arquivo mudou desde a revisão. Envie-o de novo para revisar."
+      "fileChanged": "O arquivo mudou desde a revisão. Envie-o de novo para revisar.",
+      "rowInvalidLine": "O arquivo tem uma linha com data ou valor ilegível (linha {line})."
     }
   },
   "monthSelector": {

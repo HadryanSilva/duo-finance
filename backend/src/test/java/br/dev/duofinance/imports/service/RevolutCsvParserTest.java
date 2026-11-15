@@ -31,7 +31,8 @@ class RevolutCsvParserTest {
 
     private static void assertCode(byte[] file, ErrorCode code) {
         assertThatThrownBy(() -> RevolutCsvParser.parse(file))
-                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo(code));
+                .isInstanceOfSatisfying(
+                        ApiException.class, e -> assertThat(e.code()).isEqualTo(code));
     }
 
     @Test
@@ -177,11 +178,11 @@ class RevolutCsvParserTest {
         String csv = HEADER + ROW
                 + "CARD_PAYMENT,Current,2026-10-03 12:04:51,2026-10-04 08:15:02,Cafe,abc,0.00,EUR,COMPLETED,1\n";
 
-        assertThatThrownBy(() -> RevolutCsvParser.parse(bytes(csv)))
-                .isInstanceOfSatisfying(ApiException.class, e -> {
-                    assertThat(e.code()).isEqualTo(ErrorCode.IMPORT_ROW_INVALID);
-                    assertThat(e.getMessage()).isEqualTo("line 3");
-                });
+        assertThatThrownBy(() -> RevolutCsvParser.parse(bytes(csv))).isInstanceOfSatisfying(ApiException.class, e -> {
+            assertThat(e.code()).isEqualTo(ErrorCode.IMPORT_ROW_INVALID);
+            assertThat(e.getMessage()).isEqualTo("line 3");
+            assertThat(e.properties()).isEqualTo(java.util.Map.of("line", 3));
+        });
     }
 
     @Test
@@ -190,11 +191,11 @@ class RevolutCsvParserTest {
                 + "CARD_PAYMENT,Current,2026-10-03 12:04:51,2026-10-04 08:15:02,Cafe,-1.00,0.00,EUR,COMPLETED,\"1.00\n"
                 + ROW + ROW;
 
-        assertThatThrownBy(() -> RevolutCsvParser.parse(bytes(csv)))
-                .isInstanceOfSatisfying(ApiException.class, e -> {
-                    assertThat(e.code()).isEqualTo(ErrorCode.IMPORT_ROW_INVALID);
-                    assertThat(e.getMessage()).isEqualTo("line 3");
-                });
+        assertThatThrownBy(() -> RevolutCsvParser.parse(bytes(csv))).isInstanceOfSatisfying(ApiException.class, e -> {
+            assertThat(e.code()).isEqualTo(ErrorCode.IMPORT_ROW_INVALID);
+            assertThat(e.getMessage()).isEqualTo("line 3");
+            assertThat(e.properties()).isEqualTo(java.util.Map.of("line", 3));
+        });
     }
 
     @Test

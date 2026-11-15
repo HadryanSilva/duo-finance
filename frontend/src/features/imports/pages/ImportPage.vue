@@ -69,6 +69,8 @@ watch([file, bankAccountId], () => {
 
 function importError(e: unknown): string {
   if (isApiError(e) && e.status === 413) return t('imports.errors.tooLarge')
+  if (isApiError(e) && e.code === 'IMPORT_ROW_INVALID' && e.line !== undefined)
+    return t('imports.errors.rowInvalidLine', { line: e.line })
   return errorMessage(e)
 }
 

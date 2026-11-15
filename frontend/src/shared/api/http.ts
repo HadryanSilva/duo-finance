@@ -63,6 +63,7 @@ async function toApiError(res: Response): Promise<ApiError> {
         status: res.status,
         code: p.code as ApiError['code'],
         fieldErrors: errors.map(({ field, code }) => ({ field, code })),
+        line: 'line' in p && typeof p.line === 'number' ? p.line : undefined,
       })
     }
   } catch {

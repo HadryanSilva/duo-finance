@@ -452,7 +452,8 @@
     },
     "errors": {
       "tooLarge": "The file is too large (1 MB at most).",
-      "fileChanged": "The file changed since the review. Upload it again to review it."
+      "fileChanged": "The file changed since the review. Upload it again to review it.",
+      "rowInvalidLine": "The file has a row with an unreadable date or amount (line {line})."
     }
   },
   "monthSelector": {

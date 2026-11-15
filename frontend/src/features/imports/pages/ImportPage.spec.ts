@@ -348,6 +348,23 @@ describe('ImportPage', () => {
     expect(screen.queryByRole('tab')).toBeNull()
   })
 
+  it('upload_rowInvalid_showsLineNumber', async () => {
+    const s = setup({
+      extra: [
+        http.post(`${api}/imports/revolut/preview`, () =>
+          HttpResponse.json(
+            { status: 422, code: 'IMPORT_ROW_INVALID', detail: 'line 3', line: 3 },
+            { status: 422 },
+          ),
+        ),
+      ],
+    })
+    await upload(s)
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'O arquivo tem uma linha com data ou valor ilegível (linha 3).',
+    )
+  })
+
   it('upload_413_showsTooLargeMessage', async () => {
     const s = setup({
       extra: [

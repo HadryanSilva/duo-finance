@@ -124,14 +124,30 @@ class ImportPreviewTest {
         UUID imported = fixtures.transaction(
                 s,
                 Map.of(
-                        "kind", "EXPENSE", "amountCents", 1250, "date", "2026-10-04",
-                        "categoryId", category, "bankAccountId", bank));
+                        "kind",
+                        "EXPENSE",
+                        "amountCents",
+                        1250,
+                        "date",
+                        "2026-10-04",
+                        "categoryId",
+                        category,
+                        "bankAccountId",
+                        bank));
         jdbc.update("UPDATE transactions SET import_fingerprint = ? WHERE id = ?", fingerprint, imported);
         fixtures.transaction(
                 s,
                 Map.of(
-                        "kind", "EXPENSE", "amountCents", 4530, "date", "2026-10-06",
-                        "categoryId", category, "bankAccountId", bank));
+                        "kind",
+                        "EXPENSE",
+                        "amountCents",
+                        4530,
+                        "date",
+                        "2026-10-06",
+                        "categoryId",
+                        category,
+                        "bankAccountId",
+                        bank));
 
         JsonNode root = body(preview(s, sample(), bank.toString(), null));
 
@@ -219,6 +235,21 @@ class ImportPreviewTest {
     }
 
     @Test
+    void preview_invalidRow_problemCarriesLine() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        String csv = "Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance\n"
+                + "CARD_PAYMENT,Current,2026-10-03 12:04:51,2026-10-04 08:15:02,Cafe,-1.00,0.00,EUR,COMPLETED,1\n"
+                + "CARD_PAYMENT,Current,2026-10-03 12:04:51,2026-10-04 08:15:02,Cafe,abc,0.00,EUR,COMPLETED,1\n";
+
+        var result = preview(s, csv.getBytes(), bank.toString(), null);
+
+        assertThat(result).hasStatus(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("IMPORT_ROW_INVALID");
+        assertThat(result).bodyJson().extractingPath("$.line").isEqualTo(3);
+    }
+
+    @Test
     void preview_badParts_return400() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         UUID bank = fixtures.bankAccount(s, "Revolut", 0);
@@ -245,7 +276,8 @@ class ImportPreviewTest {
                 .uri(URI)
                 .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
                 .multipart()
-                .file(new MockMultipartFile("bankAccountId", "", "text/plain", bank.toString().getBytes()))
+                .file(new MockMultipartFile(
+                        "bankAccountId", "", "text/plain", bank.toString().getBytes()))
                 .exchange();
 
         assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);

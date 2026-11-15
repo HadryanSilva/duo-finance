@@ -400,6 +400,13 @@ describe('http client', () => {
     })
   })
 
+  it('mapsProblemLineToApiError', async () => {
+    server.use(rest.post(`${base}/x`, () => problem(422, 'IMPORT_ROW_INVALID', { line: 3 })))
+    const { http } = setup()
+    const err = await http.post('/x', {}).catch((e: unknown) => e)
+    expect(err).toMatchObject({ code: 'IMPORT_ROW_INVALID', line: 3 })
+  })
+
   it('network failure becomes NETWORK_ERROR with status 0', async () => {
     server.use(rest.get(`${base}/data`, () => HttpResponse.error()))
     const { http } = setup()
