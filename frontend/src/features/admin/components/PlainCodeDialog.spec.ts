@@ -14,9 +14,9 @@ describe('PlainCodeDialog', () => {
     await render(PlainCodeDialog, {}, { props: { code: 'X-1' } })
     await screen.findByText('X-1')
     const content = document.querySelector('[data-slot="dialog-content"]')
-    expect([...(content?.classList ?? [])]).toEqual(
-      expect.arrayContaining(['max-h-dialog', 'overflow-y-auto']),
-    )
+    const body = content?.querySelector('[data-slot="dialog-body"]')
+    expect([...(body?.classList ?? [])]).toContain('overflow-y-auto')
+    expect([...(content?.classList ?? [])]).toEqual(expect.arrayContaining(['max-h-dialog']))
   })
 
   it('copies through the clipboard', async () => {

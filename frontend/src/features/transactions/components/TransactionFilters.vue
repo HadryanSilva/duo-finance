@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { SlidersHorizontal } from '@lucide/vue'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useIsDesktop } from '@/shared/lib/breakpoints'
 import { debounce } from '@/shared/lib/debounce'
@@ -38,7 +38,12 @@ const buttonLabel = computed(() =>
     : t('transactions.filters.open'),
 )
 
+// The sheet hands focus back to this button on close (see SidePanel's returnFocus).
+const openButton = useTemplateRef<{ $el: HTMLElement }>('openButton')
+const openButtonEl = computed(() => openButton.value?.$el ?? null)
+
 function clearSheetFilters() {
+  if (!count.value) return
   // the search is not a sheet filter: it stays as typed
   emit('change', Object.fromEntries(SHEET_FILTER_KEYS.map((key) => [key, undefined])))
 }
@@ -98,6 +103,7 @@ watch(
     </div>
     <Button
       v-if="!isDesktop"
+      ref="openButton"
       type="button"
       variant="outline"
       :aria-label="buttonLabel"
@@ -109,10 +115,22 @@ watch(
     </Button>
   </form>
 
-  <SidePanel v-if="!isDesktop" v-model:open="sheetOpen" :title="t('transactions.filters.label')">
+  <SidePanel
+    v-if="!isDesktop"
+    v-model:open="sheetOpen"
+    :title="t('transactions.filters.label')"
+    :return-focus="openButtonEl"
+  >
     <div class="grid gap-3">
       <TransactionFilterFields :filter="filter" @change="emit('change', $event)" />
-      <Button v-if="count" type="button" variant="ghost" @click="clearSheetFilters">
+      <!-- aria-disabled, not v-if/disabled: clearing must not pull focus out from under the user -->
+      <Button
+        type="button"
+        variant="ghost"
+        class="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+        :aria-disabled="count ? undefined : 'true'"
+        @click="clearSheetFilters"
+      >
         {{ t('transactions.filters.clear') }}
       </Button>
     </div>

@@ -39,13 +39,14 @@ export function filterFromQuery(query: LocationQuery): TransactionFilter {
     const v = single(query[key])
     return v && ISO_DATE.test(v) ? v : undefined
   }
-  const kind = single(query.kind)
+  const kind = KINDS.find((k) => k === single(query.kind))
   const q = normalizeSearch(single(query.q) ?? '')
   const filter: TransactionFilter = {
     from: date('from'),
     to: date('to'),
-    kind: KINDS.find((k) => k === kind),
-    categoryId: single(query.categoryId),
+    kind,
+    // a transfer has no category: a stale one from a crafted URL would filter invisibly
+    categoryId: kind === 'TRANSFER' ? undefined : single(query.categoryId),
     bankAccountId: single(query.bankAccountId),
     createdBy: single(query.createdBy),
     q: q || undefined,

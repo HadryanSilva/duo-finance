@@ -3,6 +3,7 @@ import { http, HttpResponse, type RequestHandler } from 'msw'
 import { afterEach, describe, expect, it } from 'vitest'
 import App from '@/app/App.vue'
 import { render, renderRoute, testUser } from '@/test/render'
+import { setViewportWidth } from '@/test/viewport'
 
 const api = `${window.location.origin}/api/v1`
 const problem = (status: number, code: string) =>
@@ -167,5 +168,20 @@ describe('BankAccountsPage on a phone', () => {
     await screen.findByText('Antiga')
     await user.click(screen.getByRole('button', { name: 'Ações para Antiga' }))
     await waitFor(() => expect(menuItems()).toEqual(['Editar', 'Desarquivar', 'Excluir']))
+  })
+})
+
+describe('BankAccountsPage across a resize', () => {
+  it('bankAccounts_resizeWithMenuOpen_swapsToIconsWithoutStuckOverlay', async () => {
+    window.innerWidth = 375
+    const { user } = await open('/bank-accounts').render()
+    await screen.findByText('Nubank')
+    await user.click(screen.getByRole('button', { name: 'Ações para Nubank' }))
+    await screen.findByRole('menuitem', { name: 'Arquivar' })
+
+    setViewportWidth(1024)
+    await waitFor(() => expect(document.querySelector('[role="menuitem"]')).toBeNull())
+    expect(await screen.findByRole('button', { name: 'Arquivar Nubank' })).toBeTruthy()
+    expect(document.body.style.pointerEvents).not.toBe('none')
   })
 })

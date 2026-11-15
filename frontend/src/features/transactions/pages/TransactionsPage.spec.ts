@@ -335,6 +335,44 @@ describe('TransactionsPage', () => {
     })
   })
 
+  it('filters_mobile_closingReturnsFocusToButton', async () => {
+    window.innerWidth = 375
+    const { user } = await setup().render('/transactions')
+    const button = screen.getByRole('button', { name: 'Filtros, 2 ativos' })
+    // iOS Safari does not focus a tapped button: open without moving focus
+    fireEvent.click(button)
+    await screen.findByRole('dialog', { name: 'Filtros' })
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await waitFor(() => expect(document.activeElement).toBe(button))
+  })
+
+  it('filters_mobile_sheetFocusesItselfNotTheFirstField', async () => {
+    window.innerWidth = 375
+    const { user } = await setup().render('/transactions')
+    await user.click(screen.getByRole('button', { name: 'Filtros, 2 ativos' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Filtros' })
+    await waitFor(() => expect(document.activeElement).toBe(sheet))
+  })
+
+  it('filters_mobile_clearStaysFocusedAndDisabled', async () => {
+    window.innerWidth = 375
+    const { router, user } = await setup().render('/transactions?kind=INCOME')
+    await user.click(screen.getByRole('button', { name: 'Filtros, 3 ativos' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Filtros' })
+    const clear = within(sheet).getByRole('button', { name: 'Limpar filtros' })
+    expect(clear.getAttribute('aria-disabled')).toBeNull()
+    await user.click(clear)
+    await waitFor(() => expect(router.currentRoute.value.query.kind).toBeUndefined())
+    expect(clear.isConnected).toBe(true)
+    expect(clear.getAttribute('aria-disabled')).toBe('true')
+    expect(document.activeElement).toBe(clear)
+    // a disabled clear does nothing
+    const before = router.currentRoute.value.fullPath
+    await user.click(clear)
+    expect(router.currentRoute.value.fullPath).toBe(before)
+  })
+
   it('filters_mobile_rotationRoundTripLeavesSheetClosed', async () => {
     window.innerWidth = 375
     const { user } = await setup().render('/transactions')

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeFilterCount } from './transactions-api'
+import { activeFilterCount, filterFromQuery } from './transactions-api'
 
 describe('activeFilterCount', () => {
   it('counts nothing for an empty filter', () => {
@@ -26,5 +26,17 @@ describe('activeFilterCount', () => {
         q: 'mer',
       }),
     ).toBe(6)
+  })
+})
+
+describe('filterFromQuery', () => {
+  it('drops a category filter when the kind is TRANSFER', () => {
+    const filter = filterFromQuery({ kind: 'TRANSFER', categoryId: 'c1' })
+    expect(filter.kind).toBe('TRANSFER')
+    expect(filter.categoryId).toBeUndefined()
+  })
+
+  it('keeps a category filter for expenses', () => {
+    expect(filterFromQuery({ kind: 'EXPENSE', categoryId: 'c1' }).categoryId).toBe('c1')
   })
 })
