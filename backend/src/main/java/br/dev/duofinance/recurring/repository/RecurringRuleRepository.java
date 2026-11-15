@@ -35,6 +35,10 @@ public interface RecurringRuleRepository extends JpaRepository<RecurringRule, UU
                     """, nativeQuery = true)
     Optional<UUID> lockAccountOfRule(UUID ruleId);
 
+    /** {@code FOR KEY SHARE} on the account, for rule writes; same lock order as {@link #lockAccountOfRule}. */
+    @Query(value = "SELECT id FROM accounts WHERE id = :accountId FOR KEY SHARE", nativeQuery = true)
+    Optional<UUID> lockAccount(UUID accountId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from RecurringRule r where r.id = :id")
     Optional<RecurringRule> findByIdForUpdate(UUID id);

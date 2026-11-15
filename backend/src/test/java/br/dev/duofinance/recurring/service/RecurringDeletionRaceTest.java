@@ -90,6 +90,78 @@ class RecurringDeletionRaceTest {
         return waiting != null && waiting > 0;
     }
 
+    /**
+     * The partner deleting their own user locks the account, then nulls {@code created_by} on the rules they created;
+     * activating such a rule must not hold the rule while waiting for the account.
+     */
+    @Test
+    void activate_whilePartnerDeletesThemselves_waitsAndSucceeds() throws Exception {
+        clock.setInstant(Instant.parse("2027-03-15T10:00:00Z"));
+        TestSession[] couple = testUsers.couple("ana@mail.com", "rui@mail.com");
+        TestSession ana = couple[0];
+        TestSession rui = couple[1];
+        UUID ruleId = monthlyRule(rui, "2027-03-15");
+        assertThat(mvc.post()
+                        .uri("/api/v1/recurring-rules/" + ruleId + "/deactivate")
+                        .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(ana))
+                        .exchange())
+                .hasStatus(HttpStatus.OK);
+
+        try (Connection deleter = dataSource.getConnection()) {
+            deleter.setAutoCommit(false);
+            int deleterPid;
+            try (ResultSet rs = deleter.createStatement().executeQuery("SELECT pg_backend_pid()")) {
+                rs.next();
+                deleterPid = rs.getInt(1);
+            }
+            try (PreparedStatement lock = deleter.prepareStatement("SELECT id FROM accounts WHERE id = ? FOR UPDATE")) {
+                lock.setObject(1, ana.accountId());
+                lock.executeQuery().close();
+            }
+
+            AtomicReference<Integer> status = new AtomicReference<>();
+            AtomicReference<Throwable> failure = new AtomicReference<>();
+            Thread activate = new Thread(() -> {
+                try {
+                    status.set(mvc.post()
+                            .uri("/api/v1/recurring-rules/" + ruleId + "/activate")
+                            .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(ana))
+                            .exchange()
+                            .getResponse()
+                            .getStatus());
+                } catch (Throwable t) {
+                    failure.set(t);
+                }
+            });
+            activate.start();
+
+            long deadline = System.nanoTime() + 5_000_000_000L;
+            while (!anotherBackendWaitsOnLock(deleterPid) && System.nanoTime() < deadline) {
+                Thread.onSpinWait();
+            }
+            assertThat(anotherBackendWaitsOnLock(deleterPid))
+                    .as("activate blocks on the account lock held by the deletion")
+                    .isTrue();
+
+            // The deletion's ON DELETE SET NULL on recurring_rules.created_by needs the rule row.
+            try (PreparedStatement rule =
+                    deleter.prepareStatement("SELECT id FROM recurring_rules WHERE id = ? FOR UPDATE NOWAIT")) {
+                rule.setObject(1, ruleId);
+                rule.executeQuery().close();
+            }
+            try (PreparedStatement delete = deleter.prepareStatement("DELETE FROM users WHERE id = ?")) {
+                delete.setObject(1, rui.userId());
+                delete.executeUpdate();
+            }
+            deleter.commit();
+
+            activate.join(10_000);
+            assertThat(activate.isAlive()).isFalse();
+            assertThat(failure.get()).isNull();
+            assertThat(status.get()).isEqualTo(200);
+        }
+    }
+
     @Test
     void generateDue_whileAccountIsBeingDeleted_waitsAndGeneratesNothing() throws Exception {
         clock.setInstant(Instant.parse("2027-03-15T10:00:00Z"));
