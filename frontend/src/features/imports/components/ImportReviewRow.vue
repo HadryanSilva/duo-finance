@@ -97,8 +97,10 @@ const SELECT =
       v-if="applyCount"
       class="flex flex-wrap items-center gap-2 rounded-md bg-muted p-2 text-sm"
       role="group"
+      aria-live="polite"
+      :aria-labelledby="`apply-prompt-${row.rowId}`"
     >
-      <span class="flex-1">{{
+      <span :id="`apply-prompt-${row.rowId}`" class="flex-1">{{
         t('imports.review.applyPrompt', { n: applyCount }, applyCount)
       }}</span>
       <Button size="sm" @click="emit('apply')">{{ t('imports.review.apply') }}</Button>

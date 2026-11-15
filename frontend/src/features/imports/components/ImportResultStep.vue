@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { CircleCheck } from '@lucide/vue'
-import { ref } from 'vue'
+import { onMounted, ref, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import type { CommitResponse } from '@/shared/api/types'
@@ -19,6 +19,8 @@ const undo = useUndoImport()
 const confirming = ref(false)
 const undone = ref(false)
 const error = ref<string | null>(null)
+const heading = useTemplateRef<HTMLElement>('heading')
+onMounted(() => heading.value?.focus())
 
 async function onUndo() {
   const batchId = props.result.batchId
@@ -39,7 +41,9 @@ async function onUndo() {
       <div class="flex items-start gap-3">
         <CircleCheck class="size-6 shrink-0 text-income" aria-hidden="true" />
         <div>
-          <h2 class="text-lg font-semibold">{{ t('imports.result.title') }}</h2>
+          <h2 ref="heading" tabindex="-1" class="text-lg font-semibold outline-none">
+            {{ t('imports.result.title') }}
+          </h2>
           <p class="text-muted-foreground">
             {{
               t('imports.result.summary', {

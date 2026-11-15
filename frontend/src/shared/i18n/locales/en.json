@@ -396,6 +396,7 @@
       "ignore": "Ignore"
     },
     "review": {
+      "title": "Review transactions",
       "rowErrors": {
         "CATEGORY_ARCHIVED": "This category was archived. Choose another one.",
         "CATEGORY_REQUIRED": "Choose a category.",

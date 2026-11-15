@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useCategories } from '@/shared/api/queries/categories'
 import type { PreviewResponse } from '@/shared/api/types'
@@ -32,6 +32,10 @@ const emit = defineEmits<{ submit: []; clearRowError: [rowId: string] }>()
 
 const { t } = useI18n()
 const tab = ref<'new' | 'duplicates' | 'skipped'>('new')
+
+// Each preview remounts this step, so focus lands on its heading whenever a review appears.
+const heading = useTemplateRef<HTMLElement>('heading')
+onMounted(() => heading.value?.focus())
 
 const expense = useCategories('EXPENSE')
 const income = useCategories('INCOME')
@@ -114,6 +118,9 @@ const tabLabel = (key: 'new' | 'duplicates' | 'skipped', n: number) =>
 
 <template>
   <section class="mt-6 grid gap-4">
+    <h2 ref="heading" tabindex="-1" class="text-lg font-semibold outline-none">
+      {{ t('imports.review.title') }}
+    </h2>
     <p v-if="error" role="alert" class="rounded-md bg-muted p-3 text-sm text-destructive">
       {{ error }}
     </p>
@@ -155,7 +162,7 @@ const tabLabel = (key: 'new' | 'duplicates' | 'skipped', n: number) =>
       :aria-label="t('imports.review.summary')"
       class="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border border-border bg-card p-4"
     >
-      <span class="font-medium">{{
+      <span class="font-medium" aria-live="polite">{{
         t('imports.review.included', { n: sums.count }, sums.count)
       }}</span>
       <span class="text-sm text-muted-foreground">
@@ -166,7 +173,7 @@ const tabLabel = (key: 'new' | 'duplicates' | 'skipped', n: number) =>
         {{ t('imports.review.expense') }}
         <MoneyText :cents="sums.expenseCents" kind="EXPENSE" class="font-medium" />
       </span>
-      <p v-if="sums.count && !ready" class="text-sm text-destructive">
+      <p v-if="sums.count && !ready" role="status" class="text-sm text-destructive">
         {{ t('imports.review.missingCategory') }}
       </p>
       <Button class="ml-auto" :disabled="!ready || pending" @click="emit('submit')">

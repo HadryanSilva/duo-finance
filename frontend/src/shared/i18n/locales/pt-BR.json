@@ -396,6 +396,7 @@
       "ignore": "Ignorar"
     },
     "review": {
+      "title": "Revisar lançamentos",
       "rowErrors": {
         "CATEGORY_ARCHIVED": "Esta categoria foi arquivada. Escolha outra.",
         "CATEGORY_REQUIRED": "Escolha uma categoria.",

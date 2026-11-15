@@ -693,6 +693,42 @@ describe('ImportPage', () => {
     expect(await screen.findByText('1 lançamento importado, 1 já existia')).toBeTruthy()
   })
 
+  it('review_focusesHeadingWhenShown', async () => {
+    const s = setup()
+    await upload(s)
+    const heading = await screen.findByRole('heading', { name: 'Revisar lançamentos' })
+    await waitFor(() => expect(document.activeElement).toBe(heading))
+  })
+
+  it('result_focusesHeadingWhenShown', async () => {
+    const s = setup()
+    const { user } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    await user.click(submitButton())
+    const heading = await screen.findByRole('heading', { name: 'Importação concluída' })
+    await waitFor(() => expect(document.activeElement).toBe(heading))
+  })
+
+  it('review_summaryCountIsLive', async () => {
+    const s = setup()
+    await upload(s)
+    const count = await screen.findByText('5 linhas incluídas')
+    expect(count.getAttribute('aria-live')).toBe('polite')
+  })
+
+  it('review_applyPromptIsAnnouncedGroup', async () => {
+    const s = setup()
+    const { user } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    const [first] = rowsIn(panel())
+    const select = within(first!).getByRole('combobox', { name: `Categoria de ${PINGO}` })
+    await waitFor(() => expect(optionTexts(select)).toContain('Lazer'))
+    await user.selectOptions(select, 'c4')
+
+    const group = within(first!).getByRole('group', { name: 'Aplicar às outras 2 linhas iguais?' })
+    expect(group.getAttribute('aria-live')).toBe('polite')
+  })
+
   it('history_listsBatchesWithUndoOnlyForActive', async () => {
     const s = setup({
       batches: [
