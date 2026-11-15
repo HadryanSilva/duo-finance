@@ -551,6 +551,37 @@ describe('ImportPage', () => {
     expect(screen.getByRole('tab', { name: /Novas/ })).toBeTruthy()
   })
 
+  it('commit_categoryArchived_reloadsCategoriesWithoutTheArchivedOne', async () => {
+    // the partner archived Mercado while this review was open; the server now lists it as archived
+    let mercadoArchived = false
+    const s = setup({
+      extra: [
+        http.get(`${api}/categories`, ({ request }) => {
+          const kind = new URL(request.url).searchParams.get('kind')
+          const now = categories.map((c) =>
+            c.id === 'c1' ? { ...c, archived: mercadoArchived } : c,
+          )
+          return HttpResponse.json(now.filter((c) => (!kind || c.kind === kind) && !c.archived))
+        }),
+        http.post(`${api}/imports/revolut/commit`, () => {
+          mercadoArchived = true
+          return problem(400, 'VALIDATION_FAILED', [
+            { field: 'decisions[r1]', code: 'CATEGORY_ARCHIVED' },
+          ])
+        }),
+      ],
+    })
+    const { user } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    await user.click(submitButton())
+    await screen.findByText('Esta categoria foi arquivada. Escolha outra.')
+
+    const [first] = rowsIn(panel())
+    const select = within(first!).getByRole('combobox', { name: `Categoria de ${PINGO}` })
+    await waitFor(() => expect(optionTexts(select)).not.toContain('Mercado'))
+    expect(optionTexts(select)).toContain('Lazer')
+  })
+
   it('commit_rowError_clearsWhenCategoryChanges', async () => {
     const s = setup({ extra: [rowCommitError('r1', 'CATEGORY_ARCHIVED')] })
     const { user } = await upload(s)

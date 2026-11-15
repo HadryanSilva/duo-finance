@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useQueryClient } from '@tanstack/vue-query'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useBankAccounts } from '@/shared/api/queries/bank-accounts'
@@ -45,6 +46,7 @@ const rowErrors = ref<Record<string, string>>({})
 let previewSeq = 0
 const previewImport = usePreviewImport()
 const commitImport = useCommitImport()
+const queryClient = useQueryClient()
 
 const allAccounts = useBankAccounts(true)
 const accountOptions = computed(() =>
@@ -141,6 +143,9 @@ async function runCommit() {
     const n = Object.keys(byRow).length
     if (n) {
       rowErrors.value = byRow
+      // A category was archived meanwhile: reload the lists so it is no longer offered.
+      if (Object.values(byRow).includes('CATEGORY_ARCHIVED'))
+        void queryClient.invalidateQueries({ queryKey: ['categories'] })
       reviewError.value = t('imports.errors.rowsNeedAttention', { n }, n)
     } else {
       reviewError.value = importError(e)
