@@ -10,6 +10,15 @@ describe('PlainCodeDialog', () => {
     expect(screen.getByText(/não será mostrado de novo/i)).toBeTruthy()
   })
 
+  it('caps its height to the viewport and scrolls', async () => {
+    await render(PlainCodeDialog, {}, { props: { code: 'X-1' } })
+    await screen.findByText('X-1')
+    const content = document.querySelector('[data-slot="dialog-content"]')
+    expect([...(content?.classList ?? [])]).toEqual(
+      expect.arrayContaining(['max-h-dialog', 'overflow-y-auto']),
+    )
+  })
+
   it('copies through the clipboard', async () => {
     const { user } = await render(PlainCodeDialog, {}, { props: { code: 'DUO-ABCD-1234' } })
     const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()

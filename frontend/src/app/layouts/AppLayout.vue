@@ -21,7 +21,7 @@ import UserMenu from '../components/UserMenu.vue'
           <UserMenu />
         </div>
       </header>
-      <main class="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-24 md:px-8 md:pb-8">
+      <main class="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-nav-safe md:px-8 md:pb-8">
         <slot />
       </main>
     </div>

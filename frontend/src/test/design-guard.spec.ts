@@ -1,10 +1,11 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   ARBITRARY_SIZE,
   COLOR_LITERAL,
+  INDEX_HTML,
   PALETTE_CLASS,
   crossFeatureImports,
   formatMoneyInFeatureViews,
@@ -18,6 +19,10 @@ import {
 } from './design-guard'
 
 describe('design guard', () => {
+  it('lets the layout reach under the iPhone safe area', () => {
+    expect(readFileSync(INDEX_HTML, 'utf8')).toContain('viewport-fit=cover')
+  })
+
   it('has no hex or rgb/hsl colors outside the token file', () => {
     expect(offenders(COLOR_LITERAL)).toEqual([])
   })
