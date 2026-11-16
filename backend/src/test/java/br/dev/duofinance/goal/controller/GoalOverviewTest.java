@@ -277,8 +277,9 @@ class GoalOverviewTest {
 
         JsonNode goals = o.path("goals");
         assertThat(goals).hasSize(2);
+        // March is already contributed: the 60000 left spread over April to August.
         assertThat(goals.get(0).path("projection").path("requiredMonthlyCents").asLong())
-                .isEqualTo(10000);
+                .isEqualTo(12000);
         assertThat(goals.get(1).path("projection").path("projectedMonth").asString())
                 .isEqualTo("2027-06");
         assertThat(o.path("completed").get(0).path("projection").isNull()).isTrue();

@@ -91,10 +91,22 @@ class AccountIsolationTest {
         } else if (method.equals("POST") && resource.equals("goals")) {
             request.contentType(MediaType.APPLICATION_JSON).content(goalActionBody(suffix));
         }
+        String goalState = resource.equals("goals") ? goalState(ids.get("goals")) : null;
         var result = request.exchange();
 
         assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("NOT_FOUND");
+        if (goalState != null) {
+            assertThat(goalState(ids.get("goals"))).as("nothing written").isEqualTo(goalState);
+        }
+    }
+
+    /** The goal row and its movements, to prove a rejected request wrote nothing. */
+    private String goalState(UUID goal) {
+        return jdbc.queryForObject(
+                "SELECT g::text || (SELECT count(*) FROM goal_movements WHERE goal_id = g.id) FROM goals g WHERE id = ?",
+                String.class,
+                goal);
     }
 
     @Test
@@ -227,10 +239,12 @@ class AccountIsolationTest {
                 .uri("/api/v1/imports/revolut/preview")
                 .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(intruder))
                 .multipart()
+                .file(new org.springframework.mock.web.MockMultipartFile("file", "s.csv", "text/csv", "x".getBytes()))
                 .file(new org.springframework.mock.web.MockMultipartFile(
-                        "file", "s.csv", "text/csv", "x".getBytes()))
-                .file(new org.springframework.mock.web.MockMultipartFile(
-                        "bankAccountId", "", "text/plain", ids.get("bank-accounts").toString().getBytes()))
+                        "bankAccountId",
+                        "",
+                        "text/plain",
+                        ids.get("bank-accounts").toString().getBytes()))
                 .exchange());
         assertNotFound(post(
                 intruder,

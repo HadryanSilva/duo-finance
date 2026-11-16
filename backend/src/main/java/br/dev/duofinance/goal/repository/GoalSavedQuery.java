@@ -25,6 +25,12 @@ public class GoalSavedQuery {
             GROUP BY goal_id
             """;
 
+    private static final String ONE_GOAL_SQL = """
+            SELECT COALESCE(SUM(CASE type WHEN 'WITHDRAWAL' THEN -amount_cents WHEN 'SKIP' THEN 0 ELSE amount_cents END), 0)::bigint
+            FROM goal_movements
+            WHERE goal_id = :goalId
+            """;
+
     private static final String LAST_CONTRIBUTIONS_SQL = """
             SELECT goal_id, amount_cents
             FROM (SELECT goal_id, amount_cents, month,
@@ -54,6 +60,12 @@ public class GoalSavedQuery {
             result.put(rs.getObject("goal_id", UUID.class), rs.getLong("saved_cents"));
         });
         return result;
+    }
+
+    /** The saved amount of one goal, 0 without movements. */
+    public long savedOf(UUID goalId) {
+        Long result = jdbc.queryForObject(ONE_GOAL_SQL, new MapSqlParameterSource("goalId", goalId), Long.class);
+        return result == null ? 0 : result;
     }
 
     /** Each goal's last three contribution amounts, newest month first; deposits do not count. */

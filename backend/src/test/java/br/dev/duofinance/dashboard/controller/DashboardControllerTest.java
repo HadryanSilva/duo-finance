@@ -39,7 +39,7 @@ class DashboardControllerTest {
 
     private static final String BASE = "/api/v1/dashboard";
     private static final long AUTH_STATEMENTS = 2;
-    private static final long GOALS_STATEMENTS = 5;
+    private static final long GOALS_STATEMENTS = 7;
 
     @Autowired
     MockMvcTester mvc;
@@ -361,17 +361,31 @@ class DashboardControllerTest {
     }
 
     private UUID goal(TestSession s, long targetCents) throws Exception {
+        return goal(s, "Trip", targetCents, 10);
+    }
+
+    private UUID goal(TestSession s, String name, long targetCents, int percent) throws Exception {
         MvcTestResult result = mvc.post()
                 .uri("/api/v1/goals")
                 .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(
-                        Map.of("name", "Trip", "targetCents", targetCents, "monthlyPercent", 10)))
+                        Map.of("name", name, "targetCents", targetCents, "monthlyPercent", percent)))
                 .exchange();
         assertThat(result).hasStatus(HttpStatus.CREATED);
         return UUID.fromString(json.readTree(result.getResponse().getContentAsString())
                 .path("id")
                 .asString());
+    }
+
+    private void contribute(TestSession s, UUID goal, String month, long cents) {
+        assertThat(mvc.post()
+                        .uri("/api/v1/goals/" + goal + "/contributions")
+                        .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("month", month, "amountCents", cents)))
+                        .exchange())
+                .hasStatus(HttpStatus.CREATED);
     }
 
     private void deposit(TestSession s, UUID goal, long cents) {
@@ -504,8 +518,8 @@ class DashboardControllerTest {
         long large = statementsFor(s);
 
         // 2 auth/entitlement + 8 for the dashboard (the brief's bound): totals with currency, bank accounts, balances,
-        // spending, budgets, budget categories, spending categories, active rules; plus 5 for the goals overview
-        // (saved, last contributions, goals, salary setting, salary total).
+        // spending, budgets, budget categories, spending categories, active rules; plus 7 for the goals overview
+        // (decided this month, saved, last contributions, goals, salary setting, salary category, salary total).
         assertThat(small).isEqualTo(AUTH_STATEMENTS + 8 + GOALS_STATEMENTS);
         assertThat(large).isEqualTo(small);
     }
@@ -516,10 +530,12 @@ class DashboardControllerTest {
         return JDBC_STATEMENTS.get();
     }
 
-    /** Adds {@code n} categories with spending and a budget, bank accounts, transactions and rules. */
+    /** Adds {@code n} categories with spending and a budget, bank accounts, transactions, rules and goals with
+     * deposits and contributions; the salary category is the new income category. */
     private void seedVolume(TestSession s, int n) throws Exception {
         String suffix = Long.toString(System.nanoTime());
         UUID pay = fixtures.category(s, "Pay" + suffix, CategoryKind.INCOME);
+        jdbc.update("UPDATE accounts SET salary_category_id = ? WHERE id = ?", pay, s.accountId());
         for (int i = 0; i < n; i++) {
             UUID category = fixtures.category(s, "C" + i + "-" + suffix, CategoryKind.EXPENSE);
             UUID bank = fixtures.bankAccount(s, "B" + i + "-" + suffix, 100);
@@ -527,6 +543,11 @@ class DashboardControllerTest {
             tx(s, "INCOME", 20 + i, "2027-03-%02d".formatted(i + 1), pay, bank);
             budget(s, category, 1_000);
             weeklyRule(s, "2027-03-16", null);
+            UUID goal = goal(s, "G" + i + "-" + suffix, 1_000_000, 1);
+            deposit(s, goal, 500 + i);
+            if (i % 2 == 0) {
+                contribute(s, goal, "2027-03", 100 + i);
+            }
         }
     }
 }

@@ -13,8 +13,10 @@ import br.dev.duofinance.goal.repository.GoalSalaryQuery;
 import br.dev.duofinance.goal.repository.GoalSavedQuery;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ErrorCode;
+import br.dev.duofinance.transaction.dto.TransactionResponse.CategoryRef;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Comparator;
 import java.util.List;
@@ -60,7 +62,9 @@ public class GoalService {
 
     @Transactional(readOnly = true)
     public GoalsOverview overview(UUID accountId, YearMonth month) {
-        YearMonth current = currentMonth();
+        LocalDate today = LocalDate.now(clock);
+        YearMonth current = YearMonth.from(today);
+        Set<UUID> decidedThisMonth = saved.goalsDecidedIn(accountId, current);
         Map<UUID, Long> savedByGoal = saved.savedByGoal(accountId);
         Map<UUID, List<Long>> lastContributions = saved.lastContributionsByGoal(accountId);
         List<Goal> all = goals.findByAccountIdOrderByCreatedAtAscIdAsc(accountId);
@@ -76,7 +80,8 @@ public class GoalService {
                                     savedCents,
                                     g.getTargetDate(),
                                     lastContributions.getOrDefault(g.getId(), List.of()),
-                                    current));
+                                    today,
+                                    decidedThisMonth.contains(g.getId())));
                 })
                 .toList();
         List<GoalResponse> completed = all.stream()
@@ -85,26 +90,35 @@ public class GoalService {
                 .map(g -> respond(g, savedByGoal))
                 .toList();
         long totalSaved = active.stream().mapToLong(GoalResponse::savedCents).sum();
-        long salary = settings.usableSalaryCategoryId(accountId)
-                .map(id -> salaries.salary(accountId, id, month))
-                .orElse(0L);
+        // Read once: an archived salary category is still shown (with a warning) but suggests nothing.
+        CategoryRef salaryCategory = settings.get(accountId).salaryCategory();
+        long salary = salaryCategory == null || salaryCategory.archived()
+                ? 0L
+                : salaries.salary(accountId, salaryCategory.id(), month);
         return new GoalsOverview(
                 month,
-                settings.get(accountId).salaryCategory(),
+                salaryCategory,
                 salary,
                 totalSaved,
                 active,
                 completed,
-                suggestions(accountId, month, current, salary, active));
+                suggestions(
+                        accountId, month, current, salary, active, month.equals(current) ? decidedThisMonth : null));
     }
 
     /** Only the usable-salary case reaches here with salary > 0; past months stay open until decided. */
     private List<GoalSuggestion> suggestions(
-            UUID accountId, YearMonth month, YearMonth current, long salary, List<GoalResponse> active) {
+            UUID accountId,
+            YearMonth month,
+            YearMonth current,
+            long salary,
+            List<GoalResponse> active,
+            @Nullable Set<UUID> decidedInCurrentMonth) {
         if (salary <= 0 || month.isAfter(current)) {
             return List.of();
         }
-        Set<UUID> decided = saved.goalsDecidedIn(accountId, month);
+        Set<UUID> decided =
+                decidedInCurrentMonth != null ? decidedInCurrentMonth : saved.goalsDecidedIn(accountId, month);
         return active.stream()
                 .filter(g -> g.status() == GoalStatus.ACTIVE && g.monthlyPercent() > 0)
                 .filter(g ->
@@ -223,7 +237,7 @@ public class GoalService {
     }
 
     private GoalResponse single(Goal goal) {
-        return respond(goal, saved.savedByGoal(goal.getAccountId()));
+        return GoalResponse.of(goal, saved.savedOf(goal.getId()), null);
     }
 
     private static GoalResponse respond(Goal goal, Map<UUID, Long> savedByGoal) {

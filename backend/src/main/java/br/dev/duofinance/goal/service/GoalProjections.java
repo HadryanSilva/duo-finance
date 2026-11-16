@@ -13,35 +13,43 @@ final class GoalProjections {
     private GoalProjections() {}
 
     /**
-     * A target month already behind the current one cannot be reached any more: the projection then says so and
-     * falls back to the current pace, when there is one.
+     * A target date before today cannot be reached any more: the projection then says so and falls back to the
+     * current pace, when there is one. Contributions are counted from the current month while its contribution is
+     * still pending, and from the next month once it was decided (contributed or skipped).
      *
      * @param lastContributions the goal's last contribution amounts, newest first, at most three
+     * @param decidedThisMonth whether the goal already has a contribution or a skip for the current month
      */
     static @Nullable GoalProjection of(
             long targetCents,
             long savedCents,
             @Nullable LocalDate targetDate,
             List<Long> lastContributions,
-            YearMonth current) {
+            LocalDate today,
+            boolean decidedThisMonth) {
         long remaining = targetCents - savedCents;
         if (remaining <= 0) {
             return null;
         }
+        YearMonth current = YearMonth.from(today);
+        YearMonth firstMonth = decidedThisMonth ? current.plusMonths(1) : current;
         if (targetDate != null) {
-            YearMonth targetMonth = YearMonth.from(targetDate);
-            if (targetMonth.isBefore(current)) {
-                return new GoalProjection(null, paceMonth(remaining, lastContributions, current), true);
+            if (targetDate.isBefore(today)) {
+                return new GoalProjection(null, paceMonth(remaining, lastContributions, firstMonth), true);
             }
-            long months = ChronoUnit.MONTHS.between(current, targetMonth) + 1;
+            // A target later this month with this month already decided leaves one month: the remaining now.
+            long months = Math.max(1, ChronoUnit.MONTHS.between(firstMonth, YearMonth.from(targetDate)) + 1);
             return new GoalProjection(Math.ceilDiv(remaining, months), null, false);
         }
-        YearMonth pace = paceMonth(remaining, lastContributions, current);
+        YearMonth pace = paceMonth(remaining, lastContributions, firstMonth);
         return pace == null ? null : new GoalProjection(null, pace, false);
     }
 
-    /** The month the average of the last contributions reaches the target; null without a positive average. */
-    private static @Nullable YearMonth paceMonth(long remaining, List<Long> lastContributions, YearMonth current) {
+    /**
+     * The month the average of the last contributions reaches the target, contributing from {@code firstMonth} on;
+     * null without a positive average.
+     */
+    private static @Nullable YearMonth paceMonth(long remaining, List<Long> lastContributions, YearMonth firstMonth) {
         if (lastContributions.isEmpty()) {
             return null;
         }
@@ -50,6 +58,6 @@ final class GoalProjections {
         if (average <= 0) {
             return null;
         }
-        return current.plusMonths(Math.ceilDiv(remaining, average));
+        return firstMonth.plusMonths(Math.ceilDiv(remaining, average) - 1);
     }
 }

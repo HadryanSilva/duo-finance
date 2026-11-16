@@ -177,7 +177,7 @@ public class GoalMovementService {
     }
 
     private long savedOf(Goal goal) {
-        return saved.savedByGoal(goal.getAccountId()).getOrDefault(goal.getId(), 0L);
+        return saved.savedOf(goal.getId());
     }
 
     private static long remainingOf(Goal goal, long saved) {

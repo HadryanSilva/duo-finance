@@ -164,6 +164,8 @@ class GoalMovementControllerTest {
         assertThat(list.get(0).path("type").asString()).isEqualTo("CONTRIBUTION");
         assertThat(list.get(0).path("amountCents").asLong()).isEqualTo(35000);
         assertThat(list.get(0).path("month").asString()).isEqualTo("2027-03");
+        assertThat(list.get(0).path("createdBy").path("userId").asString())
+                .isEqualTo(s.userId().toString());
         assertThat(list.get(0).path("createdBy").path("displayName").asString()).isNotBlank();
     }
 
@@ -297,6 +299,35 @@ class GoalMovementControllerTest {
     }
 
     @Test
+    void undo_skip_bringsMonthBack() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        withSalary(s);
+        String goal = createGoal(s, 100000, 10);
+        assertThat(skip(s, goal, "2027-03")).hasStatus(HttpStatus.CREATED);
+        assertError(contribute(s, goal, "2027-03", null), HttpStatus.CONFLICT, "GOAL_MONTH_TAKEN");
+        String movementId = movements(s, goal).get(0).path("id").asString();
+
+        MvcTestResult undone = send(HttpMethod.DELETE, s, GOALS + "/" + goal + "/movements/" + movementId, null);
+
+        assertThat(undone).hasStatus(HttpStatus.OK);
+        assertThat(body(undone).path("savedCents").asLong()).isZero();
+        assertThat(movements(s, goal)).isEmpty();
+        assertThat(contribute(s, goal, "2027-03", null)).hasStatus(HttpStatus.CREATED);
+    }
+
+    @Test
+    void deposit_aboveRemaining_rejected() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        String goal = createGoal(s, 20000, 10);
+        assertThat(amount(s, goal, "deposits", 15000, null)).hasStatus(HttpStatus.CREATED);
+
+        assertError(amount(s, goal, "deposits", 5001, null), HttpStatus.BAD_REQUEST, "GOAL_AMOUNT_INVALID");
+
+        assertThat(movements(s, goal)).hasSize(1);
+        assertThat(amount(s, goal, "deposits", 5000, null)).hasStatus(HttpStatus.CREATED);
+    }
+
+    @Test
     void undo_depositBelowZero_rejected() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         String goal = createGoal(s, 100000, 10);
@@ -343,6 +374,9 @@ class GoalMovementControllerTest {
                 .hasStatus(HttpStatus.OK);
 
         assertError(amount(s, goal, "deposits", 1000, null), HttpStatus.CONFLICT, "GOAL_COMPLETED");
+        assertError(amount(s, goal, "withdrawals", 500, null), HttpStatus.CONFLICT, "GOAL_COMPLETED");
+        assertError(contribute(s, goal, "2027-03", 500L), HttpStatus.CONFLICT, "GOAL_COMPLETED");
+        assertError(skip(s, goal, "2027-03"), HttpStatus.CONFLICT, "GOAL_COMPLETED");
         assertError(
                 send(HttpMethod.DELETE, s, GOALS + "/" + goal + "/movements/" + movementId, null),
                 HttpStatus.CONFLICT,
