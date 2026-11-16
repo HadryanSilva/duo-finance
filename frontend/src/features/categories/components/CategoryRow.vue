@@ -30,6 +30,7 @@ const label = (action: 'edit' | 'archive' | 'unarchive' | 'delete') =>
     </div>
     <RowActions
       :archived="category.archived"
+      :menu-label="t('common.actionsFor', { name: category.name })"
       :labels="{
         edit: label('edit'),
         archive: label('archive'),

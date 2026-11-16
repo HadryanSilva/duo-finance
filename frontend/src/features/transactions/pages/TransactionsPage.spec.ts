@@ -5,6 +5,7 @@ import { nextTick } from 'vue'
 import App from '@/app/App.vue'
 import { todayIso } from '@/shared/lib/dates'
 import { render, renderRoute, testUser } from '@/test/render'
+import { setViewportWidth } from '@/test/viewport'
 
 const api = `${window.location.origin}/api/v1`
 const problem = (status: number, code: string) =>
@@ -289,6 +290,110 @@ describe('TransactionsPage', () => {
     vi.useRealTimers()
     await waitFor(() => expect(s.requests.at(-1)?.get('q')).toBe('feira'))
     expect(s.requests.at(-1)?.get('kind')).toBe('INCOME')
+  })
+
+  describe('on a phone', () => {
+    afterEach(() => {
+      window.innerWidth = 1024 // jsdom's default
+    })
+
+    const openSheet = async (user: { click: (el: Element) => Promise<void> }, name: string) => {
+      const filters = screen.getByRole('search', { name: 'Filtros' })
+      await user.click(within(filters).getByRole('button', { name }))
+      return screen.findByRole('dialog', { name: 'Filtros' })
+    }
+
+    it('filters_mobile_showsSearchAndCountButton', async () => {
+      window.innerWidth = 375
+      await setup().render('/transactions?kind=INCOME')
+      const filters = screen.getByRole('search', { name: 'Filtros' })
+      expect(within(filters).getByLabelText('Buscar')).toBeTruthy()
+      expect(within(filters).queryByLabelText('Tipo')).toBeNull()
+      const button = within(filters).getByRole('button', { name: 'Filtros, 3 ativos' })
+      expect(norm(button.textContent)).toContain('· 3')
+    })
+
+    it('filters_mobile_sheetChangesUrl', async () => {
+      window.innerWidth = 375
+      const { router, user } = await setup().render('/transactions')
+      const sheet = await openSheet(user, 'Filtros, 2 ativos')
+      await user.selectOptions(within(sheet).getByLabelText('Tipo'), 'EXPENSE')
+      await waitFor(() => expect(router.currentRoute.value.query.kind).toBe('EXPENSE'))
+    })
+
+    it('filters_mobile_clearKeepsSearch', async () => {
+      window.innerWidth = 375
+      const { router, user } = await setup().render('/transactions?kind=INCOME&q=mer')
+      const sheet = await openSheet(user, 'Filtros, 3 ativos')
+      await user.click(within(sheet).getByRole('button', { name: 'Limpar filtros' }))
+      await waitFor(() => expect(router.currentRoute.value.query.kind).toBeUndefined())
+      const { query } = router.currentRoute.value
+      expect(query.from).toBe('')
+      expect(query.to).toBe('')
+      expect(query.q).toBe('mer')
+      expect(screen.getByRole('button', { name: 'Filtros', hidden: true })).toBeTruthy()
+    })
+  })
+
+  it('filters_mobile_closingReturnsFocusToButton', async () => {
+    window.innerWidth = 375
+    const { user } = await setup().render('/transactions')
+    const button = screen.getByRole('button', { name: 'Filtros, 2 ativos' })
+    // iOS Safari does not focus a tapped button: open without moving focus
+    fireEvent.click(button)
+    await screen.findByRole('dialog', { name: 'Filtros' })
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await waitFor(() => expect(document.activeElement).toBe(button))
+  })
+
+  it('filters_mobile_sheetFocusesItselfNotTheFirstField', async () => {
+    window.innerWidth = 375
+    const { user } = await setup().render('/transactions')
+    await user.click(screen.getByRole('button', { name: 'Filtros, 2 ativos' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Filtros' })
+    await waitFor(() => expect(document.activeElement).toBe(sheet))
+  })
+
+  it('filters_mobile_clearStaysFocusedAndDisabled', async () => {
+    window.innerWidth = 375
+    const { router, user } = await setup().render('/transactions?kind=INCOME')
+    await user.click(screen.getByRole('button', { name: 'Filtros, 3 ativos' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Filtros' })
+    const clear = within(sheet).getByRole('button', { name: 'Limpar filtros' })
+    expect(clear.getAttribute('aria-disabled')).toBeNull()
+    await user.click(clear)
+    await waitFor(() => expect(router.currentRoute.value.query.kind).toBeUndefined())
+    expect(clear.isConnected).toBe(true)
+    expect(clear.getAttribute('aria-disabled')).toBe('true')
+    expect(document.activeElement).toBe(clear)
+    // a disabled clear does nothing
+    const before = router.currentRoute.value.fullPath
+    await user.click(clear)
+    expect(router.currentRoute.value.fullPath).toBe(before)
+  })
+
+  it('filters_mobile_rotationRoundTripLeavesSheetClosed', async () => {
+    window.innerWidth = 375
+    const { user } = await setup().render('/transactions')
+    const filters = screen.getByRole('search', { name: 'Filtros' })
+    await user.click(within(filters).getByRole('button', { name: 'Filtros, 2 ativos' }))
+    await screen.findByRole('dialog', { name: 'Filtros' })
+
+    setViewportWidth(900) // landscape: wider than md, the grid replaces the sheet
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    setViewportWidth(375) // portrait again: nothing was tapped, so no sheet
+    await screen.findByRole('button', { name: 'Filtros, 2 ativos' })
+    await nextTick()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('filters_selects_use16pxBelowMd', async () => {
+    await setup().render('/transactions')
+    const filters = screen.getByRole('search', { name: 'Filtros' })
+    expect([...within(filters).getByLabelText('Tipo').classList]).toEqual(
+      expect.arrayContaining(['text-base', 'md:text-sm']),
+    )
   })
 
   it('filters_foreignCategory404_removesFilter', async () => {

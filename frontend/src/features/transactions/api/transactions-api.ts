@@ -39,13 +39,14 @@ export function filterFromQuery(query: LocationQuery): TransactionFilter {
     const v = single(query[key])
     return v && ISO_DATE.test(v) ? v : undefined
   }
-  const kind = single(query.kind)
+  const kind = KINDS.find((k) => k === single(query.kind))
   const q = normalizeSearch(single(query.q) ?? '')
   const filter: TransactionFilter = {
     from: date('from'),
     to: date('to'),
-    kind: KINDS.find((k) => k === kind),
-    categoryId: single(query.categoryId),
+    kind,
+    // a transfer has no category: a stale one from a crafted URL would filter invisibly
+    categoryId: kind === 'TRANSFER' ? undefined : single(query.categoryId),
     bankAccountId: single(query.bankAccountId),
     createdBy: single(query.createdBy),
     q: q || undefined,
@@ -64,4 +65,19 @@ export function queryPatch(patch: Partial<Record<keyof TransactionFilter, string
     else out[key] = value || undefined
   }
   return out
+}
+
+/** The filters the mobile sheet holds: everything but the search, which stays on the page. */
+export const SHEET_FILTER_KEYS = [
+  'from',
+  'to',
+  'kind',
+  'categoryId',
+  'bankAccountId',
+  'createdBy',
+] as const
+
+/** How many sheet filters are set (shown on the mobile "Filters" button). */
+export function activeFilterCount(filter: TransactionFilter): number {
+  return SHEET_FILTER_KEYS.filter((key) => Boolean(filter[key])).length
 }

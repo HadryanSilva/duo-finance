@@ -14,7 +14,7 @@ const linkClass =
   <nav
     data-testid="bottom-nav"
     :aria-label="t('nav.main')"
-    class="fixed inset-x-0 bottom-0 z-40 border-t bg-card md:hidden"
+    class="fixed inset-x-0 bottom-0 z-40 border-t bg-card pb-safe md:hidden"
   >
     <ul class="grid grid-cols-5 items-center">
       <li v-for="item in left" :key="item.to">

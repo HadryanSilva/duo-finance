@@ -67,6 +67,7 @@
     "archived": "Arquivada",
     "showArchived": "Mostrar arquivadas",
     "close": "Fechar",
+    "actionsFor": "Ações para {name}",
     "viewRecurring": "Ver lançamentos recorrentes"
   },
   "nav": {
@@ -360,7 +361,10 @@
       "author": "Autor",
       "allAuthors": "Todos",
       "search": "Buscar",
-      "searchPlaceholder": "Buscar na descrição"
+      "searchPlaceholder": "Buscar na descrição",
+      "open": "Filtros",
+      "openWithCount": "Filtros, {n} ativo | Filtros, {n} ativos",
+      "clear": "Limpar filtros"
     },
     "form": {
       "kind": "Tipo",
@@ -506,6 +510,8 @@
     "activate": "Ativar {name}",
     "deactivate": "Desativar {name}",
     "remove": "Excluir {name}",
+    "activateShort": "Ativar",
+    "deactivateShort": "Desativar",
     "deleteTitle": "Excluir recorrência?",
     "deleteMessage": "A recorrência deixa de gerar lançamentos. Os lançamentos já gerados permanecem.",
     "frequency": {

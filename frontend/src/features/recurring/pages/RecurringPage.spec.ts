@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/dom'
 import { http, HttpResponse, type RequestHandler } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import App from '@/app/App.vue'
 import { todayIso } from '@/shared/lib/dates'
 import { render, renderRoute } from '@/test/render'
@@ -278,5 +278,38 @@ describe('RecurringPage', () => {
     expect(dialog.textContent).toContain('lançamentos já gerados permanecem')
     await user.click(within(dialog).getByRole('button', { name: 'Excluir' }))
     await waitFor(() => expect(s.calls.deleted).toBe('r1'))
+  })
+})
+
+describe('RecurringPage on a phone', () => {
+  const menuItems = () =>
+    [...document.querySelectorAll('[role="menuitem"]')].map((el) => el.textContent?.trim())
+
+  afterEach(() => {
+    window.innerWidth = 1024 // jsdom's default
+  })
+
+  it('recurring_mobile_finishedRuleHasNoToggle', async () => {
+    window.innerWidth = 375
+    const { user } = await setup().render('/recurring')
+    await screen.findByText('Aluguel')
+    expect(screen.queryByRole('button', { name: 'Desativar Aluguel' })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Ações para Aluguel' }))
+    await waitFor(() => expect(menuItems()).toEqual(['Editar', 'Desativar', 'Excluir']))
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(menuItems()).toEqual([]))
+
+    await user.click(screen.getByRole('button', { name: 'Ações para Curso' }))
+    await waitFor(() => expect(menuItems()).toEqual(['Editar', 'Excluir']))
+  })
+
+  it('recurring_mobile_menuToggles', async () => {
+    window.innerWidth = 375
+    const s = setup()
+    const { user } = await s.render('/recurring')
+    await user.click(await screen.findByRole('button', { name: 'Ações para Aluguel' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Desativar' }))
+    await waitFor(() => expect(s.calls.deactivated).toBe('r1'))
   })
 })

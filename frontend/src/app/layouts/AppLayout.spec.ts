@@ -31,7 +31,10 @@ describe('AppLayout', () => {
     const sidebar = wrapper.get('[data-testid="sidebar"]')
     expect(sidebar.classes()).toEqual(expect.arrayContaining(['hidden', 'md:flex']))
     const bottom = wrapper.get('[data-testid="bottom-nav"]')
-    expect(bottom.classes()).toContain('md:hidden')
+    expect(bottom.classes()).toEqual(expect.arrayContaining(['md:hidden', 'pb-safe']))
+    expect(wrapper.get('main').classes()).toEqual(
+      expect.arrayContaining(['pb-nav-safe', 'md:pb-8']),
+    )
     expect(linkNames(bottom.element)).toEqual([
       'Dashboard',
       'Lançamentos',
