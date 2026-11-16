@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { useContribute, useSkipMonth } from '@/shared/api/queries/goals'
 import type { DashboardResponse, GoalResponse, GoalSuggestion } from '@/shared/api/types'
 import { errorMessage } from '@/shared/i18n/error-codes'
-import { formatMonth } from '@/shared/lib/dates'
+import { currentMonth, formatMonth } from '@/shared/lib/dates'
 import type { Locale } from '@/shared/lib/money'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
@@ -35,6 +35,18 @@ const needsSalaryCategory = computed(() => {
   return g.goals.some((x) => x.monthlyPercent > 0) && (category === null || category.archived)
 })
 
+/**
+ * A usable salary category that received nothing in a month that already began: the goals with a
+ * monthly share get no suggestion, so the card says why.
+ */
+const emptySalaryCategory = computed(() => {
+  const g = goals.value
+  if (!g || g.salaryCents !== 0 || g.month > currentMonth()) return null
+  const category = g.salaryCategory
+  if (category === null || category.archived) return null
+  return g.goals.some((x) => x.monthlyPercent > 0) ? category.name : null
+})
+
 function percent(g: GoalResponse): number {
   if (g.targetCents <= 0) return 0
   return Math.min(100, Math.max(0, Math.floor((g.savedCents * 100) / g.targetCents)))
@@ -46,27 +58,59 @@ const amount = ref<number | null>(null)
 const failure = ref<{ goalId: string; error: unknown } | null>(null)
 const busyGoal = ref<string | null>(null)
 
+// The adjust form replaces the row's buttons, so focus is moved by hand when it opens and closes.
+const card = useTemplateRef<{ $el: HTMLElement }>('card')
+async function focusIn(selector: string) {
+  await nextTick()
+  card.value?.$el.querySelector<HTMLElement>(selector)?.focus()
+}
+
 function startAdjust(s: GoalSuggestion) {
   adjusting.value = s.goalId
   amountError.value = null
+  failure.value = null
   amount.value = s.suggestedCents
+  void focusIn(`[data-goal-amount="${s.goalId}"]`)
 }
 
-async function run(s: GoalSuggestion, action: () => Promise<unknown>) {
+function cancelAdjust(s: GoalSuggestion) {
+  adjusting.value = null
+  amountError.value = null
+  failure.value = null
+  void focusIn(`[data-goal-adjust="${s.goalId}"]`)
+}
+
+/** After a save the row goes away: the next suggestion, else the previous one, else the title. */
+function focusAfterSave(s: GoalSuggestion) {
+  const list = goals.value?.suggestions ?? []
+  const i = list.findIndex((x) => x.goalId === s.goalId)
+  const neighbour = list[i + 1] ?? list[i - 1]
+  void focusIn(neighbour ? `[data-goal-confirm="${neighbour.goalId}"]` : '[data-goals-title]')
+}
+
+async function run(s: GoalSuggestion, action: () => Promise<unknown>): Promise<boolean> {
   failure.value = null
   busyGoal.value = s.goalId
   try {
     await action()
     adjusting.value = null
+    return true
   } catch (error) {
     failure.value = { goalId: s.goalId, error }
+    return false
   } finally {
     busyGoal.value = null
   }
 }
 
+// The amount shown is sent: the server would otherwise recompute it from the salary at click time.
 const confirm = (s: GoalSuggestion) =>
-  run(s, () => contribute.mutateAsync({ id: s.goalId, body: { month: s.month } }))
+  run(s, () =>
+    contribute.mutateAsync({
+      id: s.goalId,
+      body: { month: s.month, amountCents: s.suggestedCents },
+    }),
+  )
 const skipMonth = (s: GoalSuggestion) =>
   run(s, () => skip.mutateAsync({ id: s.goalId, body: { month: s.month } }))
 
@@ -86,14 +130,20 @@ function saveAdjusted(s: GoalSuggestion) {
     amountError.value = 'tooHigh'
     return
   }
-  void run(s, () => contribute.mutateAsync({ id: s.goalId, body: { month: s.month, amountCents } }))
+  void run(s, () =>
+    contribute.mutateAsync({ id: s.goalId, body: { month: s.month, amountCents } }),
+  ).then((saved) => {
+    if (saved) focusAfterSave(s)
+  })
 }
 </script>
 
 <template>
-  <Card>
+  <Card ref="card">
     <CardHeader class="flex-row items-center justify-between gap-2">
-      <CardTitle>{{ t('dashboard.goals.title') }}</CardTitle>
+      <CardTitle data-goals-title tabindex="-1" class="outline-none">
+        {{ t('dashboard.goals.title') }}
+      </CardTitle>
       <Button v-if="goals?.goals.length" as-child variant="link" size="sm">
         <RouterLink to="/goals" :aria-label="t('dashboard.goals.viewAllLabel')">
           {{ t('dashboard.goals.viewAll') }}
@@ -141,6 +191,7 @@ function saveAdjusted(s: GoalSuggestion) {
                 <div class="flex flex-wrap items-end gap-2">
                   <MoneyInput
                     v-model="amount"
+                    :data-goal-amount="s.goalId"
                     :label="t('dashboard.goals.amountFor', { name: s.goalName })"
                   />
                   <Button type="submit" size="sm" :disabled="busyGoal === s.goalId">
@@ -151,7 +202,7 @@ function saveAdjusted(s: GoalSuggestion) {
                     size="sm"
                     variant="ghost"
                     :disabled="busyGoal === s.goalId"
-                    @click="adjusting = null"
+                    @click="cancelAdjust(s)"
                   >
                     {{ t('common.cancel') }}
                   </Button>
@@ -177,6 +228,7 @@ function saveAdjusted(s: GoalSuggestion) {
                   size="sm"
                   :disabled="busyGoal === s.goalId"
                   :aria-label="t('dashboard.goals.confirmLabel', { name: s.goalName })"
+                  :data-goal-confirm="s.goalId"
                   @click="confirm(s)"
                 >
                   {{ t('dashboard.goals.confirm') }}
@@ -186,6 +238,7 @@ function saveAdjusted(s: GoalSuggestion) {
                   variant="outline"
                   :disabled="busyGoal === s.goalId"
                   :aria-label="t('dashboard.goals.adjustLabel', { name: s.goalName })"
+                  :data-goal-adjust="s.goalId"
                   @click="startAdjust(s)"
                 >
                   {{ t('dashboard.goals.adjust') }}
@@ -214,6 +267,9 @@ function saveAdjusted(s: GoalSuggestion) {
         >
           {{ t('dashboard.goals.salaryHint') }}
         </RouterLink>
+        <p v-else-if="emptySalaryCategory" class="text-sm text-muted-foreground">
+          {{ t('dashboard.goals.noSalary', { month: monthLabel, name: emptySalaryCategory }) }}
+        </p>
 
         <ul class="grid gap-4" :aria-label="t('dashboard.goals.listLabel')">
           <li v-for="g in goals.goals" :key="g.id" class="grid gap-1">
@@ -224,10 +280,13 @@ function saveAdjusted(s: GoalSuggestion) {
                   {{ t('goals.status.REACHED') }}
                 </Badge>
               </span>
-              <span class="text-muted-foreground">
-                <MoneyText :cents="g.savedCents" class="font-medium text-foreground" />
-                /
-                <MoneyText :cents="g.targetCents" />
+              <span class="flex items-baseline gap-x-3">
+                <span class="text-muted-foreground">
+                  <MoneyText :cents="g.savedCents" class="font-medium text-foreground" />
+                  /
+                  <MoneyText :cents="g.targetCents" />
+                </span>
+                <span class="font-medium tabular-nums text-foreground">{{ percent(g) }}%</span>
               </span>
             </div>
             <div

@@ -3,6 +3,7 @@ import { http, HttpResponse, type RequestHandler } from 'msw'
 import { afterEach, describe, expect, it } from 'vitest'
 import App from '@/app/App.vue'
 import { currentMonth } from '@/shared/lib/dates'
+import type { Locale } from '@/shared/lib/money'
 import { render, renderRoute, testUser } from '@/test/render'
 
 const api = `${window.location.origin}/api/v1`
@@ -132,7 +133,8 @@ function setup({ goals = [goal], completed = [], settingsCategory = null, extra 
   ]
   return {
     calls,
-    render: (route = '/goals') => renderRoute({ route, session: {}, handlers }),
+    render: (route = '/goals', locale?: Locale) =>
+      renderRoute({ route, session: {}, handlers, locale }),
     mount: (route: string) => render(App, { route, session: {}, handlers }),
   }
 }
@@ -224,6 +226,52 @@ describe('GoalsPage', () => {
     await within(select).findByRole('option', { name: 'Salário' })
     await user.selectOptions(select, 'Salário')
     await waitFor(() => expect(s.calls.settings).toEqual({ salaryCategoryId: 'c2' }))
+  })
+
+  it('goals_salaryCategory_failedSave_showsSavedChoiceAgain', async () => {
+    const s = setup({
+      extra: [http.put(`${api}/goals/settings`, () => problem(400, 'VALIDATION'))],
+    })
+    const { user } = await s.render()
+    const select = (await screen.findByLabelText('O salário vem da categoria')) as HTMLSelectElement
+    await within(select).findByRole('option', { name: 'Salário' })
+    await user.selectOptions(select, 'Salário')
+    await screen.findByRole('alert')
+    expect(select.value).toBe('')
+  })
+
+  it('goals_completedRow_hidesRemaining', async () => {
+    await setup({ goals: [], completed: [done] }).render()
+    const r = await row('Viagem')
+    expect(norm(r.textContent)).not.toContain('Faltam')
+  })
+
+  it('goals_projectionPastDate_saysSoWithPace', async () => {
+    const g = {
+      ...goal,
+      targetDate: '2026-01-31',
+      projection: { requiredMonthlyCents: null, projectedMonth: '2027-03', targetDatePassed: true },
+    }
+    await setup({ goals: [g] }).render()
+    const r = await row('Videogame novo')
+    expect(norm(r.textContent)).toContain(
+      'A data-alvo (31 de janeiro de 2026) já passou. No ritmo atual chega em março de 2027',
+    )
+    expect(norm(r.textContent)).not.toContain('Para chegar até')
+  })
+
+  it('goals_history_en_saysInForMonthsAndOnForDates', async () => {
+    const { user } = await setup().render('/goals', 'en')
+    await user.click(await screen.findByRole('button', { name: 'History of Videogame novo' }))
+    const dialog = await screen.findByRole('dialog', { name: 'History' })
+    const names = (await within(dialog).findAllByRole('button', { name: /^Undo / })).map((b) =>
+      norm(b.getAttribute('aria-label')),
+    )
+    expect(names[0]).toMatch(/^Undo monthly contribution of €50\.00 in October 2026$/)
+    expect(names[1]).toMatch(/^Undo deposit of €350\.00 on /)
+    await user.click(within(dialog).getAllByRole('button', { name: /^Undo / })[0] as HTMLElement)
+    const confirm = await screen.findByRole('dialog', { name: 'Undo movement?' })
+    expect(norm(confirm.textContent)).toContain('of €50.00 in October 2026?')
   })
 
   it('goals_salaryCategory_archivedShowsWarning', async () => {

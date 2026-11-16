@@ -36,7 +36,7 @@
     "GOAL_COMPLETED": "Este objetivo está concluído. Reabra-o para alterar.",
     "GOAL_MONTH_TAKEN": "Este mês já foi confirmado ou pulado.",
     "GOAL_MONTH_INVALID": "Mês fora do período do objetivo.",
-    "GOAL_AMOUNT_INVALID": "Valor maior do que o permitido para este objetivo.",
+    "GOAL_AMOUNT_INVALID": "Valor inválido para este objetivo: ele ficaria negativo ou acima da meta.",
     "GOAL_NO_SALARY": "Não há salário registrado neste mês.",
     "GOAL_SALARY_CATEGORY_INVALID": "Escolha uma categoria de receita ativa.",
     "IN_USE_BY_ACTIVE_RULE": "Este item é usado por um lançamento recorrente ativo.",
@@ -523,7 +523,9 @@
     "percentOfSalary": "{percent}% do salário/mês",
     "projection": {
       "required": "Para chegar até {date} faltam {amount}/mês",
-      "pace": "No ritmo atual chega em {month}"
+      "pace": "No ritmo atual chega em {month}",
+      "passed": "A data-alvo ({date}) já passou.",
+      "passedPace": "A data-alvo ({date}) já passou. No ritmo atual chega em {month}"
     },
     "salary": {
       "label": "O salário vem da categoria",
@@ -579,7 +581,9 @@
         "DEPOSIT": "Depósito",
         "WITHDRAWAL": "Resgate"
       },
-      "undoLabel": "Desfazer {type} de {amount} em {when}"
+      "undoLabel": "Desfazer {type} de {amount} em {when}",
+      "undoLabelMonth": "Desfazer {type} de {amount} em {when}",
+      "undoMessageMonth": "Desfazer {type} de {amount} em {when}? O valor volta ao estado anterior."
     },
     "completeTitle": "Concluir {name}?",
     "completeMessage": "{amount} deixam de ficar separados.",
@@ -672,6 +676,7 @@
       "viewAllLabel": "Ver todos os objetivos",
       "amountTooHigh": "O valor passa do que falta: {amount}.",
       "salaryHint": "Escolha a categoria do salário para receber sugestões",
+      "noSalary": "Nenhum salário em {month} na categoria {name}.",
       "listLabel": "Andamento dos objetivos"
     },
     "upcoming": {

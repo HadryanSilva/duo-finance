@@ -36,7 +36,7 @@
     "GOAL_COMPLETED": "This goal is completed. Reopen it to change it.",
     "GOAL_MONTH_TAKEN": "This month was already confirmed or skipped.",
     "GOAL_MONTH_INVALID": "Month is outside the goal period.",
-    "GOAL_AMOUNT_INVALID": "Amount is larger than allowed for this goal.",
+    "GOAL_AMOUNT_INVALID": "Invalid amount for this goal: it would go below zero or above the target.",
     "GOAL_NO_SALARY": "No salary is recorded for this month.",
     "GOAL_SALARY_CATEGORY_INVALID": "Choose an active income category.",
     "IN_USE_BY_ACTIVE_RULE": "This item is used by an active recurring transaction.",
@@ -523,7 +523,9 @@
     "percentOfSalary": "{percent}% of salary/month",
     "projection": {
       "required": "To reach it by {date} you need {amount}/month",
-      "pace": "At the current pace it is reached in {month}"
+      "pace": "At the current pace it is reached in {month}",
+      "passed": "The target date ({date}) has passed.",
+      "passedPace": "The target date ({date}) has passed. At the current pace it is reached in {month}"
     },
     "salary": {
       "label": "Salary comes from the category",
@@ -579,7 +581,9 @@
         "DEPOSIT": "Deposit",
         "WITHDRAWAL": "Withdrawal"
       },
-      "undoLabel": "Undo {type} of {amount} on {when}"
+      "undoLabel": "Undo {type} of {amount} on {when}",
+      "undoLabelMonth": "Undo {type} of {amount} in {when}",
+      "undoMessageMonth": "Undo {type} of {amount} in {when}? The amount returns to its previous state."
     },
     "completeTitle": "Complete {name}?",
     "completeMessage": "{amount} will no longer be set aside.",
@@ -672,6 +676,7 @@
       "viewAllLabel": "View all goals",
       "amountTooHigh": "The amount is more than what is left: {amount}.",
       "salaryHint": "Choose the salary category to get suggestions",
+      "noSalary": "No salary in {month} in the {name} category.",
       "listLabel": "Goal progress"
     },
     "upcoming": {

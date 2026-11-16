@@ -5,7 +5,8 @@ import { formatMoney, type Locale } from '@/shared/lib/money'
 
 /**
  * The projection line of a goal: what it takes to reach the target date, or when the current
- * pace gets there. Null when there is nothing to say (no date and no contributions yet).
+ * pace gets there; a target date already behind says so, with the pace when there is one.
+ * Null when there is nothing to say (no date and no contributions yet).
  */
 export function projectionText(
   goal: Pick<GoalResponse, 'targetDate' | 'projection'>,
@@ -14,6 +15,12 @@ export function projectionText(
   const { t } = i18n.global
   const p = goal.projection
   if (!p) return null
+  if (goal.targetDate && p.targetDatePassed) {
+    const date = formatBusinessDate(goal.targetDate, locale, 'long')
+    return p.projectedMonth
+      ? t('goals.projection.passedPace', { date, month: formatMonth(p.projectedMonth, locale) })
+      : t('goals.projection.passed', { date })
+  }
   if (goal.targetDate && p.requiredMonthlyCents !== null) {
     return t('goals.projection.required', {
       date: formatBusinessDate(goal.targetDate, locale, 'long'),

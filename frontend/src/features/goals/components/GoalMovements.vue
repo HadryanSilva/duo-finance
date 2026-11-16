@@ -48,6 +48,10 @@ function undoParams(m: GoalMovementResponse) {
   }
 }
 
+/** In English a month reads "in October 2026" and a moment "on <date>". */
+const undoKey = (m: GoalMovementResponse, key: 'undoLabel' | 'undoMessage') =>
+  `goals.history.${key}${m.month ? 'Month' : ''}`
+
 function when(m: GoalMovementResponse): string {
   return m.month
     ? formatMonth(m.month, locale.value as Locale)
@@ -88,7 +92,7 @@ function when(m: GoalMovementResponse): string {
           v-if="canUndo"
           variant="ghost"
           size="sm"
-          :aria-label="t('goals.history.undoLabel', undoParams(m))"
+          :aria-label="t(undoKey(m, 'undoLabel'), undoParams(m))"
           @click="pending = m"
         >
           {{ t('goals.history.undo') }}
@@ -100,7 +104,7 @@ function when(m: GoalMovementResponse): string {
   <ConfirmDialog
     v-model:open="confirmOpen"
     :title="t('goals.history.undoTitle')"
-    :message="pending ? t('goals.history.undoMessage', undoParams(pending)) : ''"
+    :message="pending ? t(undoKey(pending, 'undoMessage'), undoParams(pending)) : ''"
     :confirm-label="t('goals.history.undo')"
     destructive
     @confirm="onUndo"

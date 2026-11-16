@@ -29,13 +29,16 @@ const options = computed(() => {
 })
 
 async function onChange(event: Event) {
-  const value = (event.target as HTMLSelectElement).value
+  const select = event.target as HTMLSelectElement
+  const value = select.value
   if (!value) return
   error.value = null
   try {
     await save.mutateAsync({ salaryCategoryId: value })
   } catch (e) {
     error.value = errorMessage(e)
+    // The choice was not saved: show the saved one again rather than the one just picked.
+    select.value = saved.value?.id ?? ''
   }
 }
 </script>

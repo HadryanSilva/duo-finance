@@ -43,7 +43,10 @@ export function useGoalSettings() {
   })
 }
 
-/** Every goal change moves balances, suggestions and the dashboard's free balance. */
+/**
+ * Every goal change moves balances, suggestions and the dashboard's free balance. Refreshed on
+ * failure too: a conflict usually means the partner acted first, so what is on screen is stale.
+ */
 function useInvalidate() {
   const qc = useQueryClient()
   return () =>
@@ -56,7 +59,7 @@ export function useUpdateGoalSettings() {
   return useMutation({
     mutationFn: (body: UpdateGoalSettingsRequest) =>
       http.put<GoalSettingsResponse>('/goals/settings', body),
-    onSuccess: invalidate,
+    onSettled: invalidate,
   })
 }
 
@@ -65,7 +68,7 @@ export function useCreateGoal() {
   const invalidate = useInvalidate()
   return useMutation({
     mutationFn: (body: CreateGoalRequest) => http.post<GoalResponse>('/goals', body),
-    onSuccess: invalidate,
+    onSettled: invalidate,
   })
 }
 
@@ -75,7 +78,7 @@ export function useUpdateGoal() {
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: UpdateGoalRequest }) =>
       http.put<GoalResponse>(`/goals/${enc(id)}`, body),
-    onSuccess: invalidate,
+    onSettled: invalidate,
   })
 }
 
@@ -84,7 +87,7 @@ export function useDeleteGoal() {
   const invalidate = useInvalidate()
   return useMutation({
     mutationFn: (id: string) => http.del(`/goals/${enc(id)}`),
-    onSuccess: invalidate,
+    onSettled: invalidate,
   })
 }
 
@@ -93,7 +96,7 @@ export function useCompleteGoal() {
   const invalidate = useInvalidate()
   return useMutation({
     mutationFn: (id: string) => http.post<GoalResponse>(`/goals/${enc(id)}/complete`),
-    onSuccess: invalidate,
+    onSettled: invalidate,
   })
 }
 
@@ -102,7 +105,7 @@ export function useReopenGoal() {
   const invalidate = useInvalidate()
   return useMutation({
     mutationFn: (id: string) => http.post<GoalResponse>(`/goals/${enc(id)}/reopen`),
-    onSuccess: invalidate,
+    onSettled: invalidate,
   })
 }
 
@@ -112,7 +115,7 @@ export function useContribute() {
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: ContributeRequest }) =>
       http.post<GoalMovementResponse, ContributeRequest>(`/goals/${enc(id)}/contributions`, body),
-    onSuccess: invalidate,
+    onSettled: invalidate,
   })
 }
 
@@ -122,7 +125,7 @@ export function useSkipMonth() {
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: SkipRequest }) =>
       http.post<GoalMovementResponse, SkipRequest>(`/goals/${enc(id)}/skips`, body),
-    onSuccess: invalidate,
+    onSettled: invalidate,
   })
 }
 
@@ -132,7 +135,7 @@ export function useDeposit() {
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: GoalAmountRequest }) =>
       http.post<GoalMovementResponse, GoalAmountRequest>(`/goals/${enc(id)}/deposits`, body),
-    onSuccess: invalidate,
+    onSettled: invalidate,
   })
 }
 
@@ -142,7 +145,7 @@ export function useWithdraw() {
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: GoalAmountRequest }) =>
       http.post<GoalMovementResponse, GoalAmountRequest>(`/goals/${enc(id)}/withdrawals`, body),
-    onSuccess: invalidate,
+    onSettled: invalidate,
   })
 }
 
@@ -152,6 +155,6 @@ export function useUndoMovement() {
   return useMutation({
     mutationFn: ({ goalId, movementId }: { goalId: string; movementId: string }) =>
       http.del(`/goals/${enc(goalId)}/movements/${enc(movementId)}`),
-    onSuccess: invalidate,
+    onSettled: invalidate,
   })
 }

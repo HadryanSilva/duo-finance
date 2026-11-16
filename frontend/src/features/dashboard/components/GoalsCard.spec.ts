@@ -1,7 +1,8 @@
 import { screen, waitFor, within } from '@testing-library/dom'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { DashboardResponse, GoalResponse } from '@/shared/api/types'
+import { addMonths, currentMonth, formatMonth } from '@/shared/lib/dates'
 import { render } from '@/test/render'
 import GoalsCard from './GoalsCard.vue'
 
@@ -21,7 +22,7 @@ const goal = (over: Partial<GoalResponse> = {}): GoalResponse => ({
   remainingCents: 60000,
   completedAt: null,
   createdAt: '2026-01-01T00:00:00Z',
-  projection: { requiredMonthlyCents: null, projectedMonth: null },
+  projection: { requiredMonthlyCents: null, projectedMonth: null, targetDatePassed: false },
   ...over,
 })
 
@@ -57,7 +58,7 @@ function mountCard(data: DashboardResponse, handlers: Parameters<typeof render>[
 }
 
 describe('GoalsCard', () => {
-  it('confirm_postsSuggestedMonth', async () => {
+  it('confirm_postsShownAmount', async () => {
     let body: unknown
     const { user } = await mountCard(withGoals(), {
       handlers: [
@@ -70,7 +71,8 @@ describe('GoalsCard', () => {
     expect(screen.getByText(/Sugestões de/)).toBeTruthy()
     expect(norm(screen.getByText(/Sugestões de/).textContent)).toContain('€ 3.000,00')
     await user.click(screen.getByRole('button', { name: 'Confirmar Videogame novo' }))
-    await waitFor(() => expect(body).toEqual({ month: '2026-11' }))
+    // The amount on screen, not one the server would recompute from a salary changed meanwhile.
+    await waitFor(() => expect(body).toEqual({ month: '2026-11', amountCents: 15000 }))
   })
 
   it('adjust_postsTypedAmount', async () => {
@@ -150,6 +152,7 @@ describe('GoalsCard', () => {
     const item = bar.closest('li') as HTMLElement
     expect(norm(item.textContent)).toContain('€ 400,00')
     expect(norm(item.textContent)).toContain('€ 1.000,00')
+    expect(within(item).getByText('40%')).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Ver todos os objetivos' }).getAttribute('href')).toBe(
       '/goals',
     )
@@ -187,5 +190,115 @@ describe('GoalsCard', () => {
     await user.click(screen.getByRole('button', { name: 'Salvar' }))
     expect(norm((await screen.findByRole('alert')).textContent)).toBe(message)
     expect(posted).toBe(0)
+  })
+
+  it('confirm_failure_refreshesGoalsAndDashboard', async () => {
+    const { user, queryClient } = await mountCard(withGoals(), {
+      handlers: [
+        http.post(`${api}/goals/g1/contributions`, () => problem(409, 'GOAL_MONTH_TAKEN')),
+      ],
+    })
+    const spy = vi.spyOn(queryClient, 'invalidateQueries')
+    await user.click(screen.getByRole('button', { name: 'Confirmar Videogame novo' }))
+    await screen.findByRole('alert')
+    await waitFor(() => {
+      const filters = spy.mock.calls.map(([f]) => f)
+      expect(filters).toContainEqual({ queryKey: ['goals'] })
+      expect(filters).toContainEqual({ queryKey: ['dashboard'] })
+    })
+  })
+
+  it('confirm_amountInvalid_showsAccurateMessage', async () => {
+    const { user } = await mountCard(withGoals(), {
+      handlers: [
+        http.post(`${api}/goals/g1/contributions`, () => problem(400, 'GOAL_AMOUNT_INVALID')),
+      ],
+    })
+    await user.click(screen.getByRole('button', { name: 'Confirmar Videogame novo' }))
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Valor inválido para este objetivo: ele ficaria negativo ou acima da meta.',
+    )
+  })
+
+  it('noSalaryThisMonth_saysSo', async () => {
+    const month = currentMonth()
+    await mountCard(withGoals({ month, salaryCents: 0, suggestions: [] }))
+    expect(norm(screen.getByText(/^Nenhum salário em/).textContent)).toBe(
+      `Nenhum salário em ${formatMonth(month, 'pt-BR')} na categoria Salário.`,
+    )
+  })
+
+  it('noSalaryThisMonth_futureMonthOrNoPercent_staysQuiet', async () => {
+    await mountCard(
+      withGoals({ month: addMonths(currentMonth(), 1), salaryCents: 0, suggestions: [] }),
+    )
+    expect(screen.queryByText(/^Nenhum salário em/)).toBeNull()
+  })
+
+  it('noSalaryThisMonth_goalsWithoutPercent_staysQuiet', async () => {
+    await mountCard(
+      withGoals({
+        month: currentMonth(),
+        salaryCents: 0,
+        goals: [goal({ monthlyPercent: 0 })],
+        suggestions: [],
+      }),
+    )
+    expect(screen.queryByText(/^Nenhum salário em/)).toBeNull()
+  })
+
+  it('adjust_focusesAmount_andCancelReturnsFocusAndClearsErrors', async () => {
+    const { user } = await mountCard(withGoals())
+    const adjust = screen.getByRole('button', { name: 'Ajustar Videogame novo' })
+    await user.click(adjust)
+    const input = screen.getByLabelText('Valor para Videogame novo')
+    await waitFor(() => expect(document.activeElement).toBe(input))
+    await user.keyboard('{Control>}a{/Control}700')
+    await user.click(screen.getByRole('button', { name: 'Salvar' }))
+    await screen.findByRole('alert')
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Ajustar Videogame novo' }),
+      ),
+    )
+    expect(screen.queryByRole('alert')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Ajustar Videogame novo' }))
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('adjust_save_movesFocusToNextSuggestion', async () => {
+    const second = goal({ id: 'g2', name: 'Viagem' })
+    const { user } = await mountCard(
+      withGoals({
+        goals: [goal(), second],
+        suggestions: [
+          {
+            goalId: 'g1',
+            goalName: 'Videogame novo',
+            month: '2026-11',
+            monthlyPercent: 5,
+            suggestedCents: 15000,
+          },
+          {
+            goalId: 'g2',
+            goalName: 'Viagem',
+            month: '2026-11',
+            monthlyPercent: 5,
+            suggestedCents: 15000,
+          },
+        ],
+      }),
+      {
+        handlers: [
+          http.post(`${api}/goals/g1/contributions`, () => HttpResponse.json({}, { status: 201 })),
+        ],
+      },
+    )
+    await user.click(screen.getByRole('button', { name: 'Ajustar Videogame novo' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar' }))
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Confirmar Viagem' })),
+    )
   })
 })

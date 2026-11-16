@@ -1044,6 +1044,7 @@ export interface components {
         GoalProjection: {
             requiredMonthlyCents: number | null;
             projectedMonth: string | null;
+            targetDatePassed: boolean;
         };
         GoalResponse: {
             /** Format: uuid */

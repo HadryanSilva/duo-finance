@@ -130,7 +130,7 @@ function run(key: string) {
     </div>
 
     <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-      <i18n-t v-if="goal.remainingCents > 0" keypath="goals.remaining" tag="span">
+      <i18n-t v-if="goal.remainingCents > 0 && !isCompleted" keypath="goals.remaining" tag="span">
         <template #amount><MoneyText :cents="goal.remainingCents" /></template>
       </i18n-t>
       <span v-if="goal.monthlyPercent > 0 && !isCompleted">
