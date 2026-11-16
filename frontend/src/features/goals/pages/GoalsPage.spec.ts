@@ -267,7 +267,7 @@ describe('GoalsPage', () => {
     expect(norm(items[1]?.textContent ?? '')).toContain('Bônus')
     await user.click(
       within(dialog).getByRole('button', {
-        name: /^Desfazer contribuição mensal de €s50,00 em outubro de 2026$/,
+        name: /^Desfazer contribuição mensal de €\s50,00 em outubro de 2026$/,
       }),
     )
     const confirm = await screen.findByRole('dialog', { name: 'Desfazer movimentação?' })
