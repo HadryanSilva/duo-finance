@@ -63,7 +63,16 @@ class AccountIsolationTest {
                 Arguments.of("recurring-rules", "POST", "/deactivate"),
                 Arguments.of("budgets", "GET", ""),
                 Arguments.of("budgets", "PUT", ""),
-                Arguments.of("budgets", "DELETE", ""));
+                Arguments.of("budgets", "DELETE", ""),
+                Arguments.of("goals", "PUT", ""),
+                Arguments.of("goals", "DELETE", ""),
+                Arguments.of("goals", "POST", "/complete"),
+                Arguments.of("goals", "POST", "/reopen"),
+                Arguments.of("goals", "GET", "/movements"),
+                Arguments.of("goals", "POST", "/deposits"),
+                Arguments.of("goals", "POST", "/withdrawals"),
+                Arguments.of("goals", "POST", "/contributions"),
+                Arguments.of("goals", "POST", "/skips"));
     }
 
     @ParameterizedTest(name = "{1} /{0}/id{2} of another account returns 404")
@@ -79,11 +88,62 @@ class AccountIsolationTest {
                 .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(intruder));
         if (method.equals("PUT")) {
             request.contentType(MediaType.APPLICATION_JSON).content(updateBody(resource, intruderCategory));
+        } else if (method.equals("POST") && resource.equals("goals")) {
+            request.contentType(MediaType.APPLICATION_JSON).content(goalActionBody(suffix));
         }
+        String goalState = resource.equals("goals") ? goalState(ids.get("goals")) : null;
         var result = request.exchange();
 
         assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("NOT_FOUND");
+        if (goalState != null) {
+            assertThat(goalState(ids.get("goals"))).as("nothing written").isEqualTo(goalState);
+        }
+    }
+
+    /** The goal row and its movements, to prove a rejected request wrote nothing. */
+    private String goalState(UUID goal) {
+        return jdbc.queryForObject(
+                "SELECT g::text || (SELECT count(*) FROM goal_movements WHERE goal_id = g.id) FROM goals g WHERE id = ?",
+                String.class,
+                goal);
+    }
+
+    @Test
+    void foreignGoalMovementDelete_returns404AndKeepsMovement() {
+        TestSession owner = testUsers.verified("ana@mail.com");
+        TestSession intruder = testUsers.verified("rui@mail.com");
+        UUID goal = createAll(owner).get("goals");
+        UUID movement =
+                jdbc.queryForObject("SELECT id FROM goal_movements WHERE goal_id = ? LIMIT 1", UUID.class, goal);
+
+        var result = mvc.delete()
+                .uri("/api/v1/goals/" + goal + "/movements/" + movement)
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(intruder))
+                .exchange();
+
+        assertNotFound(result);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM goal_movements WHERE id = ?", Long.class, movement))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void goalSettingsWithForeignIncomeCategory_returns404AndKeepsSetting() {
+        TestSession owner = testUsers.verified("ana@mail.com");
+        TestSession intruder = testUsers.verified("rui@mail.com");
+        UUID foreignIncome = fixtures.category(owner, "Cat Teste I", CategoryKind.INCOME);
+
+        var result = mvc.put()
+                .uri("/api/v1/goals/settings")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(intruder))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(Map.of("salaryCategoryId", foreignIncome)))
+                .exchange();
+
+        assertNotFound(result);
+        assertThat(jdbc.queryForObject(
+                        "SELECT salary_category_id FROM accounts WHERE id = ?", UUID.class, intruder.accountId()))
+                .isNull();
     }
 
     @Test
@@ -179,10 +239,12 @@ class AccountIsolationTest {
                 .uri("/api/v1/imports/revolut/preview")
                 .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(intruder))
                 .multipart()
+                .file(new org.springframework.mock.web.MockMultipartFile("file", "s.csv", "text/csv", "x".getBytes()))
                 .file(new org.springframework.mock.web.MockMultipartFile(
-                        "file", "s.csv", "text/csv", "x".getBytes()))
-                .file(new org.springframework.mock.web.MockMultipartFile(
-                        "bankAccountId", "", "text/plain", ids.get("bank-accounts").toString().getBytes()))
+                        "bankAccountId",
+                        "",
+                        "text/plain",
+                        ids.get("bank-accounts").toString().getBytes()))
                 .exchange());
         assertNotFound(post(
                 intruder,
@@ -271,6 +333,16 @@ class AccountIsolationTest {
             var items = root.has("content") ? root.path("content") : root;
             assertThat(items.size()).as(path).isZero();
         }
+
+        var goals = mvc.get()
+                .uri("/api/v1/goals")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(intruder))
+                .exchange();
+        assertThat(goals).hasStatus(HttpStatus.OK);
+        var overview = json.readTree(goals.getResponse().getContentAsString());
+        assertThat(overview.path("goals").size()).isZero();
+        assertThat(overview.path("completed").size()).isZero();
+        assertThat(overview.path("totalSavedCents").asLong()).isZero();
     }
 
     private Map<String, UUID> createAll(TestSession owner) {
@@ -314,6 +386,15 @@ class AccountIsolationTest {
                                 "2099-01-01")));
         UUID budgetCategory = fixtures.category(owner, "Cat Teste B", CategoryKind.EXPENSE);
         ids.put("budgets", create(owner, "budgets", Map.of("categoryId", budgetCategory, "monthlyLimitCents", 9000)));
+        UUID goal = create(owner, "goals", Map.of("name", "Trip", "targetCents", 100000, "monthlyPercent", 10));
+        ids.put("goals", goal);
+        assertThat(mvc.post()
+                        .uri("/api/v1/goals/" + goal + "/deposits")
+                        .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(owner))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("amountCents", 1000)))
+                        .exchange())
+                .hasStatus(HttpStatus.CREATED);
         return ids;
     }
 
@@ -336,6 +417,16 @@ class AccountIsolationTest {
         }
     }
 
+    /** Valid body for each goal POST action, so the request reaches the ownership check. */
+    private String goalActionBody(String suffix) {
+        Map<String, Object> body = switch (suffix) {
+            case "/deposits", "/withdrawals" -> Map.of("amountCents", 100);
+            case "/contributions", "/skips" -> Map.of("month", "2026-11");
+            default -> Map.of();
+        };
+        return json.writeValueAsString(body);
+    }
+
     /** Minimal valid body per resource, so a PUT reaches the lookup instead of failing validation. */
     private String updateBody(String resource, UUID intruderCategory) {
         Map<String, Object> body = switch (resource) {
@@ -345,6 +436,7 @@ class AccountIsolationTest {
                 Map.of("kind", "EXPENSE", "amountCents", 100, "date", "2026-11-01", "categoryId", intruderCategory);
             case "recurring-rules" -> Map.of("amountCents", 100, "categoryId", intruderCategory);
             case "budgets" -> Map.of("monthlyLimitCents", 100);
+            case "goals" -> Map.of("name", "X", "targetCents", 100, "monthlyPercent", 10);
             default -> throw new IllegalArgumentException(resource);
         };
         return json.writeValueAsString(body);

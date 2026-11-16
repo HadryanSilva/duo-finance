@@ -31,6 +31,14 @@
     "RECURRING_DATE_TAKEN": "A recurring transaction already exists on this date.",
     "BUDGET_EXISTS": "A budget already exists for this category.",
     "BUDGET_CATEGORY_INVALID": "Budgets can only be created for expense categories.",
+    "GOAL_NAME_TAKEN": "An active goal with this name already exists.",
+    "GOAL_PERCENT_CAP": "The percentages of active goals would add up to more than 100%. Complete goals already reached or lower the percentages.",
+    "GOAL_COMPLETED": "This goal is completed. Reopen it to change it.",
+    "GOAL_MONTH_TAKEN": "This month was already confirmed or skipped.",
+    "GOAL_MONTH_INVALID": "Month is outside the goal period.",
+    "GOAL_AMOUNT_INVALID": "Invalid amount for this goal: it would go below zero or above the target.",
+    "GOAL_NO_SALARY": "No salary is recorded for this month.",
+    "GOAL_SALARY_CATEGORY_INVALID": "Choose an active income category.",
     "IN_USE_BY_ACTIVE_RULE": "This item is used by an active recurring transaction.",
     "IMPORT_FORMAT_UNSUPPORTED": "This file doesn't look like a Revolut CSV statement.",
     "IMPORT_ROW_INVALID": "The file has a row with an unreadable date or amount.",
@@ -77,6 +85,7 @@
     "bankAccounts": "Accounts",
     "categories": "Categories",
     "budgets": "Budgets",
+    "goals": "Goals",
     "recurring": "Recurring",
     "settings": "Settings",
     "admin": "Admin",
@@ -495,6 +504,93 @@
       "noCategories": "Every active expense category already has a budget."
     }
   },
+  "goals": {
+    "subtitle": "Set money aside for what you want to achieve.",
+    "new": "New goal",
+    "createTitle": "New goal",
+    "editTitle": "Edit goal",
+    "listLabel": "Goals",
+    "emptyTitle": "No goals yet",
+    "emptyDescription": "Create a goal and track how much has been set aside for it.",
+    "completedTitle": "Completed",
+    "status": {
+      "REACHED": "Reached",
+      "COMPLETED": "Completed"
+    },
+    "progress": "{percent}% of the goal",
+    "remaining": "{amount} to go",
+    "percentOfSalary": "{percent}% of salary/month",
+    "projection": {
+      "required": "To reach it by {date} you need {amount}/month",
+      "pace": "At the current pace it is reached in {month}",
+      "passed": "The target date ({date}) has passed.",
+      "passedPace": "The target date ({date}) has passed. At the current pace it is reached in {month}"
+    },
+    "salary": {
+      "label": "Salary comes from the category",
+      "choose": "Select",
+      "archivedOption": "{name} (archived)",
+      "archivedWarning": "The salary category is archived. Choose another one to calculate suggestions."
+    },
+    "actions": {
+      "deposit": "Add money",
+      "withdraw": "Withdraw",
+      "history": "History",
+      "edit": "Edit",
+      "complete": "Complete",
+      "remove": "Delete",
+      "reopen": "Reopen"
+    },
+    "actionLabel": {
+      "deposit": "Add money to {name}",
+      "withdraw": "Withdraw from {name}",
+      "history": "History of {name}",
+      "edit": "Edit {name}",
+      "complete": "Complete {name}",
+      "remove": "Delete {name}",
+      "reopen": "Reopen {name}"
+    },
+    "form": {
+      "name": "Name",
+      "target": "Target amount",
+      "targetPositive": "Enter an amount greater than zero.",
+      "targetDate": "Target date (optional)",
+      "targetDatePast": "Choose today or a later date.",
+      "percent": "Share of salary",
+      "percentHint": "0 = no monthly suggestion",
+      "percentRange": "Enter a whole number from 0 to 100."
+    },
+    "amount": {
+      "amount": "Amount",
+      "amountPositive": "Enter an amount greater than zero.",
+      "note": "Note (optional)",
+      "available": "Available: {amount}",
+      "missing": "Remaining: {amount}",
+      "deposit": "Add",
+      "withdraw": "Withdraw"
+    },
+    "history": {
+      "title": "History",
+      "empty": "No movements yet.",
+      "undo": "Undo",
+      "undoTitle": "Undo movement?",
+      "undoMessage": "Undo {type} of {amount} on {when}? The amount returns to its previous state.",
+      "type": {
+        "CONTRIBUTION": "Monthly contribution",
+        "SKIP": "Skipped month",
+        "DEPOSIT": "Deposit",
+        "WITHDRAWAL": "Withdrawal"
+      },
+      "undoLabel": "Undo {type} of {amount} on {when}",
+      "undoLabelMonth": "Undo {type} of {amount} in {when}",
+      "undoMessageMonth": "Undo {type} of {amount} in {when}? The amount returns to its previous state."
+    },
+    "completeTitle": "Complete {name}?",
+    "completeMessage": "{amount} will no longer be set aside.",
+    "deleteTitle": "Delete {name}?",
+    "deleteMessage": "The history will be erased and {amount} will no longer be set aside.",
+    "deleteCompletedMessage": "The history will be erased."
+  },
   "recurring": {
     "subtitle": "Transactions that repeat on their own.",
     "new": "New recurring transaction",
@@ -534,6 +630,9 @@
     "balance": {
       "title": "Balance",
       "total": "Total balance",
+      "free": "Free balance",
+      "freeHint": "Balance minus {amount} set aside in goals",
+      "freeNegative": "More money is set aside in goals than the accounts hold.",
       "asOf": "balance as of {date}",
       "accountsLabel": "Balance by account",
       "emptyTitle": "No accounts yet",
@@ -560,6 +659,27 @@
       "emptyDescription": "Set monthly limits to keep spending under control.",
       "emptyCta": "Set a budget",
       "listLabel": "Budget progress"
+    },
+    "goals": {
+      "title": "Goals",
+      "viewAll": "View all",
+      "emptyTitle": "Create a goal",
+      "emptyDescription": "Set money aside for what you want to achieve together.",
+      "emptyCta": "Create a goal",
+      "suggestionsHeader": "Suggestions for {month} · Salary {salary}",
+      "suggestionsLabel": "Monthly suggestions",
+      "confirm": "Confirm",
+      "adjust": "Adjust",
+      "confirmLabel": "Confirm {name}",
+      "failureFor": "{name}: {message}",
+      "adjustLabel": "Adjust {name}",
+      "skipLabel": "Skip {name}",
+      "amountFor": "Amount for {name}",
+      "viewAllLabel": "View all goals",
+      "amountTooHigh": "The amount is more than what is left: {amount}.",
+      "salaryHint": "Choose the salary category to get suggestions",
+      "noSalary": "No salary in {month} in the {name} category.",
+      "listLabel": "Goal progress"
     },
     "upcoming": {
       "title": "Upcoming",

@@ -18,6 +18,7 @@ describe('AppLayout', () => {
       'Contas',
       'Categorias',
       'Orçamentos',
+      'Objetivos',
       'Recorrências',
       'Configurações',
     ])
@@ -113,6 +114,7 @@ describe('AppLayout', () => {
       ['Contas', '/bank-accounts'],
       ['Categorias', '/categories'],
       ['Recorrências', '/recurring'],
+      ['Objetivos', '/goals'],
     ])('reaches %s from the user menu', async (name, path) => {
       const r = await openMenu('USER')
       const item = [...document.querySelectorAll('[role="menuitem"]')].find(
@@ -125,11 +127,18 @@ describe('AppLayout', () => {
 
     it('lists Admin only for ADMIN', async () => {
       await openMenu('USER')
-      expect(menuItems()).toEqual(['Contas', 'Categorias', 'Recorrências', 'Sair'])
+      expect(menuItems()).toEqual(['Contas', 'Categorias', 'Recorrências', 'Objetivos', 'Sair'])
       cleanup()
 
       const r = await openMenu('ADMIN')
-      expect(menuItems()).toEqual(['Contas', 'Categorias', 'Recorrências', 'Admin', 'Sair'])
+      expect(menuItems()).toEqual([
+        'Contas',
+        'Categorias',
+        'Recorrências',
+        'Objetivos',
+        'Admin',
+        'Sair',
+      ])
       const admin = [...document.querySelectorAll('[role="menuitem"]')].find(
         (el) => el.textContent?.trim() === 'Admin',
       )
@@ -146,7 +155,7 @@ describe('AppLayout', () => {
       })
       await r.user.click(r.wrapper.get('button[aria-haspopup="menu"]').element)
       await vi.waitFor(() =>
-        expect(menuItems()).toEqual(['Accounts', 'Categories', 'Recurring', 'Sign out']),
+        expect(menuItems()).toEqual(['Accounts', 'Categories', 'Recurring', 'Goals', 'Sign out']),
       )
       expect(document.body.textContent).toContain('More')
     })

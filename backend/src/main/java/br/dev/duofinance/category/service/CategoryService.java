@@ -1,5 +1,6 @@
 package br.dev.duofinance.category.service;
 
+import br.dev.duofinance.account.repository.AccountRepository;
 import br.dev.duofinance.category.dto.CategoryRequest;
 import br.dev.duofinance.category.dto.CategoryResponse;
 import br.dev.duofinance.category.dto.UpdateCategoryRequest;
@@ -26,11 +27,14 @@ public class CategoryService {
 
     private final CategoryRepository categories;
     private final RecurringRuleRepository rules;
+    private final AccountRepository accounts;
     private final Clock clock;
 
-    public CategoryService(CategoryRepository categories, RecurringRuleRepository rules, Clock clock) {
+    public CategoryService(
+            CategoryRepository categories, RecurringRuleRepository rules, AccountRepository accounts, Clock clock) {
         this.categories = categories;
         this.rules = rules;
+        this.accounts = accounts;
         this.clock = clock;
     }
 
@@ -94,8 +98,13 @@ public class CategoryService {
         return CategoryResponse.of(categories.saveAndFlush(category));
     }
 
+    /**
+     * Takes the account row first, like the salary-category save: otherwise the delete would hold the category row
+     * while that save, holding the account, waits on it and then fails its foreign key check.
+     */
     @Transactional
     public void delete(UUID accountId, UUID id) {
+        accounts.findByIdForUpdate(accountId).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
         categories.delete(requireOwned(accountId, id));
         categories.flush();
     }

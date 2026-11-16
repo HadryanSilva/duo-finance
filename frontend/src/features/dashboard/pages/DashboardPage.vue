@@ -9,6 +9,7 @@ import PageHeader from '@/shared/ui/PageHeader.vue'
 import { useDashboard } from '../api/dashboard-api'
 import BalanceCard from '../components/BalanceCard.vue'
 import BudgetsCard from '../components/BudgetsCard.vue'
+import GoalsCard from '../components/GoalsCard.vue'
 import IncomeExpenseChart from '../components/IncomeExpenseChart.vue'
 import RecentTransactionsCard from '../components/RecentTransactionsCard.vue'
 import SpendingDonut from '../components/SpendingDonut.vue'
@@ -49,6 +50,7 @@ const dashboard = useDashboard(month)
       <IncomeExpenseChart class="lg:col-span-2" :data="dashboard.data.value" />
       <SpendingDonut :data="dashboard.data.value" />
       <BudgetsCard :data="dashboard.data.value" />
+      <GoalsCard :data="dashboard.data.value" />
       <UpcomingCard :data="dashboard.data.value" />
     </template>
     <RecentTransactionsCard class="lg:col-span-3" />

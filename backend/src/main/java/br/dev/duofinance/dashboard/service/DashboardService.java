@@ -12,9 +12,12 @@ import br.dev.duofinance.dashboard.dto.DashboardResponse.CategorySpend;
 import br.dev.duofinance.dashboard.dto.DashboardResponse.UpcomingOccurrence;
 import br.dev.duofinance.dashboard.repository.MonthlyTotalsQuery;
 import br.dev.duofinance.dashboard.repository.MonthlyTotalsQuery.Totals;
+import br.dev.duofinance.goal.dto.GoalsOverview;
+import br.dev.duofinance.goal.service.GoalService;
 import br.dev.duofinance.recurring.model.RecurringRule;
 import br.dev.duofinance.recurring.repository.RecurringRuleRepository;
 import br.dev.duofinance.recurring.service.RecurrenceSchedule;
+import br.dev.duofinance.shared.time.RunningMonths;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -44,6 +47,7 @@ public class DashboardService {
     private final BudgetService budgetService;
     private final CategoryRepository categories;
     private final RecurringRuleRepository rules;
+    private final GoalService goalService;
     private final Clock clock;
 
     public DashboardService(
@@ -54,6 +58,7 @@ public class DashboardService {
             BudgetService budgetService,
             CategoryRepository categories,
             RecurringRuleRepository rules,
+            GoalService goalService,
             Clock clock) {
         this.totalsQuery = totalsQuery;
         this.bankAccounts = bankAccounts;
@@ -62,6 +67,7 @@ public class DashboardService {
         this.budgetService = budgetService;
         this.categories = categories;
         this.rules = rules;
+        this.goalService = goalService;
         this.clock = clock;
     }
 
@@ -88,6 +94,7 @@ public class DashboardService {
                 accounts.stream().mapToLong(AccountBalance::balanceCents).sum();
 
         Map<UUID, Long> spent = progress.spentByCategory(accountId, month);
+        GoalsOverview goals = goalService.overview(accountId, month);
 
         return new DashboardResponse(
                 month,
@@ -99,7 +106,9 @@ public class DashboardService {
                 totals.expenseCents(),
                 spending(accountId, spent),
                 budgetService.list(accountId, month, spent),
-                upcoming(accountId, today));
+                upcoming(accountId, today),
+                RunningMonths.isRunning(month, clock) ? totalBalance - goals.totalSavedCents() : null,
+                goals);
     }
 
     /** Archived categories are included: the spending happened. */

@@ -2,6 +2,7 @@ package br.dev.duofinance.dashboard.dto;
 
 import br.dev.duofinance.bankaccount.model.BankAccountType;
 import br.dev.duofinance.budget.dto.BudgetResponse;
+import br.dev.duofinance.goal.dto.GoalsOverview;
 import br.dev.duofinance.transaction.model.TransactionKind;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -19,7 +20,9 @@ public record DashboardResponse(
         long expenseCents,
         List<CategorySpend> spendingByCategory,
         List<BudgetResponse> budgets,
-        List<UpcomingOccurrence> upcoming) {
+        List<UpcomingOccurrence> upcoming,
+        @Nullable Long freeBalanceCents,
+        GoalsOverview goals) {
 
     public record AccountBalance(UUID id, String name, BankAccountType type, long balanceCents) {}
 

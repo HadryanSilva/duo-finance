@@ -7,6 +7,7 @@ import {
   Settings,
   ShieldCheck,
   Tags,
+  Target,
 } from '@lucide/vue'
 import type { Component } from 'vue'
 
@@ -26,6 +27,7 @@ export const SETTINGS = item('/settings', 'nav.settings', Settings)
 export const ADMIN = item('/admin', 'nav.admin', ShieldCheck)
 const BANK_ACCOUNTS = item('/bank-accounts', 'nav.bankAccounts', Landmark)
 const CATEGORIES = item('/categories', 'nav.categories', Tags)
+export const GOALS = item('/goals', 'nav.goals', Target)
 const RECURRING = item('/recurring', 'nav.recurring', Repeat)
 
 export const SIDEBAR_ITEMS: readonly NavItem[] = [
@@ -34,9 +36,10 @@ export const SIDEBAR_ITEMS: readonly NavItem[] = [
   BANK_ACCOUNTS,
   CATEGORIES,
   BUDGETS,
+  GOALS,
   RECURRING,
   SETTINGS,
 ]
 
 /** The pages the bottom nav has no room for, offered in the user menu (Admin added for ADMIN). */
-export const MORE_ITEMS: readonly NavItem[] = [BANK_ACCOUNTS, CATEGORIES, RECURRING]
+export const MORE_ITEMS: readonly NavItem[] = [BANK_ACCOUNTS, CATEGORIES, RECURRING, GOALS]

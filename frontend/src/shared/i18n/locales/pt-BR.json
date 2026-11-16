@@ -31,6 +31,14 @@
     "RECURRING_DATE_TAKEN": "Já existe um lançamento recorrente nesta data.",
     "BUDGET_EXISTS": "Já existe um orçamento para esta categoria.",
     "BUDGET_CATEGORY_INVALID": "Só é possível criar orçamento para categorias de despesa.",
+    "GOAL_NAME_TAKEN": "Já existe um objetivo ativo com esse nome.",
+    "GOAL_PERCENT_CAP": "A soma das porcentagens dos objetivos ativos passaria de 100%. Conclua objetivos já atingidos ou reduza as porcentagens.",
+    "GOAL_COMPLETED": "Este objetivo está concluído. Reabra-o para alterar.",
+    "GOAL_MONTH_TAKEN": "Este mês já foi confirmado ou pulado.",
+    "GOAL_MONTH_INVALID": "Mês fora do período do objetivo.",
+    "GOAL_AMOUNT_INVALID": "Valor inválido para este objetivo: ele ficaria negativo ou acima da meta.",
+    "GOAL_NO_SALARY": "Não há salário registrado neste mês.",
+    "GOAL_SALARY_CATEGORY_INVALID": "Escolha uma categoria de receita ativa.",
     "IN_USE_BY_ACTIVE_RULE": "Este item é usado por um lançamento recorrente ativo.",
     "IMPORT_FORMAT_UNSUPPORTED": "Este arquivo não parece ser um extrato CSV da Revolut.",
     "IMPORT_ROW_INVALID": "O arquivo tem uma linha com data ou valor ilegível.",
@@ -77,6 +85,7 @@
     "bankAccounts": "Contas",
     "categories": "Categorias",
     "budgets": "Orçamentos",
+    "goals": "Objetivos",
     "recurring": "Recorrências",
     "settings": "Configurações",
     "admin": "Admin",
@@ -495,6 +504,93 @@
       "noCategories": "Todas as categorias de despesa ativas já têm orçamento."
     }
   },
+  "goals": {
+    "subtitle": "Separe dinheiro para o que vocês querem conquistar.",
+    "new": "Novo objetivo",
+    "createTitle": "Novo objetivo",
+    "editTitle": "Editar objetivo",
+    "listLabel": "Objetivos",
+    "emptyTitle": "Nenhum objetivo ainda",
+    "emptyDescription": "Crie um objetivo e acompanhe quanto já foi separado para ele.",
+    "completedTitle": "Concluídos",
+    "status": {
+      "REACHED": "Atingido",
+      "COMPLETED": "Concluído"
+    },
+    "progress": "{percent}% do objetivo",
+    "remaining": "Faltam {amount}",
+    "percentOfSalary": "{percent}% do salário/mês",
+    "projection": {
+      "required": "Para chegar até {date} faltam {amount}/mês",
+      "pace": "No ritmo atual chega em {month}",
+      "passed": "A data-alvo ({date}) já passou.",
+      "passedPace": "A data-alvo ({date}) já passou. No ritmo atual chega em {month}"
+    },
+    "salary": {
+      "label": "O salário vem da categoria",
+      "choose": "Selecione",
+      "archivedOption": "{name} (arquivada)",
+      "archivedWarning": "A categoria de salário está arquivada. Escolha outra para calcular as sugestões."
+    },
+    "actions": {
+      "deposit": "Adicionar valor",
+      "withdraw": "Resgatar",
+      "history": "Histórico",
+      "edit": "Editar",
+      "complete": "Concluir",
+      "remove": "Excluir",
+      "reopen": "Reabrir"
+    },
+    "actionLabel": {
+      "deposit": "Adicionar valor a {name}",
+      "withdraw": "Resgatar de {name}",
+      "history": "Histórico de {name}",
+      "edit": "Editar {name}",
+      "complete": "Concluir {name}",
+      "remove": "Excluir {name}",
+      "reopen": "Reabrir {name}"
+    },
+    "form": {
+      "name": "Nome",
+      "target": "Valor alvo",
+      "targetPositive": "Informe um valor maior que zero.",
+      "targetDate": "Data alvo (opcional)",
+      "targetDatePast": "Escolha hoje ou uma data futura.",
+      "percent": "Porcentagem do salário",
+      "percentHint": "0 = sem sugestão mensal",
+      "percentRange": "Informe um número inteiro de 0 a 100."
+    },
+    "amount": {
+      "amount": "Valor",
+      "amountPositive": "Informe um valor maior que zero.",
+      "note": "Observação (opcional)",
+      "available": "Disponível: {amount}",
+      "missing": "Faltam: {amount}",
+      "deposit": "Adicionar",
+      "withdraw": "Resgatar"
+    },
+    "history": {
+      "title": "Histórico",
+      "empty": "Nenhuma movimentação ainda.",
+      "undo": "Desfazer",
+      "undoTitle": "Desfazer movimentação?",
+      "undoMessage": "Desfazer {type} de {amount} em {when}? O valor volta ao estado anterior.",
+      "type": {
+        "CONTRIBUTION": "Contribuição mensal",
+        "SKIP": "Mês pulado",
+        "DEPOSIT": "Depósito",
+        "WITHDRAWAL": "Resgate"
+      },
+      "undoLabel": "Desfazer {type} de {amount} em {when}",
+      "undoLabelMonth": "Desfazer {type} de {amount} em {when}",
+      "undoMessageMonth": "Desfazer {type} de {amount} em {when}? O valor volta ao estado anterior."
+    },
+    "completeTitle": "Concluir {name}?",
+    "completeMessage": "{amount} deixam de ficar separados.",
+    "deleteTitle": "Excluir {name}?",
+    "deleteMessage": "O histórico será apagado e {amount} deixam de ficar separados.",
+    "deleteCompletedMessage": "O histórico será apagado."
+  },
   "recurring": {
     "subtitle": "Lançamentos que se repetem sozinhos.",
     "new": "Nova recorrência",
@@ -534,6 +630,9 @@
     "balance": {
       "title": "Saldo",
       "total": "Saldo total",
+      "free": "Saldo livre",
+      "freeHint": "Saldo menos {amount} separados em objetivos",
+      "freeNegative": "Há mais dinheiro separado em objetivos do que saldo nas contas.",
       "asOf": "saldo em {date}",
       "accountsLabel": "Saldo por conta",
       "emptyTitle": "Nenhuma conta ainda",
@@ -560,6 +659,27 @@
       "emptyDescription": "Defina limites mensais para manter os gastos sob controle.",
       "emptyCta": "Definir orçamento",
       "listLabel": "Andamento dos orçamentos"
+    },
+    "goals": {
+      "title": "Objetivos",
+      "viewAll": "Ver todos",
+      "emptyTitle": "Crie um objetivo",
+      "emptyDescription": "Separe dinheiro para o que vocês querem conquistar.",
+      "emptyCta": "Crie um objetivo",
+      "suggestionsHeader": "Sugestões de {month} · Salário {salary}",
+      "suggestionsLabel": "Sugestões do mês",
+      "confirm": "Confirmar",
+      "adjust": "Ajustar",
+      "confirmLabel": "Confirmar {name}",
+      "failureFor": "{name}: {message}",
+      "adjustLabel": "Ajustar {name}",
+      "skipLabel": "Pular {name}",
+      "amountFor": "Valor para {name}",
+      "viewAllLabel": "Ver todos os objetivos",
+      "amountTooHigh": "O valor passa do que falta: {amount}.",
+      "salaryHint": "Escolha a categoria do salário para receber sugestões",
+      "noSalary": "Nenhum salário em {month} na categoria {name}.",
+      "listLabel": "Andamento dos objetivos"
     },
     "upcoming": {
       "title": "Próximos",
