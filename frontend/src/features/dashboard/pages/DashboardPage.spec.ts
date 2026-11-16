@@ -57,6 +57,16 @@ const full: DashboardResponse = {
       categoryId: null,
     },
   ],
+  freeBalanceCents: null,
+  goals: {
+    month: '2026-03',
+    salaryCategory: null,
+    salaryCents: 0,
+    totalSavedCents: 0,
+    goals: [],
+    completed: [],
+    suggestions: [],
+  },
 }
 
 const empty: DashboardResponse = {

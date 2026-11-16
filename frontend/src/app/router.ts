@@ -113,6 +113,11 @@ export const routes: RouteRecordRaw[] = [
     meta: app,
   },
   {
+    path: '/goals',
+    component: () => import('@/features/goals/pages/GoalsPage.vue'),
+    meta: app,
+  },
+  {
     path: '/recurring',
     component: () => import('@/features/recurring/pages/RecurringPage.vue'),
     meta: app,
