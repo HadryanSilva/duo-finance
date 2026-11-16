@@ -1,0 +1,105 @@
+package br.dev.duofinance.goal.model;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
+import org.hibernate.annotations.UuidGenerator;
+import org.jspecify.annotations.Nullable;
+
+@Entity
+@Table(name = "goal_movements")
+public class GoalMovement {
+
+    @Id
+    @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
+    private UUID id;
+
+    @Column(name = "goal_id", nullable = false)
+    private UUID goalId;
+
+    @Column(name = "account_id", nullable = false)
+    private UUID accountId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    private GoalMovementType type;
+
+    @Column(name = "amount_cents", nullable = false)
+    private long amountCents;
+
+    /** First day of the month a CONTRIBUTION or SKIP refers to; null for DEPOSIT and WITHDRAWAL. */
+    @Column
+    private @Nullable LocalDate month;
+
+    @Column(length = 200)
+    private @Nullable String note;
+
+    @Column(name = "created_by")
+    private @Nullable UUID createdBy;
+
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
+
+    protected GoalMovement() {}
+
+    public GoalMovement(
+            UUID goalId,
+            UUID accountId,
+            GoalMovementType type,
+            long amountCents,
+            @Nullable LocalDate month,
+            @Nullable String note,
+            @Nullable UUID createdBy,
+            Instant now) {
+        this.goalId = goalId;
+        this.accountId = accountId;
+        this.type = type;
+        this.amountCents = amountCents;
+        this.month = month;
+        this.note = note;
+        this.createdBy = createdBy;
+        this.createdAt = now;
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getGoalId() {
+        return goalId;
+    }
+
+    public UUID getAccountId() {
+        return accountId;
+    }
+
+    public GoalMovementType getType() {
+        return type;
+    }
+
+    public long getAmountCents() {
+        return amountCents;
+    }
+
+    public @Nullable LocalDate getMonth() {
+        return month;
+    }
+
+    public @Nullable String getNote() {
+        return note;
+    }
+
+    public @Nullable UUID getCreatedBy() {
+        return createdBy;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+}

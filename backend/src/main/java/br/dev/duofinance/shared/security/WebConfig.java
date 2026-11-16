@@ -16,6 +16,7 @@ public class WebConfig implements WebMvcConfigurer {
         "/api/v1/transactions/**",
         "/api/v1/recurring-rules/**",
         "/api/v1/budgets/**",
+        "/api/v1/goals/**",
         "/api/v1/dashboard/**",
         "/api/v1/imports/**"
     };
