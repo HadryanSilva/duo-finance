@@ -48,6 +48,7 @@ const busyGoal = ref<string | null>(null)
 
 function startAdjust(s: GoalSuggestion) {
   adjusting.value = s.goalId
+  amountError.value = null
   amount.value = s.suggestedCents
 }
 
@@ -69,9 +70,22 @@ const confirm = (s: GoalSuggestion) =>
 const skipMonth = (s: GoalSuggestion) =>
   run(s, () => skip.mutateAsync({ id: s.goalId, body: { month: s.month } }))
 
+const amountError = ref<'positive' | 'tooHigh' | null>(null)
+const remainingOf = (s: GoalSuggestion) =>
+  goals.value?.goals.find((g) => g.id === s.goalId)?.remainingCents ?? 0
+
 function saveAdjusted(s: GoalSuggestion) {
   const amountCents = amount.value
-  if (amountCents === null || amountCents <= 0) return
+  amountError.value = null
+  if (amountCents === null || amountCents <= 0) {
+    amountError.value = 'positive'
+    return
+  }
+  const remaining = remainingOf(s)
+  if (amountCents > remaining) {
+    amountError.value = 'tooHigh'
+    return
+  }
   void run(s, () => contribute.mutateAsync({ id: s.goalId, body: { month: s.month, amountCents } }))
 }
 </script>
@@ -81,7 +95,9 @@ function saveAdjusted(s: GoalSuggestion) {
     <CardHeader class="flex-row items-center justify-between gap-2">
       <CardTitle>{{ t('dashboard.goals.title') }}</CardTitle>
       <Button v-if="goals?.goals.length" as-child variant="link" size="sm">
-        <RouterLink to="/goals">{{ t('dashboard.goals.viewAll') }}</RouterLink>
+        <RouterLink to="/goals" :aria-label="t('dashboard.goals.viewAllLabel')">
+          {{ t('dashboard.goals.viewAll') }}
+        </RouterLink>
       </Button>
     </CardHeader>
     <CardContent class="grid gap-5">
@@ -119,25 +135,42 @@ function saveAdjusted(s: GoalSuggestion) {
               </div>
               <form
                 v-if="adjusting === s.goalId"
-                class="flex flex-wrap items-end gap-2"
+                class="grid gap-2"
                 @submit.prevent="saveAdjusted(s)"
               >
-                <MoneyInput
-                  v-model="amount"
-                  :label="t('dashboard.goals.amountFor', { name: s.goalName })"
-                />
-                <Button type="submit" size="sm" :disabled="busyGoal === s.goalId">
-                  {{ t('common.save') }}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  :disabled="busyGoal === s.goalId"
-                  @click="adjusting = null"
+                <div class="flex flex-wrap items-end gap-2">
+                  <MoneyInput
+                    v-model="amount"
+                    :label="t('dashboard.goals.amountFor', { name: s.goalName })"
+                  />
+                  <Button type="submit" size="sm" :disabled="busyGoal === s.goalId">
+                    {{ t('common.save') }}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    :disabled="busyGoal === s.goalId"
+                    @click="adjusting = null"
+                  >
+                    {{ t('common.cancel') }}
+                  </Button>
+                </div>
+                <i18n-t keypath="goals.remaining" tag="p" class="text-sm text-muted-foreground">
+                  <template #amount><MoneyText :cents="remainingOf(s)" /></template>
+                </i18n-t>
+                <p v-if="amountError === 'positive'" role="alert" class="text-sm text-destructive">
+                  {{ t('goals.amount.amountPositive') }}
+                </p>
+                <i18n-t
+                  v-else-if="amountError === 'tooHigh'"
+                  keypath="dashboard.goals.amountTooHigh"
+                  tag="p"
+                  role="alert"
+                  class="text-sm text-destructive"
                 >
-                  {{ t('common.cancel') }}
-                </Button>
+                  <template #amount><MoneyText :cents="remainingOf(s)" /></template>
+                </i18n-t>
               </form>
               <div v-else class="flex flex-wrap items-center gap-2">
                 <Button

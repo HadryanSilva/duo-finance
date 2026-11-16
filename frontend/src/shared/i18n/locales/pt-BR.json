@@ -669,6 +669,8 @@
       "adjustLabel": "Ajustar {name}",
       "skipLabel": "Pular {name}",
       "amountFor": "Valor para {name}",
+      "viewAllLabel": "Ver todos os objetivos",
+      "amountTooHigh": "O valor passa do que falta: {amount}.",
       "salaryHint": "Escolha a categoria do salário para receber sugestões",
       "listLabel": "Andamento dos objetivos"
     },

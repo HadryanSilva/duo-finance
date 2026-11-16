@@ -150,7 +150,9 @@ describe('GoalsCard', () => {
     const item = bar.closest('li') as HTMLElement
     expect(norm(item.textContent)).toContain('€ 400,00')
     expect(norm(item.textContent)).toContain('€ 1.000,00')
-    expect(screen.getByRole('link', { name: 'Ver todos' }).getAttribute('href')).toBe('/goals')
+    expect(screen.getByRole('link', { name: 'Ver todos os objetivos' }).getAttribute('href')).toBe(
+      '/goals',
+    )
   })
 
   it('reached_showsBadge', async () => {
@@ -159,5 +161,31 @@ describe('GoalsCard', () => {
     )
     const item = screen.getByRole('progressbar').closest('li') as HTMLElement
     expect(within(item).getByText('Atingido')).toBeTruthy()
+  })
+
+  it.each([
+    ['', 'Informe um valor maior que zero.'],
+    ['0', 'Informe um valor maior que zero.'],
+    ['700', 'O valor passa do que falta: € 600,00.'],
+  ])('adjust_invalidAmount_%s_showsMessageWithoutRequest', async (typed, message) => {
+    let posted = 0
+    const { user } = await mountCard(withGoals(), {
+      handlers: [
+        http.post(`${api}/goals/g1/contributions`, () => {
+          posted++
+          return HttpResponse.json({}, { status: 201 })
+        }),
+      ],
+    })
+    await user.click(screen.getByRole('button', { name: 'Ajustar Videogame novo' }))
+    const form = screen.getByLabelText('Valor para Videogame novo').closest('form') as HTMLElement
+    expect(norm(form.textContent)).toContain('Faltam € 600,00')
+    const input = screen.getByLabelText('Valor para Videogame novo')
+    await user.click(input)
+    await user.keyboard('{Control>}a{/Control}{Backspace}')
+    if (typed) await user.keyboard(typed)
+    await user.click(screen.getByRole('button', { name: 'Salvar' }))
+    expect(norm((await screen.findByRole('alert')).textContent)).toBe(message)
+    expect(posted).toBe(0)
   })
 })

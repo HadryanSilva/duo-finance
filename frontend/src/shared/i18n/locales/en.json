@@ -669,6 +669,8 @@
       "adjustLabel": "Adjust {name}",
       "skipLabel": "Skip {name}",
       "amountFor": "Amount for {name}",
+      "viewAllLabel": "View all goals",
+      "amountTooHigh": "The amount is more than what is left: {amount}.",
       "salaryHint": "Choose the salary category to get suggestions",
       "listLabel": "Goal progress"
     },
