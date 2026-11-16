@@ -45,7 +45,12 @@ test('goals: suggest, confirm, withdraw, conclude', async ({ page, request }) =>
 
   // Salary category + goal "Reserva" at 10%.
   await page.goto('/goals')
+  // The select changes at once; wait for the save itself before relying on it.
+  const settingsSaved = page.waitForResponse(
+    (r) => r.request().method() === 'PUT' && r.url().endsWith('/api/v1/goals/settings'),
+  )
   await page.getByLabel('O salário vem da categoria').selectOption({ label: 'Salário' })
+  expect((await settingsSaved).ok()).toBe(true)
   await expect(page.getByLabel('O salário vem da categoria')).toHaveValue(/.+/)
   await page.getByRole('button', { name: 'Novo objetivo' }).first().click()
   const form = page.getByRole('dialog')
