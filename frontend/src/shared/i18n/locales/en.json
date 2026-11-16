@@ -626,6 +626,8 @@
     "balance": {
       "title": "Balance",
       "total": "Total balance",
+      "free": "Free balance",
+      "freeHint": "Balance minus {amount} set aside in goals",
       "asOf": "balance as of {date}",
       "accountsLabel": "Balance by account",
       "emptyTitle": "No accounts yet",
@@ -652,6 +654,23 @@
       "emptyDescription": "Set monthly limits to keep spending under control.",
       "emptyCta": "Set a budget",
       "listLabel": "Budget progress"
+    },
+    "goals": {
+      "title": "Goals",
+      "viewAll": "View all",
+      "emptyTitle": "Create a goal",
+      "emptyDescription": "Set money aside for what you want to achieve together.",
+      "emptyCta": "Create a goal",
+      "suggestionsHeader": "Suggestions for {month} · Salary {salary}",
+      "suggestionsLabel": "Monthly suggestions",
+      "confirm": "Confirm",
+      "adjust": "Adjust",
+      "confirmLabel": "Confirm {name}",
+      "adjustLabel": "Adjust {name}",
+      "skipLabel": "Skip {name}",
+      "amountFor": "Amount for {name}",
+      "salaryHint": "Choose the salary category to get suggestions",
+      "listLabel": "Goal progress"
     },
     "upcoming": {
       "title": "Upcoming",

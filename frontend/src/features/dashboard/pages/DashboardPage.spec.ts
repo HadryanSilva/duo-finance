@@ -235,4 +235,29 @@ describe('DashboardPage', () => {
     await screen.findByRole('link', { name: 'Ver todos' })
     await waitFor(() => expect(document.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(0))
   })
+
+  it('balance_showsFreeBalanceWhenGoalsHoldMoney', async () => {
+    const withGoals: DashboardResponse = {
+      ...full,
+      freeBalanceCents: 250000,
+      goals: { ...full.goals, totalSavedCents: 100000 },
+    }
+    await setup(withGoals).render('/dashboard?month=2026-03')
+    expect(await screen.findByText('Saldo livre')).toBeTruthy()
+    await waitFor(() => expect(norm(document.body.textContent)).toContain('€ 2.500,00'))
+    expect(norm(document.body.textContent)).toContain(
+      'Saldo menos € 1.000,00 separados em objetivos',
+    )
+  })
+
+  it('balance_hidesFreeBalanceForPastMonth', async () => {
+    const past: DashboardResponse = {
+      ...full,
+      freeBalanceCents: null,
+      goals: { ...full.goals, totalSavedCents: 100000 },
+    }
+    await setup(past).render('/dashboard?month=2026-03')
+    await screen.findByText('Saldo total')
+    expect(screen.queryByText('Saldo livre')).toBeNull()
+  })
 })

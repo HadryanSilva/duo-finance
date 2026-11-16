@@ -1,0 +1,216 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { RouterLink } from 'vue-router'
+import { useContribute, useSkipMonth } from '@/shared/api/queries/goals'
+import type { DashboardResponse, GoalResponse, GoalSuggestion } from '@/shared/api/types'
+import { errorMessage } from '@/shared/i18n/error-codes'
+import { formatMonth } from '@/shared/lib/dates'
+import type { Locale } from '@/shared/lib/money'
+import { Badge } from '@/shared/ui/badge'
+import { Button } from '@/shared/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
+import MoneyInput from '@/shared/ui/MoneyInput.vue'
+import MoneyText from '@/shared/ui/MoneyText.vue'
+import { Skeleton } from '@/shared/ui/skeleton'
+import CardEmpty from './CardEmpty.vue'
+
+/** `undefined` while the dashboard loads. */
+const props = defineProps<{ data?: DashboardResponse }>()
+
+const { t, locale } = useI18n()
+const contribute = useContribute()
+const skip = useSkipMonth()
+
+const goals = computed(() => props.data?.goals)
+const monthLabel = computed(() =>
+  goals.value ? formatMonth(goals.value.month, locale.value as Locale) : '',
+)
+
+/** Goals with a monthly share need a salary to suggest from; an archived category is not usable. */
+const needsSalaryCategory = computed(() => {
+  const g = goals.value
+  if (!g) return false
+  const category = g.salaryCategory
+  return g.goals.some((x) => x.monthlyPercent > 0) && (category === null || category.archived)
+})
+
+function percent(g: GoalResponse): number {
+  if (g.targetCents <= 0) return 0
+  return Math.min(100, Math.max(0, Math.floor((g.savedCents * 100) / g.targetCents)))
+}
+
+// One suggestion at a time: the goal being adjusted, the typed amount and the last failure.
+const adjusting = ref<string | null>(null)
+const amount = ref<number | null>(null)
+const failure = ref<{ goalId: string; error: unknown } | null>(null)
+const busyGoal = ref<string | null>(null)
+
+function startAdjust(s: GoalSuggestion) {
+  adjusting.value = s.goalId
+  amount.value = s.suggestedCents
+}
+
+async function run(s: GoalSuggestion, action: () => Promise<unknown>) {
+  failure.value = null
+  busyGoal.value = s.goalId
+  try {
+    await action()
+    adjusting.value = null
+  } catch (error) {
+    failure.value = { goalId: s.goalId, error }
+  } finally {
+    busyGoal.value = null
+  }
+}
+
+const confirm = (s: GoalSuggestion) =>
+  run(s, () => contribute.mutateAsync({ id: s.goalId, body: { month: s.month } }))
+const skipMonth = (s: GoalSuggestion) =>
+  run(s, () => skip.mutateAsync({ id: s.goalId, body: { month: s.month } }))
+
+function saveAdjusted(s: GoalSuggestion) {
+  const amountCents = amount.value
+  if (amountCents === null || amountCents <= 0) return
+  void run(s, () => contribute.mutateAsync({ id: s.goalId, body: { month: s.month, amountCents } }))
+}
+</script>
+
+<template>
+  <Card>
+    <CardHeader class="flex-row items-center justify-between gap-2">
+      <CardTitle>{{ t('dashboard.goals.title') }}</CardTitle>
+      <Button v-if="goals?.goals.length" as-child variant="link" size="sm">
+        <RouterLink to="/goals">{{ t('dashboard.goals.viewAll') }}</RouterLink>
+      </Button>
+    </CardHeader>
+    <CardContent class="grid gap-5">
+      <div v-if="!goals" class="grid gap-4">
+        <Skeleton class="h-10 w-full" />
+        <Skeleton class="h-10 w-full" />
+      </div>
+      <CardEmpty
+        v-else-if="!goals.goals.length"
+        :title="t('dashboard.goals.emptyTitle')"
+        :description="t('dashboard.goals.emptyDescription')"
+        :cta="t('dashboard.goals.emptyCta')"
+        to="/goals?new=1"
+      />
+      <template v-else>
+        <section v-if="goals.suggestions.length" class="grid gap-3">
+          <h3 class="text-sm font-medium text-foreground">
+            <i18n-t keypath="dashboard.goals.suggestionsHeader" tag="span">
+              <template #month>{{ monthLabel }}</template>
+              <template #salary><MoneyText :cents="goals.salaryCents" /></template>
+            </i18n-t>
+          </h3>
+          <ul class="grid gap-3" :aria-label="t('dashboard.goals.suggestionsLabel')">
+            <li
+              v-for="s in goals.suggestions"
+              :key="s.goalId"
+              class="grid gap-2 rounded-lg border border-border p-3"
+            >
+              <div class="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
+                <span class="min-w-0 truncate font-medium text-foreground">{{ s.goalName }}</span>
+                <span class="text-muted-foreground">
+                  {{ s.monthlyPercent }}% →
+                  <MoneyText :cents="s.suggestedCents" class="font-medium text-foreground" />
+                </span>
+              </div>
+              <form
+                v-if="adjusting === s.goalId"
+                class="flex flex-wrap items-end gap-2"
+                @submit.prevent="saveAdjusted(s)"
+              >
+                <MoneyInput
+                  v-model="amount"
+                  :label="t('dashboard.goals.amountFor', { name: s.goalName })"
+                />
+                <Button type="submit" size="sm" :disabled="busyGoal === s.goalId">
+                  {{ t('common.save') }}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  :disabled="busyGoal === s.goalId"
+                  @click="adjusting = null"
+                >
+                  {{ t('common.cancel') }}
+                </Button>
+              </form>
+              <div v-else class="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  :disabled="busyGoal === s.goalId"
+                  :aria-label="t('dashboard.goals.confirmLabel', { name: s.goalName })"
+                  @click="confirm(s)"
+                >
+                  {{ t('dashboard.goals.confirm') }}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  :disabled="busyGoal === s.goalId"
+                  :aria-label="t('dashboard.goals.adjustLabel', { name: s.goalName })"
+                  @click="startAdjust(s)"
+                >
+                  {{ t('dashboard.goals.adjust') }}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  :disabled="busyGoal === s.goalId"
+                  :aria-label="t('dashboard.goals.skipLabel', { name: s.goalName })"
+                  @click="skipMonth(s)"
+                >
+                  {{ t('common.skip') }}
+                </Button>
+              </div>
+              <p v-if="failure?.goalId === s.goalId" role="alert" class="text-sm text-destructive">
+                {{ errorMessage(failure.error) }}
+              </p>
+            </li>
+          </ul>
+        </section>
+
+        <RouterLink
+          v-if="needsSalaryCategory"
+          to="/goals"
+          class="text-sm text-brand underline-offset-4 hover:underline"
+        >
+          {{ t('dashboard.goals.salaryHint') }}
+        </RouterLink>
+
+        <ul class="grid gap-4" :aria-label="t('dashboard.goals.listLabel')">
+          <li v-for="g in goals.goals" :key="g.id" class="grid gap-1">
+            <div class="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
+              <span class="flex min-w-0 items-center gap-2">
+                <span class="truncate font-medium text-foreground">{{ g.name }}</span>
+                <Badge v-if="g.status === 'REACHED'" variant="outline">
+                  {{ t('goals.status.REACHED') }}
+                </Badge>
+              </span>
+              <span class="text-muted-foreground">
+                <MoneyText :cents="g.savedCents" class="font-medium text-foreground" />
+                /
+                <MoneyText :cents="g.targetCents" />
+              </span>
+            </div>
+            <div
+              role="progressbar"
+              :aria-label="g.name"
+              :aria-valuenow="percent(g)"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              :aria-valuetext="t('goals.progress', { percent: percent(g) })"
+              class="h-2 w-full overflow-hidden rounded-full bg-muted"
+            >
+              <div class="h-full rounded-full bg-brand" :style="{ width: `${percent(g)}%` }" />
+            </div>
+          </li>
+        </ul>
+      </template>
+    </CardContent>
+  </Card>
+</template>

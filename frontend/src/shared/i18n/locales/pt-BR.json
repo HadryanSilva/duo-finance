@@ -626,6 +626,8 @@
     "balance": {
       "title": "Saldo",
       "total": "Saldo total",
+      "free": "Saldo livre",
+      "freeHint": "Saldo menos {amount} separados em objetivos",
       "asOf": "saldo em {date}",
       "accountsLabel": "Saldo por conta",
       "emptyTitle": "Nenhuma conta ainda",
@@ -652,6 +654,23 @@
       "emptyDescription": "Defina limites mensais para manter os gastos sob controle.",
       "emptyCta": "Definir orçamento",
       "listLabel": "Andamento dos orçamentos"
+    },
+    "goals": {
+      "title": "Objetivos",
+      "viewAll": "Ver todos",
+      "emptyTitle": "Crie um objetivo",
+      "emptyDescription": "Separe dinheiro para o que vocês querem conquistar.",
+      "emptyCta": "Crie um objetivo",
+      "suggestionsHeader": "Sugestões de {month} · Salário {salary}",
+      "suggestionsLabel": "Sugestões do mês",
+      "confirm": "Confirmar",
+      "adjust": "Ajustar",
+      "confirmLabel": "Confirmar {name}",
+      "adjustLabel": "Ajustar {name}",
+      "skipLabel": "Pular {name}",
+      "amountFor": "Valor para {name}",
+      "salaryHint": "Escolha a categoria do salário para receber sugestões",
+      "listLabel": "Andamento dos objetivos"
     },
     "upcoming": {
       "title": "Próximos",

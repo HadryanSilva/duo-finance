@@ -44,6 +44,19 @@ const asOf = computed(() =>
         <p class="text-sm text-muted-foreground">
           {{ t('dashboard.balance.asOf', { date: asOf }) }}
         </p>
+        <div v-if="data.freeBalanceCents !== null && data.goals.totalSavedCents > 0" class="mt-3">
+          <p class="text-sm text-muted-foreground">{{ t('dashboard.balance.free') }}</p>
+          <p class="text-xl font-semibold text-foreground">
+            <MoneyText :cents="data.freeBalanceCents" />
+          </p>
+          <i18n-t
+            keypath="dashboard.balance.freeHint"
+            tag="p"
+            class="text-sm text-muted-foreground"
+          >
+            <template #amount><MoneyText :cents="data.goals.totalSavedCents" /></template>
+          </i18n-t>
+        </div>
         <ul class="mt-4 grid gap-2" :aria-label="t('dashboard.balance.accountsLabel')">
           <li
             v-for="a in data.accounts"
