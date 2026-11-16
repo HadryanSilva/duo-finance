@@ -167,6 +167,7 @@ class GoalOverviewTest {
         String a = goal(s, "A", 100000, 10);
         String b = goal(s, "B", 10000, 5);
 
+        assertThat(overview(s, "2027-03").path("suggestions")).hasSize(2);
         assertThat(contribute(s, a, "2027-03", null)).hasStatus(HttpStatus.CREATED);
         assertThat(send(HttpMethod.POST, s, GOALS + "/" + b + "/skips", Map.of("month", "2027-03")))
                 .hasStatus(HttpStatus.CREATED);
@@ -209,11 +210,14 @@ class GoalOverviewTest {
         TestSession s = testUsers.verified("ana@mail.com");
         withSalary(s);
         goal(s, "Zero", 100000, 0);
+        String control = goal(s, "Control", 100000, 10);
         String reached = goal(s, "Reached", 5000, 10);
         assertThat(send(HttpMethod.POST, s, GOALS + "/" + reached + "/deposits", Map.of("amountCents", 5000)))
                 .hasStatus(HttpStatus.CREATED);
 
-        assertThat(overview(s, "2027-03").path("suggestions")).isEmpty();
+        JsonNode suggestions = overview(s, "2027-03").path("suggestions");
+        assertThat(suggestions).hasSize(1);
+        assertThat(suggestions.get(0).path("goalId").asString()).isEqualTo(control);
     }
 
     @Test
@@ -222,6 +226,7 @@ class GoalOverviewTest {
         UUID category = salaryCategory(s);
         income(s, fixtures.bankAccount(s, "Conta", 0), category, "2027-03-05", 200000);
         goal(s, "A", 100000, 10);
+        assertThat(overview(s, "2027-03").path("suggestions")).hasSize(1);
         assertThat(send(HttpMethod.POST, s, "/api/v1/categories/" + category + "/archive", null))
                 .hasStatus(HttpStatus.OK);
 
@@ -237,6 +242,7 @@ class GoalOverviewTest {
         TestSession s = testUsers.verified("ana@mail.com");
         UUID category = salaryCategory(s);
         goal(s, "A", 100000, 10);
+        assertThat(overview(s, "2027-03").path("salaryCategory").isNull()).isFalse();
         assertThat(send(HttpMethod.DELETE, s, "/api/v1/categories/" + category, null))
                 .hasStatus(HttpStatus.NO_CONTENT);
 
