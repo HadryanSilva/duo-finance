@@ -223,6 +223,18 @@ class GoalMovementControllerTest {
     }
 
     @Test
+    void contribute_archivedSalaryCategory_rejected() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        withSalary(s);
+        String goal = createGoal(s, 100000, 10);
+        UUID category = seededSalaryCategory(s);
+        assertThat(send(HttpMethod.POST, s, "/api/v1/categories/" + category + "/archive", null))
+                .hasStatus(HttpStatus.OK);
+
+        assertError(contribute(s, goal, "2027-03", null), HttpStatus.CONFLICT, "GOAL_NO_SALARY");
+    }
+
+    @Test
     void skip_recordsZero() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         String goal = createGoal(s, 100000, 10);

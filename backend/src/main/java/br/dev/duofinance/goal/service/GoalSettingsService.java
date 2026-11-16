@@ -11,6 +11,7 @@ import br.dev.duofinance.goal.repository.GoalSettingsRepository;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ErrorCode;
 import br.dev.duofinance.transaction.dto.TransactionResponse.CategoryRef;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,14 @@ public class GoalSettingsService {
                         .findFirst())
                 .map(c -> new GoalSettingsResponse(ref(c)))
                 .orElseGet(() -> new GoalSettingsResponse(null));
+    }
+
+    /** The salary category id only when it is set, still exists in the account and is not archived. */
+    @Transactional(readOnly = true)
+    public Optional<UUID> usableSalaryCategoryId(UUID accountId) {
+        return settings.salaryCategoryId(accountId)
+                .filter(id -> categories.findByAccountIdAndIdIn(accountId, Set.of(id)).stream()
+                        .anyMatch(c -> c.getArchivedAt() == null));
     }
 
     @Transactional

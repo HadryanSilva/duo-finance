@@ -1,7 +1,6 @@
 package br.dev.duofinance.goal.service;
 
 import br.dev.duofinance.account.repository.AccountRepository;
-import br.dev.duofinance.category.repository.CategoryRepository;
 import br.dev.duofinance.goal.dto.ContributeRequest;
 import br.dev.duofinance.goal.dto.GoalAmountRequest;
 import br.dev.duofinance.goal.dto.GoalMovementResponse;
@@ -14,7 +13,6 @@ import br.dev.duofinance.goal.repository.GoalMovementRepository;
 import br.dev.duofinance.goal.repository.GoalRepository;
 import br.dev.duofinance.goal.repository.GoalSalaryQuery;
 import br.dev.duofinance.goal.repository.GoalSavedQuery;
-import br.dev.duofinance.goal.repository.GoalSettingsRepository;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ErrorCode;
 import br.dev.duofinance.transaction.dto.TransactionResponse.AuthorRef;
@@ -46,8 +44,7 @@ public class GoalMovementService {
     private final GoalMovementRepository movements;
     private final GoalSavedQuery saved;
     private final GoalSalaryQuery salaries;
-    private final GoalSettingsRepository settings;
-    private final CategoryRepository categories;
+    private final GoalSettingsService salarySettings;
     private final AccountRepository accounts;
     private final UserRepository users;
     private final Clock clock;
@@ -57,8 +54,7 @@ public class GoalMovementService {
             GoalMovementRepository movements,
             GoalSavedQuery saved,
             GoalSalaryQuery salaries,
-            GoalSettingsRepository settings,
-            CategoryRepository categories,
+            GoalSettingsService salarySettings,
             AccountRepository accounts,
             UserRepository users,
             Clock clock) {
@@ -66,8 +62,7 @@ public class GoalMovementService {
         this.movements = movements;
         this.saved = saved;
         this.salaries = salaries;
-        this.settings = settings;
-        this.categories = categories;
+        this.salarySettings = salarySettings;
         this.accounts = accounts;
         this.users = users;
         this.clock = clock;
@@ -100,10 +95,8 @@ public class GoalMovementService {
     public GoalResponse contribute(UUID accountId, UUID userId, UUID goalId, ContributeRequest request) {
         Goal goal = lockAndLoadActive(accountId, goalId);
         YearMonth month = requireFreeMonth(goal, request.month());
-        long salary = settings.salaryCategoryId(accountId)
-                .filter(id -> !categories
-                        .findByAccountIdAndIdIn(accountId, Set.of(id))
-                        .isEmpty())
+        long salary = salarySettings
+                .usableSalaryCategoryId(accountId)
                 .map(id -> salaries.salary(accountId, id, month))
                 .orElse(0L);
         if (salary <= 0) {
