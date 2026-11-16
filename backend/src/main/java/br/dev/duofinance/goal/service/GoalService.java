@@ -137,6 +137,11 @@ public class GoalService {
         return single(goals.saveAndFlush(goal));
     }
 
+    /** min(round-half-up(salary × percent / 100), remaining). */
+    static long suggestedCents(long salaryCents, int percent, long remainingCents) {
+        return Math.min((salaryCents * percent + 50) / 100, remainingCents);
+    }
+
     private void lockAccount(UUID accountId) {
         // Lock order for every goal write: the account row first.
         accounts.findByIdForUpdate(accountId).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));

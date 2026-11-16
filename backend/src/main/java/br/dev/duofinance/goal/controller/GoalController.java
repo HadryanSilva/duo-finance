@@ -1,11 +1,16 @@
 package br.dev.duofinance.goal.controller;
 
+import br.dev.duofinance.goal.dto.ContributeRequest;
 import br.dev.duofinance.goal.dto.CreateGoalRequest;
+import br.dev.duofinance.goal.dto.GoalAmountRequest;
+import br.dev.duofinance.goal.dto.GoalMovementResponse;
 import br.dev.duofinance.goal.dto.GoalResponse;
 import br.dev.duofinance.goal.dto.GoalSettingsResponse;
 import br.dev.duofinance.goal.dto.GoalsOverview;
+import br.dev.duofinance.goal.dto.SkipRequest;
 import br.dev.duofinance.goal.dto.UpdateGoalRequest;
 import br.dev.duofinance.goal.dto.UpdateGoalSettingsRequest;
+import br.dev.duofinance.goal.service.GoalMovementService;
 import br.dev.duofinance.goal.service.GoalService;
 import br.dev.duofinance.goal.service.GoalSettingsService;
 import br.dev.duofinance.shared.error.ApiException;
@@ -13,6 +18,7 @@ import br.dev.duofinance.shared.error.ErrorCode;
 import br.dev.duofinance.shared.security.CurrentUser;
 import jakarta.validation.Valid;
 import java.time.YearMonth;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.hibernate.exception.ConstraintViolationException;
@@ -37,12 +43,17 @@ public class GoalController {
     /** Partial unique index on goals (account_id, lower(name)) where not completed. */
     private static final String ACTIVE_NAME_UNIQUE_INDEX = "uq_goals_active_name";
 
+    /** Partial unique index on goal_movements (goal_id, month) for CONTRIBUTION and SKIP rows. */
+    private static final String MONTH_UNIQUE_INDEX = "uq_goal_movements_month";
+
     private final GoalSettingsService settings;
     private final GoalService service;
+    private final GoalMovementService movements;
 
-    public GoalController(GoalSettingsService settings, GoalService service) {
+    public GoalController(GoalSettingsService settings, GoalService service, GoalMovementService movements) {
         this.settings = settings;
         this.service = service;
+        this.movements = movements;
     }
 
     @GetMapping("/settings")
@@ -65,13 +76,13 @@ public class GoalController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public GoalResponse create(CurrentUser current, @Valid @RequestBody CreateGoalRequest request) {
-        return mapNameConflict(() -> service.create(current.accountId(), request));
+        return mapConflict(() -> service.create(current.accountId(), request));
     }
 
     @PutMapping("/{id}")
     public GoalResponse update(
             CurrentUser current, @PathVariable UUID id, @Valid @RequestBody UpdateGoalRequest request) {
-        return mapNameConflict(() -> service.update(current.accountId(), id, request));
+        return mapConflict(() -> service.update(current.accountId(), id, request));
     }
 
     @DeleteMapping("/{id}")
@@ -87,25 +98,64 @@ public class GoalController {
 
     @PostMapping("/{id}/reopen")
     public GoalResponse reopen(CurrentUser current, @PathVariable UUID id) {
-        return mapNameConflict(() -> service.reopen(current.accountId(), id));
+        return mapConflict(() -> service.reopen(current.accountId(), id));
     }
 
-    private static <T> T mapNameConflict(Supplier<T> call) {
+    @GetMapping("/{id}/movements")
+    public List<GoalMovementResponse> movements(CurrentUser current, @PathVariable UUID id) {
+        return movements.list(current.accountId(), id);
+    }
+
+    @PostMapping("/{id}/contributions")
+    @ResponseStatus(HttpStatus.CREATED)
+    public GoalResponse contribute(
+            CurrentUser current, @PathVariable UUID id, @Valid @RequestBody ContributeRequest request) {
+        return mapConflict(() -> movements.contribute(current.accountId(), current.userId(), id, request));
+    }
+
+    @PostMapping("/{id}/skips")
+    @ResponseStatus(HttpStatus.CREATED)
+    public GoalResponse skip(CurrentUser current, @PathVariable UUID id, @Valid @RequestBody SkipRequest request) {
+        return mapConflict(() -> movements.skip(current.accountId(), current.userId(), id, request));
+    }
+
+    @PostMapping("/{id}/deposits")
+    @ResponseStatus(HttpStatus.CREATED)
+    public GoalResponse deposit(
+            CurrentUser current, @PathVariable UUID id, @Valid @RequestBody GoalAmountRequest request) {
+        return movements.deposit(current.accountId(), current.userId(), id, request);
+    }
+
+    @PostMapping("/{id}/withdrawals")
+    @ResponseStatus(HttpStatus.CREATED)
+    public GoalResponse withdraw(
+            CurrentUser current, @PathVariable UUID id, @Valid @RequestBody GoalAmountRequest request) {
+        return movements.withdraw(current.accountId(), current.userId(), id, request);
+    }
+
+    @DeleteMapping("/{id}/movements/{movementId}")
+    public GoalResponse undo(CurrentUser current, @PathVariable UUID id, @PathVariable UUID movementId) {
+        return movements.undo(current.accountId(), id, movementId);
+    }
+
+    private static <T> T mapConflict(Supplier<T> call) {
         try {
             return call.get();
         } catch (DataIntegrityViolationException e) {
             // The service transaction has already rolled back here, so nothing is left half-flushed.
-            if (violatesActiveName(e)) {
+            if (violates(e, ACTIVE_NAME_UNIQUE_INDEX)) {
                 throw new ApiException(ErrorCode.GOAL_NAME_TAKEN);
+            }
+            if (violates(e, MONTH_UNIQUE_INDEX)) {
+                throw new ApiException(ErrorCode.GOAL_MONTH_TAKEN);
             }
             throw e;
         }
     }
 
-    private static boolean violatesActiveName(Throwable e) {
+    private static boolean violates(Throwable e, String constraint) {
         for (Throwable t = e; t != null; t = t.getCause()) {
-            if (t instanceof ConstraintViolationException cve
-                    && ACTIVE_NAME_UNIQUE_INDEX.equals(cve.getConstraintName())) {
+            if (t instanceof ConstraintViolationException cve && constraint.equals(cve.getConstraintName())) {
                 return true;
             }
         }
