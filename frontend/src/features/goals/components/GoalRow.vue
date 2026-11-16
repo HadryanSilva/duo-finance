@@ -1,14 +1,5 @@
 <script setup lang="ts">
-import {
-  CircleCheck,
-  History,
-  Pencil,
-  PiggyBank,
-  RotateCcw,
-  Trash,
-  Undo2,
-  Wallet,
-} from '@lucide/vue'
+import { CircleCheck, History, Pencil, PiggyBank, Trash, Undo2, Wallet } from '@lucide/vue'
 import { computed, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { GoalResponse } from '@/shared/api/types'
@@ -48,7 +39,7 @@ const ICONS: Record<ActionKey, Component> = {
   edit: Pencil,
   complete: CircleCheck,
   remove: Trash,
-  reopen: RotateCcw,
+  reopen: Undo2,
 }
 const ACTIVE_KEYS: ActionKey[] = ['deposit', 'withdraw', 'history', 'edit', 'complete', 'remove']
 const COMPLETED_KEYS: ActionKey[] = ['reopen', 'history', 'remove']
@@ -57,22 +48,24 @@ const actions = computed<Action[]>(() =>
   (isCompleted.value ? COMPLETED_KEYS : ACTIVE_KEYS).map((key) => ({
     key,
     label: t(`goals.actions.${key}`),
-    icon: key === 'reopen' ? Undo2 : ICONS[key],
+    icon: ICONS[key],
     destructive: key === 'remove',
   })),
 )
 
 // Below md the icon buttons fold into a "⋯" menu.
 const isDesktop = useIsDesktop()
+const EMITS: Record<ActionKey, () => void> = {
+  deposit: () => emit('deposit'),
+  withdraw: () => emit('withdraw'),
+  history: () => emit('history'),
+  edit: () => emit('edit'),
+  complete: () => emit('complete'),
+  remove: () => emit('remove'),
+  reopen: () => emit('reopen'),
+}
 function run(key: string) {
-  const k = key as ActionKey
-  if (k === 'deposit') emit('deposit')
-  else if (k === 'withdraw') emit('withdraw')
-  else if (k === 'history') emit('history')
-  else if (k === 'edit') emit('edit')
-  else if (k === 'complete') emit('complete')
-  else if (k === 'remove') emit('remove')
-  else emit('reopen')
+  EMITS[key as ActionKey]()
 }
 </script>
 

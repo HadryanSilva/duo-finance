@@ -46,8 +46,14 @@ const asOf = computed(() =>
         </p>
         <div v-if="data.freeBalanceCents !== null && data.goals.totalSavedCents > 0" class="mt-3">
           <p class="text-sm text-muted-foreground">{{ t('dashboard.balance.free') }}</p>
-          <p class="text-xl font-semibold text-foreground">
+          <p
+            class="text-xl font-semibold"
+            :class="data.freeBalanceCents < 0 ? 'text-expense' : 'text-foreground'"
+          >
             <MoneyText :cents="data.freeBalanceCents" />
+          </p>
+          <p v-if="data.freeBalanceCents < 0" class="text-sm text-expense">
+            {{ t('dashboard.balance.freeNegative') }}
           </p>
           <i18n-t
             keypath="dashboard.balance.freeHint"

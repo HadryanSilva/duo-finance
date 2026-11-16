@@ -55,7 +55,7 @@ function percent(g: GoalResponse): number {
 // One suggestion at a time: the goal being adjusted, the typed amount and the last failure.
 const adjusting = ref<string | null>(null)
 const amount = ref<number | null>(null)
-const failure = ref<{ goalId: string; error: unknown } | null>(null)
+const failure = ref<{ goalId: string; goalName: string; error: unknown } | null>(null)
 const busyGoal = ref<string | null>(null)
 
 // The adjust form replaces the row's buttons, so focus is moved by hand when it opens and closes.
@@ -80,39 +80,51 @@ function cancelAdjust(s: GoalSuggestion) {
   void focusIn(`[data-goal-adjust="${s.goalId}"]`)
 }
 
-/** After a save the row goes away: the next suggestion, else the previous one, else the title. */
-function focusAfterSave(s: GoalSuggestion) {
+const isSuggested = (goalId: string) =>
+  goals.value?.suggestions.some((x) => x.goalId === goalId) ?? false
+
+/**
+ * Runs a Confirmar / Pular / Ajustar save. The refetch that follows usually removes the row, so
+ * the neighbours are read before it: focus then goes to the next suggestion, else the previous
+ * one, else the title. A failure on a row that is still there keeps focus on `returnTo`.
+ */
+async function run(s: GoalSuggestion, returnTo: string, action: () => Promise<unknown>) {
   const list = goals.value?.suggestions ?? []
   const i = list.findIndex((x) => x.goalId === s.goalId)
-  const neighbour = list[i + 1] ?? list[i - 1]
-  void focusIn(neighbour ? `[data-goal-confirm="${neighbour.goalId}"]` : '[data-goals-title]')
-}
-
-async function run(s: GoalSuggestion, action: () => Promise<unknown>): Promise<boolean> {
+  const neighbours = [list[i + 1], list[i - 1]].flatMap((x) => (x ? [x.goalId] : []))
   failure.value = null
   busyGoal.value = s.goalId
+  let saved = false
   try {
     await action()
     adjusting.value = null
-    return true
+    saved = true
   } catch (error) {
-    failure.value = { goalId: s.goalId, error }
-    return false
+    failure.value = { goalId: s.goalId, goalName: s.goalName, error }
   } finally {
     busyGoal.value = null
   }
+  await nextTick()
+  if (!saved && isSuggested(s.goalId)) {
+    void focusIn(returnTo)
+    return
+  }
+  const next = neighbours.find(isSuggested)
+  void focusIn(next ? `[data-goal-confirm="${next}"]` : '[data-goals-title]')
 }
 
 // The amount shown is sent: the server would otherwise recompute it from the salary at click time.
 const confirm = (s: GoalSuggestion) =>
-  run(s, () =>
+  run(s, `[data-goal-confirm="${s.goalId}"]`, () =>
     contribute.mutateAsync({
       id: s.goalId,
       body: { month: s.month, amountCents: s.suggestedCents },
     }),
   )
 const skipMonth = (s: GoalSuggestion) =>
-  run(s, () => skip.mutateAsync({ id: s.goalId, body: { month: s.month } }))
+  run(s, `[data-goal-skip="${s.goalId}"]`, () =>
+    skip.mutateAsync({ id: s.goalId, body: { month: s.month } }),
+  )
 
 const amountError = ref<'positive' | 'tooHigh' | null>(null)
 const remainingOf = (s: GoalSuggestion) =>
@@ -130,11 +142,9 @@ function saveAdjusted(s: GoalSuggestion) {
     amountError.value = 'tooHigh'
     return
   }
-  void run(s, () =>
+  void run(s, `[data-goal-amount="${s.goalId}"]`, () =>
     contribute.mutateAsync({ id: s.goalId, body: { month: s.month, amountCents } }),
-  ).then((saved) => {
-    if (saved) focusAfterSave(s)
-  })
+  )
 }
 </script>
 
@@ -164,12 +174,12 @@ function saveAdjusted(s: GoalSuggestion) {
       />
       <template v-else>
         <section v-if="goals.suggestions.length" class="grid gap-3">
-          <h3 class="text-sm font-medium text-foreground">
+          <h4 class="text-sm font-medium text-foreground">
             <i18n-t keypath="dashboard.goals.suggestionsHeader" tag="span">
               <template #month>{{ monthLabel }}</template>
               <template #salary><MoneyText :cents="goals.salaryCents" /></template>
             </i18n-t>
-          </h3>
+          </h4>
           <ul class="grid gap-3" :aria-label="t('dashboard.goals.suggestionsLabel')">
             <li
               v-for="s in goals.suggestions"
@@ -248,6 +258,7 @@ function saveAdjusted(s: GoalSuggestion) {
                   variant="ghost"
                   :disabled="busyGoal === s.goalId"
                   :aria-label="t('dashboard.goals.skipLabel', { name: s.goalName })"
+                  :data-goal-skip="s.goalId"
                   @click="skipMonth(s)"
                 >
                   {{ t('common.skip') }}
@@ -259,6 +270,19 @@ function saveAdjusted(s: GoalSuggestion) {
             </li>
           </ul>
         </section>
+        <!-- The refetch after a failure can remove the row (the partner decided first): say it here. -->
+        <p
+          v-if="failure && !isSuggested(failure.goalId)"
+          role="alert"
+          class="text-sm text-destructive"
+        >
+          {{
+            t('dashboard.goals.failureFor', {
+              name: failure.goalName,
+              message: errorMessage(failure.error),
+            })
+          }}
+        </p>
 
         <RouterLink
           v-if="needsSalaryCategory"

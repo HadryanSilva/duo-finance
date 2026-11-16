@@ -67,10 +67,12 @@ test('goals: suggest, confirm, withdraw, conclude', async ({ page, request }) =>
   const suggestions = page.getByRole('list', { name: 'Sugestões do mês', exact: true })
   await expect(suggestions.getByText(euro('200,00'))).toBeVisible()
   await page.getByRole('button', { name: 'Confirmar Reserva' }).click()
+  // Confirmed: the month's suggestion is gone.
+  await expect(page.getByRole('button', { name: 'Confirmar Reserva' })).toHaveCount(0)
 
   const goalsList = page.getByRole('list', { name: 'Andamento dos objetivos', exact: true })
   await expect(goalsList).toContainText(/€\s200,00\s*\/\s*€\s5\.000,00/)
-  await expect(page.getByText('Saldo livre')).toBeVisible()
+  await expect(page.getByText('Saldo livre', { exact: true })).toBeVisible()
 
   // Withdraw € 50,00 → € 150,00 saved.
   await page.goto('/goals')
@@ -85,5 +87,6 @@ test('goals: suggest, confirm, withdraw, conclude', async ({ page, request }) =>
   await rowAction(page, 'Reserva', 'Concluir', 'Concluir Reserva')
   await page.getByRole('dialog').getByRole('button', { name: 'Concluir', exact: true }).click()
   const done = page.getByRole('list', { name: 'Concluídos', exact: true })
-  await expect(done.getByText('Reserva')).toBeVisible()
+  await expect(done.getByText('Reserva', { exact: true })).toBeVisible()
+  await expect(page.getByRole('list', { name: 'Objetivos', exact: true })).toHaveCount(0)
 })

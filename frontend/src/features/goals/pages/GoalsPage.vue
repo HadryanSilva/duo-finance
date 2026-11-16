@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Plus } from '@lucide/vue'
-import { computed, ref, watch } from 'vue'
+import { computed, ref, shallowRef, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useCompleteGoal, useDeleteGoal, useGoals, useReopenGoal } from '@/shared/api/queries/goals'
@@ -46,6 +46,18 @@ function panelModel<T>(source: { value: T | null }) {
     },
   })
 }
+// Titles and messages read the last opened value: clearing it on close would change them while
+// the panel or dialog is still animating out.
+function lastOpened<T>(source: Ref<T | null>) {
+  const last = shallowRef<T | null>(source.value)
+  watch(source, (value) => {
+    if (value !== null) last.value = value
+  })
+  return last
+}
+const formShown = lastOpened(form)
+const amountShown = lastOpened(amount)
+
 const formOpen = panelModel(form)
 const amountOpen = panelModel(amount)
 const historyOpen = panelModel(history)
@@ -63,6 +75,8 @@ watch(
 
 const pendingComplete = ref<GoalResponse | null>(null)
 const pendingDelete = ref<GoalResponse | null>(null)
+const completeShown = lastOpened(pendingComplete)
+const deleteShown = lastOpened(pendingDelete)
 const completeOpen = panelModel(pendingComplete)
 const deleteOpen = panelModel(pendingDelete)
 
@@ -88,7 +102,7 @@ const onReopen = (g: GoalResponse) => void run(() => reopen.mutateAsync(g.id))
 const money = (cents: number) => moneyLabel(cents, locale.value as Locale)
 // A completed goal's money was already released: deleting it frees nothing.
 const deleteMessage = computed(() => {
-  const g = pendingDelete.value
+  const g = deleteShown.value
   if (g?.status === 'COMPLETED') return t('goals.deleteCompletedMessage')
   return t('goals.deleteMessage', { amount: money(g?.savedCents ?? 0) })
 })
@@ -154,7 +168,7 @@ const deleteMessage = computed(() => {
 
   <SidePanel
     v-model:open="formOpen"
-    :title="form === 'new' ? t('goals.createTitle') : t('goals.editTitle')"
+    :title="formShown === 'new' ? t('goals.createTitle') : t('goals.editTitle')"
   >
     <GoalForm
       v-if="form"
@@ -166,7 +180,9 @@ const deleteMessage = computed(() => {
 
   <SidePanel
     v-model:open="amountOpen"
-    :title="amount?.mode === 'withdraw' ? t('goals.actions.withdraw') : t('goals.actions.deposit')"
+    :title="
+      amountShown?.mode === 'withdraw' ? t('goals.actions.withdraw') : t('goals.actions.deposit')
+    "
   >
     <GoalAmountForm
       v-if="amount"
@@ -188,14 +204,14 @@ const deleteMessage = computed(() => {
 
   <ConfirmDialog
     v-model:open="completeOpen"
-    :title="t('goals.completeTitle', { name: pendingComplete?.name ?? '' })"
-    :message="t('goals.completeMessage', { amount: money(pendingComplete?.savedCents ?? 0) })"
+    :title="t('goals.completeTitle', { name: completeShown?.name ?? '' })"
+    :message="t('goals.completeMessage', { amount: money(completeShown?.savedCents ?? 0) })"
     :confirm-label="t('goals.actions.complete')"
     @confirm="onComplete"
   />
   <ConfirmDialog
     v-model:open="deleteOpen"
-    :title="t('goals.deleteTitle', { name: pendingDelete?.name ?? '' })"
+    :title="t('goals.deleteTitle', { name: deleteShown?.name ?? '' })"
     :message="deleteMessage"
     :confirm-label="t('common.delete')"
     destructive

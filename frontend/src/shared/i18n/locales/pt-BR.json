@@ -517,7 +517,6 @@
       "REACHED": "Atingido",
       "COMPLETED": "Concluído"
     },
-    "saved": "guardado",
     "progress": "{percent}% do objetivo",
     "remaining": "Faltam {amount}",
     "percentOfSalary": "{percent}% do salário/mês",
@@ -556,6 +555,7 @@
       "target": "Valor alvo",
       "targetPositive": "Informe um valor maior que zero.",
       "targetDate": "Data alvo (opcional)",
+      "targetDatePast": "Escolha hoje ou uma data futura.",
       "percent": "Porcentagem do salário",
       "percentHint": "0 = sem sugestão mensal",
       "percentRange": "Informe um número inteiro de 0 a 100."
@@ -632,6 +632,7 @@
       "total": "Saldo total",
       "free": "Saldo livre",
       "freeHint": "Saldo menos {amount} separados em objetivos",
+      "freeNegative": "Há mais dinheiro separado em objetivos do que saldo nas contas.",
       "asOf": "saldo em {date}",
       "accountsLabel": "Saldo por conta",
       "emptyTitle": "Nenhuma conta ainda",
@@ -670,6 +671,7 @@
       "confirm": "Confirmar",
       "adjust": "Ajustar",
       "confirmLabel": "Confirmar {name}",
+      "failureFor": "{name}: {message}",
       "adjustLabel": "Ajustar {name}",
       "skipLabel": "Pular {name}",
       "amountFor": "Valor para {name}",

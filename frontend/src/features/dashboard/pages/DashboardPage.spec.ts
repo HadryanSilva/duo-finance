@@ -260,4 +260,17 @@ describe('DashboardPage', () => {
     await screen.findByText('Saldo total')
     expect(screen.queryByText('Saldo livre')).toBeNull()
   })
+
+  it('balance_negativeFreeBalance_isFlagged', async () => {
+    const over: DashboardResponse = {
+      ...full,
+      freeBalanceCents: -20000,
+      goals: { ...full.goals, totalSavedCents: 370000 },
+    }
+    await setup(over).render('/dashboard?month=2026-03')
+    await screen.findByText('Saldo livre')
+    expect(
+      screen.getByText('Há mais dinheiro separado em objetivos do que saldo nas contas.'),
+    ).toBeTruthy()
+  })
 })

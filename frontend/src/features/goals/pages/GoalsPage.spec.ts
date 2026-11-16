@@ -125,6 +125,18 @@ function setup({ goals = [goal], completed = [], settingsCategory = null, extra 
       calls.withdraw = await request.json()
       return HttpResponse.json(movements[0], { status: 201 })
     }),
+    http.put(`${api}/goals/:id`, async ({ request, params }) => {
+      calls.put = { id: params.id, body: await request.json() }
+      return HttpResponse.json(goal)
+    }),
+    http.delete(`${api}/goals/:id`, ({ params }) => {
+      calls.deleted = params.id
+      return new HttpResponse(null, { status: 204 })
+    }),
+    http.post(`${api}/goals/g1/deposits`, async ({ request }) => {
+      calls.deposit = await request.json()
+      return HttpResponse.json(goal, { status: 201 })
+    }),
     http.get(`${api}/goals/:id/movements`, () => HttpResponse.json(movements)),
     http.delete(`${api}/goals/:id/movements/:mid`, ({ params }) => {
       calls.undone = `${String(params.id)}/${String(params.mid)}`
@@ -137,6 +149,19 @@ function setup({ goals = [goal], completed = [], settingsCategory = null, extra 
       renderRoute({ route, session: {}, handlers, locale }),
     mount: (route: string) => render(App, { route, session: {}, handlers }),
   }
+}
+
+/** A native date input set like a picker would, which typing cannot do in jsdom. */
+function setDate(input: HTMLElement, value: string) {
+  ;(input as HTMLInputElement).value = value
+  input.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+function yesterday(): string {
+  const d = new Date()
+  d.setDate(d.getDate() - 1)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 const row = async (name: string) => {
@@ -195,7 +220,6 @@ describe('GoalsPage', () => {
       expect(s.calls.post).toEqual({
         name: 'Videogame novo',
         targetCents: 50000,
-        targetDate: null,
         monthlyPercent: 5,
       }),
     )
@@ -369,6 +393,92 @@ describe('GoalsPage', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Histórico' })
     await within(dialog).findAllByRole('listitem')
     expect(within(dialog).queryByRole('button', { name: 'Desfazer' })).toBeNull()
+  })
+
+  it('goals_create_pastDate_rejectedBeforeSending', async () => {
+    const s = setup()
+    const { user } = await s.render()
+    await user.click(await screen.findByRole('button', { name: 'Novo objetivo' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Novo objetivo' })
+    await user.type(within(dialog).getByLabelText('Nome'), 'Casa')
+    await user.type(within(dialog).getByLabelText('Valor alvo'), '500')
+    setDate(within(dialog).getByLabelText('Data alvo (opcional)'), yesterday())
+    await user.click(within(dialog).getByRole('button', { name: 'Salvar' }))
+    expect(await within(dialog).findByText('Escolha hoje ou uma data futura.')).toBeTruthy()
+    expect(s.calls.post).toBeUndefined()
+  })
+
+  it('goals_create_withoutDate_omitsIt', async () => {
+    const s = setup()
+    const { user } = await s.render()
+    await user.click(await screen.findByRole('button', { name: 'Novo objetivo' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Novo objetivo' })
+    await user.type(within(dialog).getByLabelText('Nome'), 'Casa')
+    await user.type(within(dialog).getByLabelText('Valor alvo'), '500')
+    await user.click(within(dialog).getByRole('button', { name: 'Salvar' }))
+    await waitFor(() => expect(s.calls.post).toBeDefined())
+    expect(s.calls.post).not.toHaveProperty('targetDate')
+  })
+
+  it('goals_edit_keepsAnAlreadyPassedDate_andSendsTheChange', async () => {
+    const s = setup({ goals: [{ ...goal, targetDate: '2020-01-31' }] })
+    const { user } = await s.render()
+    await user.click(await screen.findByRole('button', { name: 'Editar Videogame novo' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Editar objetivo' })
+    const name = within(dialog).getByLabelText('Nome')
+    await user.clear(name)
+    await user.type(name, 'Console')
+    await user.click(within(dialog).getByRole('button', { name: 'Salvar' }))
+    await waitFor(() =>
+      expect(s.calls.put).toEqual({
+        id: 'g1',
+        body: {
+          name: 'Console',
+          targetCents: 100000,
+          targetDate: '2020-01-31',
+          monthlyPercent: 5,
+        },
+      }),
+    )
+  })
+
+  it('goals_create_nameTaken_showsFieldError', async () => {
+    const s = setup({
+      extra: [http.post(`${api}/goals`, () => problem(409, 'GOAL_NAME_TAKEN'))],
+    })
+    const { user } = await s.render()
+    await user.click(await screen.findByRole('button', { name: 'Novo objetivo' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Novo objetivo' })
+    await user.type(within(dialog).getByLabelText('Nome'), 'Videogame novo')
+    await user.type(within(dialog).getByLabelText('Valor alvo'), '500')
+    await user.click(within(dialog).getByRole('button', { name: 'Salvar' }))
+    const input = within(dialog).getByLabelText('Nome')
+    await waitFor(() => {
+      const id = input.getAttribute('aria-describedby') ?? ''
+      expect(document.getElementById(id)?.textContent).toBeTruthy()
+    })
+  })
+
+  it('goals_delete_sendsDelete', async () => {
+    const s = setup()
+    const { user } = await s.render()
+    await user.click(await screen.findByRole('button', { name: 'Excluir Videogame novo' }))
+    const confirm = await screen.findByRole('dialog', { name: 'Excluir Videogame novo?' })
+    await user.click(within(confirm).getByRole('button', { name: 'Excluir' }))
+    await waitFor(() => expect(s.calls.deleted).toBe('g1'))
+  })
+
+  it('goals_deposit_sendsAmountAndNote', async () => {
+    const s = setup()
+    const { user } = await s.render()
+    await user.click(
+      await screen.findByRole('button', { name: 'Adicionar valor a Videogame novo' }),
+    )
+    const dialog = await screen.findByRole('dialog', { name: 'Adicionar valor' })
+    await user.type(within(dialog).getByLabelText('Valor'), '200')
+    await user.type(within(dialog).getByLabelText('Observação (opcional)'), '13º')
+    await user.click(within(dialog).getByRole('button', { name: 'Adicionar' }))
+    await waitFor(() => expect(s.calls.deposit).toEqual({ amountCents: 20000, note: '13º' }))
   })
 })
 

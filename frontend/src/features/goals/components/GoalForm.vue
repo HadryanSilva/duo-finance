@@ -8,6 +8,7 @@ import { useCreateGoal, useUpdateGoal } from '@/shared/api/queries/goals'
 import { isApiError } from '@/shared/api/problem'
 import type { CreateGoalRequest, GoalResponse } from '@/shared/api/types'
 import { errorMessage } from '@/shared/i18n/error-codes'
+import { todayIso } from '@/shared/lib/dates'
 import { Button } from '@/shared/ui/button'
 import { applyFieldErrors } from '@/shared/ui/FormErrors'
 import MoneyInput from '@/shared/ui/MoneyInput.vue'
@@ -31,7 +32,12 @@ const schema = computed(() =>
         .refine((v): v is number => v !== null && v > 0, {
           message: t('goals.form.targetPositive'),
         }),
-      targetDate: z.string(),
+      // A date already passed is kept when editing (the page flags it); a new one must not be past.
+      targetDate: z
+        .string()
+        .refine((v) => v === '' || v >= todayIso() || v === props.goal?.targetDate, {
+          message: t('goals.form.targetDatePast'),
+        }),
       monthlyPercent: z
         .string()
         .trim()
@@ -64,13 +70,13 @@ const FIELD_CODES: Record<string, 'name' | 'monthlyPercent'> = {
 
 const submit = handleSubmit(async (values) => {
   formError.value = null
-  // The API reads a missing and a null date alike; null is what "no date" means.
-  const body = {
+  // No date is sent as a missing field, which the API reads as null (also clearing it on edit).
+  const body: CreateGoalRequest = {
     name: values.name.trim(),
     targetCents: values.targetCents as number,
-    targetDate: values.targetDate || null,
+    targetDate: values.targetDate || undefined,
     monthlyPercent: Number(values.monthlyPercent),
-  } as unknown as CreateGoalRequest
+  }
   try {
     if (goal) await update.mutateAsync({ id: goal.id, body })
     else await create.mutateAsync(body)

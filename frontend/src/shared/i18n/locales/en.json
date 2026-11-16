@@ -517,7 +517,6 @@
       "REACHED": "Reached",
       "COMPLETED": "Completed"
     },
-    "saved": "saved",
     "progress": "{percent}% of the goal",
     "remaining": "{amount} to go",
     "percentOfSalary": "{percent}% of salary/month",
@@ -556,6 +555,7 @@
       "target": "Target amount",
       "targetPositive": "Enter an amount greater than zero.",
       "targetDate": "Target date (optional)",
+      "targetDatePast": "Choose today or a later date.",
       "percent": "Share of salary",
       "percentHint": "0 = no monthly suggestion",
       "percentRange": "Enter a whole number from 0 to 100."
@@ -632,6 +632,7 @@
       "total": "Total balance",
       "free": "Free balance",
       "freeHint": "Balance minus {amount} set aside in goals",
+      "freeNegative": "More money is set aside in goals than the accounts hold.",
       "asOf": "balance as of {date}",
       "accountsLabel": "Balance by account",
       "emptyTitle": "No accounts yet",
@@ -670,6 +671,7 @@
       "confirm": "Confirm",
       "adjust": "Adjust",
       "confirmLabel": "Confirm {name}",
+      "failureFor": "{name}: {message}",
       "adjustLabel": "Adjust {name}",
       "skipLabel": "Skip {name}",
       "amountFor": "Amount for {name}",

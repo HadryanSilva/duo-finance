@@ -301,4 +301,123 @@ describe('GoalsCard', () => {
       expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Confirmar Viagem' })),
     )
   })
+
+  describe('after the partner already decided, or with several suggestions', () => {
+    const suggestion = (goalId: string, goalName: string) => ({
+      goalId,
+      goalName,
+      month: '2026-11',
+      monthlyPercent: 5,
+      suggestedCents: 15000,
+    })
+    const three = () =>
+      withGoals({
+        goals: [goal(), goal({ id: 'g2', name: 'Viagem' }), goal({ id: 'g3', name: 'Reserva' })],
+        suggestions: [
+          suggestion('g1', 'Videogame novo'),
+          suggestion('g2', 'Viagem'),
+          suggestion('g3', 'Reserva'),
+        ],
+      })
+    /** The dashboard refetch that follows every goal mutation, without the given suggestion. */
+    const without = (data: DashboardResponse, goalId: string) =>
+      withGoals({
+        ...data.goals,
+        suggestions: data.goals.suggestions.filter((s) => s.goalId !== goalId),
+      })
+
+    /** Mounts the card; the POST to `path` answers once the refetch removed `goalId`'s row. */
+    async function mountAnsweringAfterRefetch(
+      data: DashboardResponse,
+      path: string,
+      goalId: string,
+      reply: () => Response,
+    ) {
+      const mounted: { wrapper?: { setProps: (p: { data: DashboardResponse }) => Promise<void> } } =
+        {}
+      const r = await mountCard(data, {
+        handlers: [
+          http.post(`${api}/goals/${path}`, async () => {
+            await mounted.wrapper?.setProps({ data: without(data, goalId) })
+            return reply()
+          }),
+        ],
+      })
+      mounted.wrapper = r.wrapper as unknown as typeof mounted.wrapper
+      return r
+    }
+
+    it('confirm_failure_whenTheRowIsGone_keepsTheMessage', async () => {
+      const data = withGoals()
+      const r = await mountAnsweringAfterRefetch(data, 'g1/contributions', 'g1', () =>
+        problem(409, 'GOAL_MONTH_TAKEN'),
+      )
+      await r.user.click(screen.getByRole('button', { name: 'Confirmar Videogame novo' }))
+      const alert = await screen.findByRole('alert')
+      expect(alert.textContent).toContain('Videogame novo')
+      expect(screen.queryByRole('button', { name: 'Confirmar Videogame novo' })).toBeNull()
+    })
+
+    it('confirm_success_movesFocusToTheNextSuggestion', async () => {
+      const data = three()
+      const r = await mountAnsweringAfterRefetch(data, 'g2/contributions', 'g2', () =>
+        HttpResponse.json({}, { status: 201 }),
+      )
+      await r.user.click(screen.getByRole('button', { name: 'Confirmar Viagem' }))
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          screen.getByRole('button', { name: 'Confirmar Reserva' }),
+        ),
+      )
+    })
+
+    it('adjust_save_afterTheRowIsGone_focusesTheFollowingSuggestion', async () => {
+      const data = three()
+      const r = await mountAnsweringAfterRefetch(data, 'g2/contributions', 'g2', () =>
+        HttpResponse.json({}, { status: 201 }),
+      )
+      await r.user.click(screen.getByRole('button', { name: 'Ajustar Viagem' }))
+      await r.user.click(screen.getByRole('button', { name: 'Salvar' }))
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          screen.getByRole('button', { name: 'Confirmar Reserva' }),
+        ),
+      )
+    })
+
+    it('skip_lastSuggestion_movesFocusToTheTitle', async () => {
+      const data = withGoals()
+      const r = await mountAnsweringAfterRefetch(data, 'g1/skips', 'g1', () =>
+        HttpResponse.json({}, { status: 201 }),
+      )
+      await r.user.click(screen.getByRole('button', { name: 'Pular Videogame novo' }))
+      await waitFor(() => expect(document.activeElement?.textContent?.trim()).toBe('Objetivos'))
+    })
+
+    it('adjust_serverFailure_showsErrorAndKeepsTheForm', async () => {
+      const { user } = await mountCard(withGoals(), {
+        handlers: [
+          http.post(`${api}/goals/g1/contributions`, () => problem(400, 'GOAL_AMOUNT_INVALID')),
+        ],
+      })
+      await user.click(screen.getByRole('button', { name: 'Ajustar Videogame novo' }))
+      await user.click(screen.getByRole('button', { name: 'Salvar' }))
+      expect((await screen.findByRole('alert')).textContent).toContain('Valor inválido')
+      const input = screen.getByLabelText('Valor para Videogame novo')
+      await waitFor(() => expect(document.activeElement).toBe(input))
+    })
+
+    it('skip_failure_keepsFocusOnSkip', async () => {
+      const { user } = await mountCard(withGoals(), {
+        handlers: [http.post(`${api}/goals/g1/skips`, () => problem(409, 'GOAL_COMPLETED'))],
+      })
+      await user.click(screen.getByRole('button', { name: 'Pular Videogame novo' }))
+      await screen.findByRole('alert')
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          screen.getByRole('button', { name: 'Pular Videogame novo' }),
+        ),
+      )
+    })
+  })
 })

@@ -114,7 +114,7 @@ export function useContribute() {
   const invalidate = useInvalidate()
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: ContributeRequest }) =>
-      http.post<GoalMovementResponse, ContributeRequest>(`/goals/${enc(id)}/contributions`, body),
+      http.post<GoalResponse, ContributeRequest>(`/goals/${enc(id)}/contributions`, body),
     onSettled: invalidate,
   })
 }
@@ -124,7 +124,7 @@ export function useSkipMonth() {
   const invalidate = useInvalidate()
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: SkipRequest }) =>
-      http.post<GoalMovementResponse, SkipRequest>(`/goals/${enc(id)}/skips`, body),
+      http.post<GoalResponse, SkipRequest>(`/goals/${enc(id)}/skips`, body),
     onSettled: invalidate,
   })
 }
@@ -134,7 +134,7 @@ export function useDeposit() {
   const invalidate = useInvalidate()
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: GoalAmountRequest }) =>
-      http.post<GoalMovementResponse, GoalAmountRequest>(`/goals/${enc(id)}/deposits`, body),
+      http.post<GoalResponse, GoalAmountRequest>(`/goals/${enc(id)}/deposits`, body),
     onSettled: invalidate,
   })
 }
@@ -144,7 +144,7 @@ export function useWithdraw() {
   const invalidate = useInvalidate()
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: GoalAmountRequest }) =>
-      http.post<GoalMovementResponse, GoalAmountRequest>(`/goals/${enc(id)}/withdrawals`, body),
+      http.post<GoalResponse, GoalAmountRequest>(`/goals/${enc(id)}/withdrawals`, body),
     onSettled: invalidate,
   })
 }
