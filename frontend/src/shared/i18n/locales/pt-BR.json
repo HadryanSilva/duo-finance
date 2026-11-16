@@ -572,18 +572,20 @@
       "empty": "Nenhuma movimentação ainda.",
       "undo": "Desfazer",
       "undoTitle": "Desfazer movimentação?",
-      "undoMessage": "O valor volta ao estado anterior à movimentação.",
+      "undoMessage": "Desfazer {type} de {amount} em {when}? O valor volta ao estado anterior.",
       "type": {
         "CONTRIBUTION": "Contribuição mensal",
         "SKIP": "Mês pulado",
         "DEPOSIT": "Depósito",
         "WITHDRAWAL": "Resgate"
-      }
+      },
+      "undoLabel": "Desfazer {type} de {amount} em {when}"
     },
     "completeTitle": "Concluir {name}?",
     "completeMessage": "{amount} deixam de ficar separados.",
     "deleteTitle": "Excluir {name}?",
-    "deleteMessage": "O histórico será apagado e {amount} deixam de ficar separados."
+    "deleteMessage": "O histórico será apagado e {amount} deixam de ficar separados.",
+    "deleteCompletedMessage": "O histórico será apagado."
   },
   "recurring": {
     "subtitle": "Lançamentos que se repetem sozinhos.",

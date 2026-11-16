@@ -572,18 +572,20 @@
       "empty": "No movements yet.",
       "undo": "Undo",
       "undoTitle": "Undo movement?",
-      "undoMessage": "The amount returns to its state before the movement.",
+      "undoMessage": "Undo {type} of {amount} on {when}? The amount returns to its previous state.",
       "type": {
         "CONTRIBUTION": "Monthly contribution",
         "SKIP": "Skipped month",
         "DEPOSIT": "Deposit",
         "WITHDRAWAL": "Withdrawal"
-      }
+      },
+      "undoLabel": "Undo {type} of {amount} on {when}"
     },
     "completeTitle": "Complete {name}?",
     "completeMessage": "{amount} will no longer be set aside.",
     "deleteTitle": "Delete {name}?",
-    "deleteMessage": "The history will be erased and {amount} will no longer be set aside."
+    "deleteMessage": "The history will be erased and {amount} will no longer be set aside.",
+    "deleteCompletedMessage": "The history will be erased."
   },
   "recurring": {
     "subtitle": "Transactions that repeat on their own.",

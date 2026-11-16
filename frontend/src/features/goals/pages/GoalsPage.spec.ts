@@ -265,8 +265,13 @@ describe('GoalsPage', () => {
     expect(items).toHaveLength(2)
     expect(within(items[0] as HTMLElement).getByRole('img', { name: 'Ana Souza' })).toBeTruthy()
     expect(norm(items[1]?.textContent ?? '')).toContain('Bônus')
-    await user.click(within(items[0] as HTMLElement).getByRole('button', { name: 'Desfazer' }))
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: /^Desfazer contribuição mensal de €s50,00 em outubro de 2026$/,
+      }),
+    )
     const confirm = await screen.findByRole('dialog', { name: 'Desfazer movimentação?' })
+    expect(norm(confirm.textContent)).toContain('contribuição mensal de € 50,00')
     await user.click(within(confirm).getByRole('button', { name: 'Desfazer' }))
     await waitFor(() => expect(s.calls.undone).toBe('g1/m1'))
   })
@@ -282,6 +287,32 @@ describe('GoalsPage', () => {
     await screen.findByText('Concluídos')
     await user.click(await screen.findByRole('button', { name: 'Reabrir Videogame novo' }))
     await waitFor(() => expect(s.calls.reopened).toBe('g1'))
+  })
+
+  it('goals_history_undoButtonsHaveUniqueNames', async () => {
+    const { user } = await setup().render()
+    await user.click(await screen.findByRole('button', { name: 'Histórico de Videogame novo' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Histórico' })
+    const names = (await within(dialog).findAllByRole('button', { name: /^Desfazer / })).map((b) =>
+      norm(b.getAttribute('aria-label')),
+    )
+    expect(new Set(names).size).toBe(2)
+    expect(names[1]).toContain('depósito de € 350,00')
+  })
+
+  it('goals_delete_activeGoalSaysAmountIsReleased', async () => {
+    const { user } = await setup().render()
+    await user.click(await screen.findByRole('button', { name: 'Excluir Videogame novo' }))
+    const confirm = await screen.findByRole('dialog', { name: 'Excluir Videogame novo?' })
+    expect(norm(confirm.textContent)).toContain('€ 400,00 deixam de ficar separados')
+  })
+
+  it('goals_delete_completedGoalDoesNotClaimRelease', async () => {
+    const { user } = await setup({ goals: [], completed: [done] }).render()
+    await user.click(await screen.findByRole('button', { name: 'Excluir Viagem' }))
+    const confirm = await screen.findByRole('dialog', { name: 'Excluir Viagem?' })
+    expect(confirm.textContent).toContain('O histórico será apagado.')
+    expect(confirm.textContent).not.toContain('deixam de ficar separados')
   })
 
   it('goals_completedRows_haveNoUndoInHistory', async () => {

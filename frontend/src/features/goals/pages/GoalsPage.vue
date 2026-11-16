@@ -86,6 +86,12 @@ const onDelete = () => {
 const onReopen = (g: GoalResponse) => void run(() => reopen.mutateAsync(g.id))
 
 const money = (cents: number) => moneyLabel(cents, locale.value as Locale)
+// A completed goal's money was already released: deleting it frees nothing.
+const deleteMessage = computed(() => {
+  const g = pendingDelete.value
+  if (g?.status === 'COMPLETED') return t('goals.deleteCompletedMessage')
+  return t('goals.deleteMessage', { amount: money(g?.savedCents ?? 0) })
+})
 </script>
 
 <template>
@@ -190,7 +196,7 @@ const money = (cents: number) => moneyLabel(cents, locale.value as Locale)
   <ConfirmDialog
     v-model:open="deleteOpen"
     :title="t('goals.deleteTitle', { name: pendingDelete?.name ?? '' })"
-    :message="t('goals.deleteMessage', { amount: money(pendingDelete?.savedCents ?? 0) })"
+    :message="deleteMessage"
     :confirm-label="t('common.delete')"
     destructive
     @confirm="onDelete"

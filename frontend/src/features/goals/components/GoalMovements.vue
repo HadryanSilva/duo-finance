@@ -11,6 +11,7 @@ import { Button } from '@/shared/ui/button'
 import ConfirmDialog from '@/shared/ui/ConfirmDialog.vue'
 import MoneyText from '@/shared/ui/MoneyText.vue'
 import { Skeleton } from '@/shared/ui/skeleton'
+import { moneyLabel } from '../lib/goal-copy'
 
 const props = defineProps<{ goalId: string; canUndo: boolean }>()
 
@@ -35,6 +36,15 @@ async function onUndo() {
     await undo.mutateAsync({ goalId: props.goalId, movementId: target.id })
   } catch (e) {
     error.value = errorMessage(e)
+  }
+}
+
+/** Names a movement for assistive tech and the confirmation: type, amount and when. */
+function undoParams(m: GoalMovementResponse) {
+  return {
+    type: t(`goals.history.type.${m.type}`).toLocaleLowerCase(locale.value),
+    amount: moneyLabel(m.amountCents, locale.value as Locale),
+    when: when(m),
   }
 }
 
@@ -74,7 +84,13 @@ function when(m: GoalMovementResponse): string {
           :kind="m.type === 'WITHDRAWAL' ? 'EXPENSE' : 'NEUTRAL'"
           class="shrink-0 font-medium"
         />
-        <Button v-if="canUndo" variant="ghost" size="sm" @click="pending = m">
+        <Button
+          v-if="canUndo"
+          variant="ghost"
+          size="sm"
+          :aria-label="t('goals.history.undoLabel', undoParams(m))"
+          @click="pending = m"
+        >
           {{ t('goals.history.undo') }}
         </Button>
       </li>
@@ -84,7 +100,7 @@ function when(m: GoalMovementResponse): string {
   <ConfirmDialog
     v-model:open="confirmOpen"
     :title="t('goals.history.undoTitle')"
-    :message="t('goals.history.undoMessage')"
+    :message="pending ? t('goals.history.undoMessage', undoParams(pending)) : ''"
     :confirm-label="t('goals.history.undo')"
     destructive
     @confirm="onUndo"
