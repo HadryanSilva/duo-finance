@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface GoalRepository extends JpaRepository<Goal, UUID> {
 
-    List<Goal> findByAccountIdOrderByCreatedAtAsc(UUID accountId);
+    List<Goal> findByAccountIdOrderByCreatedAtAscIdAsc(UUID accountId);
 
     Optional<Goal> findByIdAndAccountId(UUID id, UUID accountId);
 }

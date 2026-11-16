@@ -71,7 +71,7 @@ public class GoalMovementService {
     @Transactional(readOnly = true)
     public List<GoalMovementResponse> list(UUID accountId, UUID goalId) {
         requireOwned(accountId, goalId);
-        List<GoalMovement> rows = movements.findByGoalIdOrderByCreatedAtDesc(goalId);
+        List<GoalMovement> rows = movements.findByGoalIdOrderByCreatedAtDescIdDesc(goalId);
         Set<UUID> authorIds = rows.stream()
                 .map(GoalMovement::getCreatedBy)
                 .filter(Objects::nonNull)

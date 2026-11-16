@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface GoalMovementRepository extends JpaRepository<GoalMovement, UUID> {
 
-    List<GoalMovement> findByGoalIdOrderByCreatedAtDesc(UUID goalId);
+    List<GoalMovement> findByGoalIdOrderByCreatedAtDescIdDesc(UUID goalId);
 
     Optional<GoalMovement> findByIdAndGoalId(UUID id, UUID goalId);
 

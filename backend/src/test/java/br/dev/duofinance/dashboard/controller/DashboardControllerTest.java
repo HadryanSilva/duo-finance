@@ -419,6 +419,19 @@ class DashboardControllerTest {
     }
 
     @Test
+    void dashboard_reachedGoalStillCountsInFreeBalance() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        fixtures.bankAccount(s, "Main", 300_000);
+        deposit(s, goal(s, 100_000), 100_000);
+
+        JsonNode d = dashboard(s, "");
+
+        assertThat(d.path("goals").path("goals").get(0).path("status").asString())
+                .isEqualTo("REACHED");
+        assertThat(d.path("freeBalanceCents").asLong()).isEqualTo(200_000);
+    }
+
+    @Test
     void dashboard_completedGoalReleasesMoney() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         fixtures.bankAccount(s, "Main", 300_000);
@@ -432,7 +445,8 @@ class DashboardControllerTest {
 
         JsonNode d = dashboard(s, "");
 
-        assertThat(d.path("freeBalanceCents").asLong()).isEqualTo(d.path("totalBalanceCents").asLong());
+        assertThat(d.path("freeBalanceCents").asLong())
+                .isEqualTo(d.path("totalBalanceCents").asLong());
         assertThat(d.path("freeBalanceCents").asLong()).isEqualTo(300_000);
     }
 

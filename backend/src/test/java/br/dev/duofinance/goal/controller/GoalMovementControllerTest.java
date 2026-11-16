@@ -269,6 +269,19 @@ class GoalMovementControllerTest {
     }
 
     @Test
+    void movements_sameInstant_newestFirst() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        String goal = createGoal(s, 100000, 10);
+        assertThat(amount(s, goal, "deposits", 20000, null)).hasStatus(HttpStatus.CREATED);
+        assertThat(amount(s, goal, "withdrawals", 5000, null)).hasStatus(HttpStatus.CREATED);
+
+        JsonNode list = movements(s, goal);
+
+        assertThat(list.get(0).path("type").asString()).isEqualTo("WITHDRAWAL");
+        assertThat(list.get(1).path("type").asString()).isEqualTo("DEPOSIT");
+    }
+
+    @Test
     void undo_contribution_bringsMonthBack() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         withSalary(s);

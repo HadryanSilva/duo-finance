@@ -19,6 +19,7 @@ class GoalProjectionTest {
         assertThat(p).isNotNull();
         assertThat(p.requiredMonthlyCents()).isEqualTo(10000);
         assertThat(p.projectedMonth()).isNull();
+        assertThat(p.targetDatePassed()).isFalse();
     }
 
     @Test
@@ -29,10 +30,32 @@ class GoalProjectionTest {
     }
 
     @Test
-    void withPastDate_asksForEverythingNow() {
-        GoalProjection p = GoalProjections.of(100000, 40000, LocalDate.of(2027, 1, 10), List.of(), MARCH);
+    void withDateInCurrentMonth_asksForRemainingNow() {
+        GoalProjection p = GoalProjections.of(100000, 40000, LocalDate.of(2027, 3, 31), List.of(), MARCH);
 
         assertThat(p.requiredMonthlyCents()).isEqualTo(60000);
+        assertThat(p.targetDatePassed()).isFalse();
+    }
+
+    @Test
+    void withPastDate_flagsPassed_andFallsBackToPace() {
+        GoalProjection p =
+                GoalProjections.of(120000, 60000, LocalDate.of(2027, 1, 10), List.of(30000L, 20000L, 10000L), MARCH);
+
+        assertThat(p).isNotNull();
+        assertThat(p.targetDatePassed()).isTrue();
+        assertThat(p.requiredMonthlyCents()).isNull();
+        assertThat(p.projectedMonth()).isEqualTo(YearMonth.of(2027, 6));
+    }
+
+    @Test
+    void withPastDate_noContributions_flagsPassedOnly() {
+        GoalProjection p = GoalProjections.of(100000, 40000, LocalDate.of(2027, 2, 28), List.of(), MARCH);
+
+        assertThat(p).isNotNull();
+        assertThat(p.targetDatePassed()).isTrue();
+        assertThat(p.requiredMonthlyCents()).isNull();
+        assertThat(p.projectedMonth()).isNull();
     }
 
     @Test

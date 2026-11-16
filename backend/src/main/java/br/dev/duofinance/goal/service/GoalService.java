@@ -63,7 +63,7 @@ public class GoalService {
         YearMonth current = currentMonth();
         Map<UUID, Long> savedByGoal = saved.savedByGoal(accountId);
         Map<UUID, List<Long>> lastContributions = saved.lastContributionsByGoal(accountId);
-        List<Goal> all = goals.findByAccountIdOrderByCreatedAtAsc(accountId);
+        List<Goal> all = goals.findByAccountIdOrderByCreatedAtAscIdAsc(accountId);
         List<GoalResponse> active = all.stream()
                 .filter(g -> !g.isCompleted())
                 .map(g -> {
@@ -203,7 +203,7 @@ public class GoalService {
     }
 
     private void requireNameFree(UUID accountId, String name, @Nullable UUID exceptId) {
-        boolean taken = goals.findByAccountIdOrderByCreatedAtAsc(accountId).stream()
+        boolean taken = goals.findByAccountIdOrderByCreatedAtAscIdAsc(accountId).stream()
                 .anyMatch(g -> !g.isCompleted()
                         && !g.getId().equals(exceptId)
                         && g.getName().equalsIgnoreCase(name));
@@ -213,7 +213,7 @@ public class GoalService {
     }
 
     private void requirePercentFits(UUID accountId, @Nullable UUID exceptId, int percent) {
-        int others = goals.findByAccountIdOrderByCreatedAtAsc(accountId).stream()
+        int others = goals.findByAccountIdOrderByCreatedAtAscIdAsc(accountId).stream()
                 .filter(g -> !g.isCompleted() && !g.getId().equals(exceptId))
                 .mapToInt(Goal::getMonthlyPercent)
                 .sum();

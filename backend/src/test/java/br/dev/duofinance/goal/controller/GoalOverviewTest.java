@@ -284,4 +284,22 @@ class GoalOverviewTest {
         assertThat(o.path("completed").get(0).path("projection").isNull()).isTrue();
         assertThat(o.path("totalSavedCents").asLong()).isEqualTo(40000 + 60000);
     }
+
+    @Test
+    void overview_sameCreationInstant_keepsCreationOrderAfterAnEdit() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        String first = goal(s, "First", 100000, 10);
+        String second = goal(s, "Second", 100000, 10);
+        // A rename rewrites the row and its index entries, so without a tiebreaker it may come back last.
+        Map<String, Object> edit = new LinkedHashMap<>();
+        edit.put("name", "First renamed");
+        edit.put("targetCents", 200000);
+        edit.put("monthlyPercent", 10);
+        assertThat(send(HttpMethod.PUT, s, GOALS + "/" + first, edit)).hasStatus(HttpStatus.OK);
+
+        JsonNode goals = overview(s, "2027-03").path("goals");
+
+        assertThat(goals.get(0).path("id").asString()).isEqualTo(first);
+        assertThat(goals.get(1).path("id").asString()).isEqualTo(second);
+    }
 }

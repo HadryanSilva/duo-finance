@@ -12,7 +12,12 @@ final class GoalProjections {
 
     private GoalProjections() {}
 
-    /** @param lastContributions the goal's last contribution amounts, newest first, at most three */
+    /**
+     * A target month already behind the current one cannot be reached any more: the projection then says so and
+     * falls back to the current pace, when there is one.
+     *
+     * @param lastContributions the goal's last contribution amounts, newest first, at most three
+     */
     static @Nullable GoalProjection of(
             long targetCents,
             long savedCents,
@@ -24,9 +29,19 @@ final class GoalProjections {
             return null;
         }
         if (targetDate != null) {
-            long months = Math.max(1, ChronoUnit.MONTHS.between(current, YearMonth.from(targetDate)) + 1);
-            return new GoalProjection(Math.ceilDiv(remaining, months), null);
+            YearMonth targetMonth = YearMonth.from(targetDate);
+            if (targetMonth.isBefore(current)) {
+                return new GoalProjection(null, paceMonth(remaining, lastContributions, current), true);
+            }
+            long months = ChronoUnit.MONTHS.between(current, targetMonth) + 1;
+            return new GoalProjection(Math.ceilDiv(remaining, months), null, false);
         }
+        YearMonth pace = paceMonth(remaining, lastContributions, current);
+        return pace == null ? null : new GoalProjection(null, pace, false);
+    }
+
+    /** The month the average of the last contributions reaches the target; null without a positive average. */
+    private static @Nullable YearMonth paceMonth(long remaining, List<Long> lastContributions, YearMonth current) {
         if (lastContributions.isEmpty()) {
             return null;
         }
@@ -35,6 +50,6 @@ final class GoalProjections {
         if (average <= 0) {
             return null;
         }
-        return new GoalProjection(null, current.plusMonths(Math.ceilDiv(remaining, average)));
+        return current.plusMonths(Math.ceilDiv(remaining, average));
     }
 }
