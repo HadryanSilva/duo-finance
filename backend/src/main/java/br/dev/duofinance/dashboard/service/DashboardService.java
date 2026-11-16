@@ -17,6 +17,7 @@ import br.dev.duofinance.goal.service.GoalService;
 import br.dev.duofinance.recurring.model.RecurringRule;
 import br.dev.duofinance.recurring.repository.RecurringRuleRepository;
 import br.dev.duofinance.recurring.service.RecurrenceSchedule;
+import br.dev.duofinance.shared.time.RunningMonths;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -106,7 +107,7 @@ public class DashboardService {
                 spending(accountId, spent),
                 budgetService.list(accountId, month, spent),
                 upcoming(accountId, today),
-                month.equals(currentMonth()) ? totalBalance - goals.totalSavedCents() : null,
+                RunningMonths.isRunning(month, clock) ? totalBalance - goals.totalSavedCents() : null,
                 goals);
     }
 

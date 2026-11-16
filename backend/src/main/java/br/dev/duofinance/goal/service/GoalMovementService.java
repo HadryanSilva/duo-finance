@@ -15,6 +15,7 @@ import br.dev.duofinance.goal.repository.GoalSalaryQuery;
 import br.dev.duofinance.goal.repository.GoalSavedQuery;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ErrorCode;
+import br.dev.duofinance.shared.time.RunningMonths;
 import br.dev.duofinance.transaction.dto.TransactionResponse.AuthorRef;
 import br.dev.duofinance.user.model.User;
 import br.dev.duofinance.user.repository.UserRepository;
@@ -142,8 +143,11 @@ public class GoalMovementService {
         long effect = movement.getType() == GoalMovementType.WITHDRAWAL
                 ? -movement.getAmountCents()
                 : movement.getAmountCents();
-        long after = savedOf(goal) - effect;
-        if (after < 0) {
+        long before = savedOf(goal);
+        long after = before - effect;
+        // Like a deposit, undoing a withdrawal may not take the goal above its target (lowered since, say);
+        // an undo that brings the saved amount down is always allowed while it stays at or above zero.
+        if (after < 0 || (after > before && after > goal.getTargetCents())) {
             throw new ApiException(ErrorCode.GOAL_AMOUNT_INVALID);
         }
         movements.delete(movement);
@@ -166,8 +170,8 @@ public class GoalMovementService {
     }
 
     private YearMonth requireFreeMonth(Goal goal, YearMonth month) {
-        YearMonth first = YearMonth.from(goal.getCreatedAt().atZone(clock.getZone()));
-        if (month.isBefore(first) || month.isAfter(YearMonth.now(clock))) {
+        YearMonth first = RunningMonths.earliestOf(goal.getCreatedAt());
+        if (month.isBefore(first) || RunningMonths.isFuture(month, clock)) {
             throw new ApiException(ErrorCode.GOAL_MONTH_INVALID);
         }
         if (movements.existsByGoalIdAndMonth(goal.getId(), month.atDay(1))) {

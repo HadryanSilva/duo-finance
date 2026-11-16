@@ -411,6 +411,22 @@ class DashboardControllerTest {
                 .isEqualTo(50_000);
     }
 
+    /** 23:30 UTC on 30 April is already May in Lisbon (UTC+1), where the app asks for May. */
+    @Test
+    void dashboard_monthAlreadyBegunAheadOfUtc_hasFreeBalance() throws Exception {
+        clock.setInstant(Instant.parse("2027-04-30T23:30:00Z"));
+        TestSession s = testUsers.verified("ana@mail.com");
+        fixtures.bankAccount(s, "Main", 300_000);
+        deposit(s, goal(s, 1_000_000), 50_000);
+
+        assertThat(dashboard(s, "?month=2027-05").path("freeBalanceCents").asLong())
+                .isEqualTo(250_000);
+        assertThat(dashboard(s, "?month=2027-04").path("freeBalanceCents").asLong())
+                .isEqualTo(250_000);
+        assertThat(dashboard(s, "?month=2027-06").path("freeBalanceCents").isNull())
+                .isTrue();
+    }
+
     @Test
     void dashboard_pastMonth_omitsFreeBalance() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");

@@ -328,6 +328,79 @@ class GoalMovementControllerTest {
     }
 
     @Test
+    void undo_withdrawalAboveLoweredTarget_rejected() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        String goal = createGoal(s, 20000, 10);
+        assertThat(amount(s, goal, "deposits", 15000, null)).hasStatus(HttpStatus.CREATED);
+        assertThat(amount(s, goal, "withdrawals", 5000, null)).hasStatus(HttpStatus.CREATED);
+        Map<String, Object> lowered = new LinkedHashMap<>();
+        lowered.put("name", "Meta");
+        lowered.put("targetCents", 12000);
+        lowered.put("monthlyPercent", 10);
+        assertThat(send(HttpMethod.PUT, s, GOALS + "/" + goal, lowered)).hasStatus(HttpStatus.OK);
+        String withdrawalId = movements(s, goal).get(0).path("id").asString();
+
+        assertError(
+                send(HttpMethod.DELETE, s, GOALS + "/" + goal + "/movements/" + withdrawalId, null),
+                HttpStatus.BAD_REQUEST,
+                "GOAL_AMOUNT_INVALID");
+        assertThat(movements(s, goal)).hasSize(2);
+    }
+
+    @Test
+    void undo_withdrawalUpToTarget_allowed() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        String goal = createGoal(s, 20000, 10);
+        assertThat(amount(s, goal, "deposits", 20000, null)).hasStatus(HttpStatus.CREATED);
+        assertThat(amount(s, goal, "withdrawals", 5000, null)).hasStatus(HttpStatus.CREATED);
+        String withdrawalId = movements(s, goal).get(0).path("id").asString();
+
+        MvcTestResult undone = send(HttpMethod.DELETE, s, GOALS + "/" + goal + "/movements/" + withdrawalId, null);
+
+        assertThat(undone).hasStatus(HttpStatus.OK);
+        assertThat(body(undone).path("savedCents").asLong()).isEqualTo(20000);
+        assertThat(body(undone).path("status").asString()).isEqualTo("REACHED");
+    }
+
+    /**
+     * 23:30 UTC on 30 April is already 1 May in Lisbon (summer time, UTC+1): the app asks for May, and May is a
+     * month that has begun, not a future one.
+     */
+    @Test
+    void contribute_justAfterMidnightAheadOfUtc_acceptsTheNewMonth() throws Exception {
+        clock.setInstant(Instant.parse("2027-04-30T23:30:00Z"));
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID salary = seededSalaryCategory(s);
+        setSalaryCategory(s, salary);
+        income(s, fixtures.bankAccount(s, "Conta", 0), salary, "2027-05-01", 200000);
+        String goal = createGoal(s, 100000, 10);
+
+        JsonNode overview = body(send(HttpMethod.GET, s, GOALS + "?month=2027-05", null));
+        assertThat(overview.path("suggestions")).hasSize(1);
+        assertThat(contribute(s, goal, "2027-05", null)).hasStatus(HttpStatus.CREATED);
+        assertError(contribute(s, goal, "2027-06", 100L), HttpStatus.BAD_REQUEST, "GOAL_MONTH_INVALID");
+    }
+
+    /**
+     * 01:00 UTC on 1 May is still 30 April in São Paulo (UTC-3): a goal created then still belongs to April there,
+     * so April can be contributed.
+     */
+    @Test
+    void contribute_createdJustAfterUtcMidnight_acceptsTheMonthStillRunningBehindUtc() throws Exception {
+        clock.setInstant(Instant.parse("2027-05-01T01:00:00Z"));
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID salary = seededSalaryCategory(s);
+        setSalaryCategory(s, salary);
+        income(s, fixtures.bankAccount(s, "Conta", 0), salary, "2027-04-30", 200000);
+        String goal = createGoal(s, 100000, 10);
+
+        JsonNode overview = body(send(HttpMethod.GET, s, GOALS + "?month=2027-04", null));
+        assertThat(overview.path("suggestions")).hasSize(1);
+        assertThat(contribute(s, goal, "2027-04", null)).hasStatus(HttpStatus.CREATED);
+        assertError(contribute(s, goal, "2027-03", 100L), HttpStatus.BAD_REQUEST, "GOAL_MONTH_INVALID");
+    }
+
+    @Test
     void undo_depositBelowZero_rejected() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         String goal = createGoal(s, 100000, 10);

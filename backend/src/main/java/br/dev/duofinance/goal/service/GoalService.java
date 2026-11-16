@@ -13,6 +13,7 @@ import br.dev.duofinance.goal.repository.GoalSalaryQuery;
 import br.dev.duofinance.goal.repository.GoalSavedQuery;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ErrorCode;
+import br.dev.duofinance.shared.time.RunningMonths;
 import br.dev.duofinance.transaction.dto.TransactionResponse.CategoryRef;
 import java.time.Clock;
 import java.time.Instant;
@@ -103,18 +104,18 @@ public class GoalService {
                 active,
                 completed,
                 suggestions(
-                        accountId, month, current, salary, active, month.equals(current) ? decidedThisMonth : null));
+                        accountId, month, salary, active, month.equals(current) ? decidedThisMonth : null));
     }
 
-    /** Only the usable-salary case reaches here with salary > 0; past months stay open until decided. */
+    /** Only the usable-salary case reaches here with salary > 0; past months stay open until decided, and a month
+     * already begun in the couple's time zone counts as begun (see {@link RunningMonths}). */
     private List<GoalSuggestion> suggestions(
             UUID accountId,
             YearMonth month,
-            YearMonth current,
             long salary,
             List<GoalResponse> active,
             @Nullable Set<UUID> decidedInCurrentMonth) {
-        if (salary <= 0 || month.isAfter(current)) {
+        if (salary <= 0 || RunningMonths.isFuture(month, clock)) {
             return List.of();
         }
         Set<UUID> decided =
@@ -122,7 +123,7 @@ public class GoalService {
         return active.stream()
                 .filter(g -> g.status() == GoalStatus.ACTIVE && g.monthlyPercent() > 0)
                 .filter(g ->
-                        !YearMonth.from(g.createdAt().atZone(clock.getZone())).isAfter(month))
+                        !RunningMonths.earliestOf(g.createdAt()).isAfter(month))
                 .filter(g -> !decided.contains(g.id()))
                 .map(g -> new GoalSuggestion(
                         g.id(),
