@@ -39,6 +39,7 @@ class DashboardControllerTest {
 
     private static final String BASE = "/api/v1/dashboard";
     private static final long AUTH_STATEMENTS = 2;
+    private static final long GOALS_STATEMENTS = 5;
 
     @Autowired
     MockMvcTester mvc;
@@ -359,6 +360,82 @@ class DashboardControllerTest {
         assertThat(dates).containsExactly("2027-03-15", "2027-03-22", "2027-03-29", "2027-04-05", "2027-04-12");
     }
 
+    private UUID goal(TestSession s, long targetCents) throws Exception {
+        MvcTestResult result = mvc.post()
+                .uri("/api/v1/goals")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(
+                        Map.of("name", "Trip", "targetCents", targetCents, "monthlyPercent", 10)))
+                .exchange();
+        assertThat(result).hasStatus(HttpStatus.CREATED);
+        return UUID.fromString(json.readTree(result.getResponse().getContentAsString())
+                .path("id")
+                .asString());
+    }
+
+    private void deposit(TestSession s, UUID goal, long cents) {
+        assertThat(mvc.post()
+                        .uri("/api/v1/goals/" + goal + "/deposits")
+                        .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("amountCents", cents)))
+                        .exchange())
+                .hasStatus(HttpStatus.CREATED);
+    }
+
+    @Test
+    void dashboard_currentMonth_hasFreeBalanceAndGoals() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        fixtures.bankAccount(s, "Main", 300_000);
+        deposit(s, goal(s, 1_000_000), 50_000);
+
+        JsonNode d = dashboard(s, "");
+
+        assertThat(d.path("freeBalanceCents").asLong()).isEqualTo(250_000);
+        assertThat(d.path("goals").path("goals").get(0).path("savedCents").asLong())
+                .isEqualTo(50_000);
+    }
+
+    @Test
+    void dashboard_pastMonth_omitsFreeBalance() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        fixtures.bankAccount(s, "Main", 300_000);
+        deposit(s, goal(s, 1_000_000), 50_000);
+
+        JsonNode d = dashboard(s, "?month=2027-02");
+
+        assertThat(d.path("freeBalanceCents").isNull()).isTrue();
+        assertThat(d.path("goals").path("goals").size()).isEqualTo(1);
+    }
+
+    @Test
+    void dashboard_freeBalanceMayBeNegative() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        fixtures.bankAccount(s, "Main", 10_000);
+        deposit(s, goal(s, 1_000_000), 30_000);
+
+        assertThat(dashboard(s, "").path("freeBalanceCents").asLong()).isEqualTo(-20_000);
+    }
+
+    @Test
+    void dashboard_completedGoalReleasesMoney() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        fixtures.bankAccount(s, "Main", 300_000);
+        UUID goal = goal(s, 1_000_000);
+        deposit(s, goal, 50_000);
+        assertThat(mvc.post()
+                        .uri("/api/v1/goals/" + goal + "/complete")
+                        .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                        .exchange())
+                .hasStatus(HttpStatus.OK);
+
+        JsonNode d = dashboard(s, "");
+
+        assertThat(d.path("freeBalanceCents").asLong()).isEqualTo(d.path("totalBalanceCents").asLong());
+        assertThat(d.path("freeBalanceCents").asLong()).isEqualTo(300_000);
+    }
+
     @Test
     void dashboard_invalidMonth_returns400() {
         TestSession s = testUsers.verified("ana@mail.com");
@@ -413,8 +490,9 @@ class DashboardControllerTest {
         long large = statementsFor(s);
 
         // 2 auth/entitlement + 8 for the dashboard (the brief's bound): totals with currency, bank accounts, balances,
-        // spending, budgets, budget categories, spending categories, active rules.
-        assertThat(small).isEqualTo(AUTH_STATEMENTS + 8);
+        // spending, budgets, budget categories, spending categories, active rules; plus 5 for the goals overview
+        // (saved, last contributions, goals, salary setting, salary total).
+        assertThat(small).isEqualTo(AUTH_STATEMENTS + 8 + GOALS_STATEMENTS);
         assertThat(large).isEqualTo(small);
     }
 

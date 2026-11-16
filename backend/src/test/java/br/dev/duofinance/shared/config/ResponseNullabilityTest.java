@@ -59,6 +59,7 @@ class ResponseNullabilityTest {
             "DashboardResponse.balancesAsOf",
             "DashboardResponse.budgets",
             "DashboardResponse.currency",
+            "DashboardResponse.goals",
             "DashboardResponse.month",
             "DashboardResponse.spendingByCategory",
             "DashboardResponse.upcoming",
