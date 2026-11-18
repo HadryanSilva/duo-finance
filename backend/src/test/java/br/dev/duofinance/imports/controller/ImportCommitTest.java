@@ -547,6 +547,73 @@ class ImportCommitTest {
                 .isEqualTo(second);
     }
 
+    private UUID defaultExpense(TestSession s) {
+        return jdbc.queryForObject(
+                "SELECT id FROM categories WHERE account_id = ? AND kind = 'EXPENSE' AND system_default AND name IN ('Outros', 'Other')"
+                        + " AND archived_at IS NULL",
+                UUID.class,
+                s.accountId());
+    }
+
+    private void remember(TestSession s, String description, UUID category) {
+        jdbc.update(
+                "INSERT INTO category_memory (account_id, description_key, kind, category_id, updated_at)"
+                        + " VALUES (?, ?, 'EXPENSE', ?, now())",
+                s.accountId(),
+                DescriptionKeys.of(description),
+                category);
+    }
+
+    @Test
+    void commit_defaultCategoryOnUnknownMerchant_doesNotWriteMemory() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID outros = defaultExpense(s);
+        JsonNode cafe = row(previewRows(s, bank, null), "Cafe Aurora");
+
+        var result = commit(s, bank, List.of(decision(cafe, true, outros)));
+
+        assertThat(result).hasStatus(HttpStatus.CREATED);
+        assertThat(count(
+                        "SELECT count(*) FROM category_memory WHERE description_key = ?",
+                        DescriptionKeys.of("Cafe Aurora")))
+                .isZero();
+    }
+
+    @Test
+    void commit_defaultChosenOverMemorySuggestion_writesMemory() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID outros = defaultExpense(s);
+        UUID mercado = fixtures.category(s, "Compras Mercado", CategoryKind.EXPENSE);
+        remember(s, "Cafe Aurora", mercado);
+        JsonNode cafe = row(previewRows(s, bank, null), "Cafe Aurora");
+
+        commit(s, bank, List.of(decision(cafe, true, outros)));
+
+        assertThat(jdbc.queryForObject(
+                        "SELECT category_id FROM category_memory WHERE description_key = ?",
+                        UUID.class,
+                        DescriptionKeys.of("Cafe Aurora")))
+                .isEqualTo(outros);
+    }
+
+    @Test
+    void commit_nonDefaultCategory_writesMemory() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID cafes = fixtures.category(s, "Cafes", CategoryKind.EXPENSE);
+        JsonNode cafe = row(previewRows(s, bank, null), "Cafe Aurora");
+
+        commit(s, bank, List.of(decision(cafe, true, cafes)));
+
+        assertThat(jdbc.queryForObject(
+                        "SELECT category_id FROM category_memory WHERE description_key = ?",
+                        UUID.class,
+                        DescriptionKeys.of("Cafe Aurora")))
+                .isEqualTo(cafes);
+    }
+
     @Test
     void commit_badDecisionsPart_returns400() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");

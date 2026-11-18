@@ -125,7 +125,7 @@ public class ImportCommitService {
                 continue;
             }
             toInsert.add(row);
-            if (row.kind() != TransactionKind.TRANSFER) {
+            if (row.kind() != TransactionKind.TRANSFER && !isPassiveDefault(row, d.categoryId(), ctx)) {
                 remembered.put(new MemoryTarget(row.descriptionKey(), row.kind()), d.categoryId());
             }
         }
@@ -148,6 +148,14 @@ public class ImportCommitService {
         batch.setRowCount(created);
         batches.flush();
         return new CommitResponse(batch.getId(), created, included - created);
+    }
+
+    /** The default category is only worth remembering when the user chose it over a real suggestion. */
+    private static boolean isPassiveDefault(PlannedRow row, UUID categoryId, PlanContext ctx) {
+        return categoryId != null
+                && categoryId.equals(ctx.defaultCategories().get(row.kind()))
+                && (row.suggestionSource() == SuggestionSource.DEFAULT
+                        || row.suggestionSource() == SuggestionSource.NONE);
     }
 
     private record MemoryTarget(String key, TransactionKind kind) {}
