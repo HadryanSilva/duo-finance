@@ -243,6 +243,29 @@ finais de linha LF, `chmod 600` e dono `deploy`:
    Resultado esperado: `0` (nenhum CR), as quatro variáveis listadas, `0` (nenhuma chave de backup no
    `.env`) e `ok`.
 
+### Chave da Anthropic (sugestões de categoria por IA)
+
+A importação do Revolut sugere categorias com IA (modelo `claude-haiku-5-5`, configurável por
+`app.ai.model`). A chave é opcional: sem ela, a IA fica desligada e o restante funciona normalmente.
+
+1. Em console.anthropic.com, crie um workspace só para o Duo Finance e gere a chave nele.
+2. No mesmo workspace, defina um limite de gasto mensal de US$ 5.
+3. Cole a chave em `/opt/duo-finance/.env`, na linha `ANTHROPIC_API_KEY=` (sem aspas):
+
+   | Variável | Valor |
+   | --- | --- |
+   | `ANTHROPIC_API_KEY` | a chave do workspace do Duo Finance |
+
+4. Aplique a mudança (o `api` lê o `.env` via `env_file`, então o compose não muda):
+
+   ```bash
+   docker compose up -d api
+   ```
+
+Para desligar a IA em todo o sistema, deixe `ANTHROPIC_API_KEY=` vazia e rode o mesmo comando. Cada
+casal também pode desativar as sugestões em Configurações, no interruptor "Sugestões de categoria
+por IA".
+
 ## 6. GHCR
 
 As imagens `ghcr.io/hadryansilva/duo-finance-api` e `ghcr.io/hadryansilva/duo-finance-nginx` (nomes
