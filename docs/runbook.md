@@ -483,17 +483,22 @@ Compare a impressão digital (`SHA256:...`) com a do servidor (na instância:
 Depois apague `duo-deploy-key`, `duo-deploy-key.pub` e `duo-known-hosts` da sua máquina. O
 `GITHUB_TOKEN` usado para publicar no GHCR é automático; não há secret a criar para isso.
 
-### 8.4 Proteção da `main`
+### 8.4 Proteção da `main` e da `develop`
 
-Settings > Branches > Add branch protection rule para `main`: **Require a pull request before merging**
-e **Require status checks to pass before merging**, com os checks `backend`, `frontend`, `api-types`,
-`e2e` e `infra` (jobs de `.github/workflows/ci.yml`). Deixe **Do not allow bypassing the above
-settings** marcado (administradores não furam a regra). Os checks só aparecem na lista depois de
-rodarem ao menos uma vez em um pull request.
+Settings > Rules > Rulesets, ruleset `default` (ativo), com alvos `main` e `develop`. Regras:
+
+- **Restrict deletions** e **Block force pushes**.
+- **Require a pull request before merging**, com qualquer método de merge permitido. A regra do merge
+  commit na versão (seção 8.6) é de processo e não é imposta aqui.
+- **Require status checks to pass**, com os checks `backend`, `frontend`, `api-types`, `e2e` e
+  `infra` (jobs de `.github/workflows/ci.yml`). A opção de exigir branch atualizada fica desmarcada.
+
+Os checks só aparecem na lista depois de rodarem ao menos uma vez em um pull request.
 
 ### 8.5 Primeiro deploy
 
-O primeiro deploy sempre passa pelo pipeline: faça merge de um pull request na `main`. Quando o
+O primeiro deploy sempre passa pelo pipeline: faça merge de um pull request da `develop` na `main`
+(seção 8.6). Quando o
 workflow `CI` termina com sucesso, o workflow `Deploy` constrói e publica as imagens (job `images`),
 copia o compose e os scripts para `$DEPLOY_PATH/.incoming/` e roda `.incoming/deploy.sh sha-<12>`
 (job `deploy`). Na instância:
@@ -520,6 +525,22 @@ cd /opt/duo-finance
 grep '^IMAGE_TAG=' .env
 echo 'sha-<12_DA_TAG_BOA>' > .last-good-tag
 ```
+
+### 8.6 Fluxo de branches
+
+A `develop` reúne as mudanças, e a `main` só recebe versões. Cada merge na `main` é um deploy.
+
+- Toda branch nova (feature, fix, chore) sai da `develop`:
+  `git fetch && git switch -c feature/<nome> origin/develop`.
+- O pull request vai para a `develop`, com qualquer método de merge. O CI roda no PR e de novo no
+  push da `develop`. Não há deploy.
+- **Versão:** abra um pull request da `develop` para a `main` e faça o merge com **Create a merge
+  commit**. Nunca use squash ou rebase nesse PR: eles criam na `main` commits que a `develop` não
+  tem, e as duas branches divergem. O merge dispara o CI na `main` e, com o CI verde, o `Deploy`.
+- Correção urgente segue o mesmo caminho: branch a partir da `develop`, PR para a `develop` e
+  depois PR da `develop` para a `main`.
+- Se a `main` divergir por engano (por exemplo, depois de um squash), abra um PR da `main` para a
+  `develop` e faça o merge com merge commit.
 
 ## 9. Backup
 
