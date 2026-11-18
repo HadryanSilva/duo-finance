@@ -103,6 +103,7 @@ class ResponseNullabilityTest {
             "PreviewRow.kind",
             "PreviewRow.rowId",
             "PreviewRow.status",
+            "PreviewRow.suggestionSource",
             "PreviewSkippedRow.amountRaw",
             "PreviewSkippedRow.currency",
             "PreviewSkippedRow.date",

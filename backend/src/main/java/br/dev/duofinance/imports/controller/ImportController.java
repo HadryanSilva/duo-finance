@@ -4,6 +4,7 @@ import br.dev.duofinance.imports.dto.CommitResponse;
 import br.dev.duofinance.imports.dto.ImportBatchResponse;
 import br.dev.duofinance.imports.dto.PreviewResponse;
 import br.dev.duofinance.imports.dto.RowDecision;
+import br.dev.duofinance.imports.service.AiSuggestionService;
 import br.dev.duofinance.imports.service.ImportBatchService;
 import br.dev.duofinance.imports.service.ImportCommitService;
 import br.dev.duofinance.imports.service.ImportContextLoader;
@@ -42,13 +43,19 @@ public class ImportController {
     private final ImportPreviewService previews;
     private final ImportCommitService commits;
     private final ImportBatchService batches;
+    private final AiSuggestionService aiSuggestions;
     private final JsonMapper json;
 
     public ImportController(
-            ImportPreviewService previews, ImportCommitService commits, ImportBatchService batches, JsonMapper json) {
+            ImportPreviewService previews,
+            ImportCommitService commits,
+            ImportBatchService batches,
+            AiSuggestionService aiSuggestions,
+            JsonMapper json) {
         this.previews = previews;
         this.commits = commits;
         this.batches = batches;
+        this.aiSuggestions = aiSuggestions;
         this.json = json;
     }
 
@@ -61,7 +68,9 @@ public class ImportController {
             throws IOException {
         UUID bank = parseUuid(bankAccountId);
         Map<String, UUID> mapping = parseMapping(productMapping);
-        ImportPlan plan = previews.preview(current.accountId(), current.userId(), file.getBytes(), bank, mapping);
+        ImportPlan plan = aiSuggestions.apply(
+                current.accountId(),
+                previews.preview(current.accountId(), current.userId(), file.getBytes(), bank, mapping));
         return PreviewResponse.of(plan, ImportContextLoader.effectiveMapping(bank, mapping));
     }
 

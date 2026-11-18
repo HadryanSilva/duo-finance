@@ -8,6 +8,7 @@ import br.dev.duofinance.imports.service.DescriptionKeys;
 import br.dev.duofinance.imports.service.RevolutCsvParser;
 import br.dev.duofinance.imports.service.RowFingerprints;
 import br.dev.duofinance.support.FinanceFixtures;
+import br.dev.duofinance.support.RecordingMerchantCategorizer;
 import br.dev.duofinance.support.TestUsers;
 import br.dev.duofinance.support.TestUsers.TestSession;
 import java.io.IOException;
@@ -339,5 +340,89 @@ class ImportPreviewTest {
 
         assertThat(result).hasStatus(HttpStatus.PAYMENT_REQUIRED);
         assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("SUBSCRIPTION_INACTIVE");
+    }
+
+    @Autowired
+    RecordingMerchantCategorizer categorizer;
+
+    private static final String[] ELIGIBLE = {"Cafe Aurora", "Mercado Lua, Lda", "Cinema Plaza", "Late Night Kebab"};
+
+    @Test
+    void preview_unknownCardMerchant_getsAiSuggestion() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID mercado = fixtures.category(s, "Mercearia", CategoryKind.EXPENSE);
+        categorizer.answerWith(c -> Map.of(DescriptionKeys.of("Mercado Lua, Lda"), mercado));
+
+        JsonNode root = body(preview(s, sample(), bank.toString(), null));
+
+        JsonNode r = row(root, "Mercado Lua, Lda");
+        assertThat(r.path("suggestionSource").asString()).isEqualTo("AI");
+        assertThat(r.path("suggestedCategoryId").asString()).isEqualTo(mercado.toString());
+        assertThat(row(root, "Cafe Aurora").path("suggestionSource").asString()).isNotEqualTo("AI");
+    }
+
+    @Test
+    void preview_sendsOnlyEligibleMerchants() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID mercado = fixtures.category(s, "Mercearia", CategoryKind.EXPENSE);
+        UUID archived = fixtures.category(s, "Velha", CategoryKind.EXPENSE);
+        jdbc.update("UPDATE categories SET archived_at = now() WHERE id = ?", archived);
+        fixtures.category(s, "Salario", CategoryKind.INCOME);
+
+        preview(s, sample(), bank.toString(), null);
+
+        assertThat(categorizer.calls()).hasSize(1);
+        var call = categorizer.calls().get(0);
+        assertThat(call.accountId()).isEqualTo(s.accountId());
+        var descriptions = call.merchants().stream().map(m -> m.description()).toList();
+        assertThat(descriptions).contains(ELIGIBLE);
+        assertThat(descriptions)
+                .doesNotContain("Top-Up by *1234", "Salary Fictional Corp", "To Savings", "From Current")
+                .noneMatch(d -> d.startsWith("Cash withdrawal"));
+        assertThat(call.merchants().stream().filter(m -> m.description().equals("Cinema Plaza")))
+                .hasSize(1);
+        assertThat(call.merchants().get(0).description()).isEqualTo("Cafe Aurora");
+        var names = call.categories().stream().map(c -> c.name()).toList();
+        assertThat(names).contains("Mercearia").doesNotContain("Outros", "Other", "Velha", "Salario");
+        assertThat(call.categories()).extracting(c -> c.id()).contains(mercado);
+    }
+
+    @Test
+    void preview_aiDisabled_neverCallsCategorizer() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        fixtures.category(s, "Mercearia", CategoryKind.EXPENSE);
+        var patch = mvc.patch()
+                .uri("/api/v1/account")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content("{\"aiSuggestionsEnabled\":false}")
+                .exchange();
+        assertThat(patch).hasStatus(HttpStatus.OK);
+
+        JsonNode root = body(preview(s, sample(), bank.toString(), null));
+
+        assertThat(categorizer.calls()).isEmpty();
+        assertThat(row(root, "Cafe Aurora").path("suggestionSource").asString()).isNotEqualTo("AI");
+    }
+
+    @Test
+    void preview_categorizerAnswerOutsideList_ignored() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        fixtures.category(s, "Mercearia", CategoryKind.EXPENSE);
+        UUID income = fixtures.category(s, "Salario", CategoryKind.INCOME);
+        categorizer.answerWith(c -> Map.of(
+                DescriptionKeys.of("Cafe Aurora"), income, DescriptionKeys.of("Cinema Plaza"), UUID.randomUUID()));
+
+        JsonNode root = body(preview(s, sample(), bank.toString(), null));
+
+        assertThat(row(root, "Cafe Aurora").path("suggestionSource").asString()).isNotEqualTo("AI");
+        assertThat(row(root, "Cafe Aurora").path("suggestedCategoryId").asString())
+                .isNotEqualTo(income.toString());
+        assertThat(row(root, "Cinema Plaza").path("suggestionSource").asString())
+                .isNotEqualTo("AI");
     }
 }

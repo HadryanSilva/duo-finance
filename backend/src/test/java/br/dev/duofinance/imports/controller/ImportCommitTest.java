@@ -6,6 +6,7 @@ import br.dev.duofinance.IntegrationTest;
 import br.dev.duofinance.category.model.CategoryKind;
 import br.dev.duofinance.imports.service.DescriptionKeys;
 import br.dev.duofinance.support.FinanceFixtures;
+import br.dev.duofinance.support.RecordingMerchantCategorizer;
 import br.dev.duofinance.support.TestUsers;
 import br.dev.duofinance.support.TestUsers.TestSession;
 import java.io.IOException;
@@ -639,5 +640,22 @@ class ImportCommitTest {
 
         assertThat(result).hasStatus(HttpStatus.CONFLICT);
         assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("BANK_ACCOUNT_ARCHIVED");
+    }
+
+    @Autowired
+    RecordingMerchantCategorizer categorizer;
+
+    @Test
+    void commit_neverCallsCategorizer() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID cafes = fixtures.category(s, "Cafes", CategoryKind.EXPENSE);
+        JsonNode rows = previewRows(s, bank, null);
+        categorizer.reset();
+
+        var result = commit(s, bank, List.of(decision(row(rows, "Cafe Aurora"), true, cafes)));
+
+        assertThat(result).hasStatus(HttpStatus.CREATED);
+        assertThat(categorizer.calls()).isEmpty();
     }
 }

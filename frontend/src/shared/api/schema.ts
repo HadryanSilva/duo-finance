@@ -769,7 +769,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch: operations["rename"];
+        patch: operations["update_7"];
         trace?: never;
     };
     "/api/v1/public/registration-mode": {
@@ -1178,6 +1178,8 @@ export interface components {
             suggestedCategoryId: string | null;
             /** @enum {string} */
             status: "NEW" | "ALREADY_IMPORTED" | "POSSIBLE_DUPLICATE";
+            /** @enum {string} */
+            suggestionSource: "MEMORY" | "SIMILAR" | "AI" | "DEFAULT" | "NONE";
         };
         PreviewSkippedRow: {
             /** Format: int32 */
@@ -1325,7 +1327,8 @@ export interface components {
             locale?: string;
         };
         UpdateAccountRequest: {
-            name: string;
+            name?: string;
+            aiSuggestionsEnabled?: boolean;
         };
         AccountResponse: {
             /** Format: uuid */
@@ -1334,6 +1337,7 @@ export interface components {
             currency: string;
             members: components["schemas"]["MemberResponse"][];
             pendingInvitation: components["schemas"]["InvitationSummary"] | null;
+            aiSuggestionsEnabled: boolean;
         };
         MemberResponse: {
             /** Format: uuid */
@@ -3076,7 +3080,7 @@ export interface operations {
             };
         };
     };
-    rename: {
+    update_7: {
         parameters: {
             query?: never;
             header?: never;

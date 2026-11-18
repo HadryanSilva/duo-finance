@@ -17,6 +17,7 @@ public class DatabaseCleanupExtension implements BeforeEachCallback {
     public void beforeEach(ExtensionContext context) {
         var spring = SpringExtension.getApplicationContext(context);
         spring.getBean(MutableClock.class).reset();
+        spring.getBeanProvider(RecordingMerchantCategorizer.class).ifAvailable(RecordingMerchantCategorizer::reset);
         JdbcTemplate jdbc = spring.getBean(JdbcTemplate.class);
         List<String> tables = jdbc.queryForList(
                 "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'flyway_schema_history'",

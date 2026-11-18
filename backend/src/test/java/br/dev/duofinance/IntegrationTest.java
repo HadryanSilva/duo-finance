@@ -4,6 +4,7 @@ import br.dev.duofinance.support.DatabaseCleanupExtension;
 import br.dev.duofinance.support.FinanceFixtures;
 import br.dev.duofinance.support.TestClockConfiguration;
 import br.dev.duofinance.support.TestEmailConfiguration;
+import br.dev.duofinance.support.TestMerchantCategorizerConfiguration;
 import br.dev.duofinance.support.TestUsers;
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -25,6 +26,7 @@ import org.springframework.test.context.ActiveProfiles;
     TestcontainersConfiguration.class,
     TestClockConfiguration.class,
     TestEmailConfiguration.class,
+    TestMerchantCategorizerConfiguration.class,
     TestUsers.class,
     FinanceFixtures.class
 })
