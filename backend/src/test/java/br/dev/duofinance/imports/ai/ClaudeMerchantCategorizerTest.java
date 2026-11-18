@@ -104,7 +104,11 @@ class ClaudeMerchantCategorizerTest {
 
     private ClaudeMerchantCategorizer categorizer(Duration timeout) {
         var props = new AppProperties.Ai(
-                "test-key", "claude-haiku-5-5", timeout, 150, "http://127.0.0.1:" + server.getAddress().getPort());
+                "test-key",
+                "claude-haiku-5-5",
+                timeout,
+                150,
+                "http://127.0.0.1:" + server.getAddress().getPort());
         return new ClaudeMerchantCategorizer(props, clock);
     }
 
@@ -161,6 +165,35 @@ class ClaudeMerchantCategorizerTest {
         categorizer().categorize(account, List.of(merchant("k", longDescription)), categories);
 
         assertThat(bodies.getFirst()).contains("A".repeat(100)).doesNotContain("TAILMARKER");
+    }
+
+    @Test
+    void truncationNeverSplitsASurrogatePair() throws Exception {
+        responseText.set("{\"assignments\":[]}");
+        // the emoji's high surrogate sits at index 99 and its low surrogate at index 100
+        String description = "A".repeat(99) + "😀" + "TAIL";
+
+        categorizer().categorize(account, List.of(merchant("k", description)), categories);
+
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var content =
+                mapper.readTree(bodies.getFirst()).path("messages").path(0).path("content");
+        String text = content.isTextual()
+                ? content.asText()
+                : content.path(0).path("text").asText();
+        String sent =
+                mapper.readTree(text).path("items").path(0).path("description").asText();
+
+        assertThat(sent.length()).isLessThanOrEqualTo(100);
+        for (int i = 0; i < sent.length(); i++) {
+            char c = sent.charAt(i);
+            if (Character.isHighSurrogate(c)) {
+                assertThat(i + 1).isLessThan(sent.length());
+                assertThat(Character.isLowSurrogate(sent.charAt(i + 1))).isTrue();
+            } else {
+                assertThat(Character.isLowSurrogate(c)).isFalse();
+            }
+        }
     }
 
     @Test

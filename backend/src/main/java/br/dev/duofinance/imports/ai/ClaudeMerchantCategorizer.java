@@ -168,7 +168,11 @@ public class ClaudeMerchantCategorizer implements MerchantCategorizer {
         for (int i = 0; i < items.size(); i++) {
             String description = items.get(i).description();
             if (description.length() > MAX_DESCRIPTION_CHARS) {
-                description = description.substring(0, MAX_DESCRIPTION_CHARS);
+                int end = MAX_DESCRIPTION_CHARS;
+                if (Character.isHighSurrogate(description.charAt(end - 1))) {
+                    end--; // do not leave a lone high surrogate: the API rejects it
+                }
+                description = description.substring(0, end);
             }
             itemList.add(Map.of("index", i, "description", description));
         }
@@ -202,10 +206,8 @@ public class ClaudeMerchantCategorizer implements MerchantCategorizer {
     }
 
     private static UUID hashOf(List<CategoryOption> categories) {
-        String joined = categories.stream()
-                .map(c -> c.id() + ":" + c.name())
-                .sorted()
-                .reduce("", (a, b) -> a + "\n" + b);
+        String joined =
+                categories.stream().map(c -> c.id() + ":" + c.name()).sorted().reduce("", (a, b) -> a + "\n" + b);
         return UUID.nameUUIDFromBytes(joined.getBytes(StandardCharsets.UTF_8));
     }
 
