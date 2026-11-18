@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { PlannedRow } from '@/shared/api/types'
 import {
+  aiPendingCount,
   canSubmit,
   initReview,
+  isAiSuggested,
   rowErrorsFrom,
   sameGroup,
   setCategory,
@@ -21,6 +23,7 @@ function row(over: Partial<PlannedRow> & { rowId: string }): PlannedRow {
     bankAccountId: 'acc-1',
     destinationBankAccountId: null,
     suggestedCategoryId: null,
+    suggestionSource: 'NONE',
     status: 'NEW',
     ...over,
   }
@@ -164,5 +167,32 @@ describe('rowErrorsFrom', () => {
         { field: 'decisions[r1]', code: 'CATEGORY_REQUIRED' },
       ]),
     ).toEqual({ r1: 'CATEGORY_ARCHIVED' })
+  })
+})
+
+describe('AI suggestions', () => {
+  const ai = (rowId: string) => row({ rowId, suggestedCategoryId: 'cat-1', suggestionSource: 'AI' })
+
+  it('isAiSuggested_trueOnLoad_falseAfterChange_trueAgainWhenRestored', () => {
+    let rows = initReview([ai('a')])
+    expect(isAiSuggested(rows[0]!)).toBe(true)
+    rows = setCategory(rows, 'a', 'cat-2', false)
+    expect(isAiSuggested(rows[0]!)).toBe(false)
+    rows = setCategory(rows, 'a', 'cat-1', false)
+    expect(isAiSuggested(rows[0]!)).toBe(true)
+  })
+
+  it('isAiSuggested_falseForOtherSources', () => {
+    const rows = initReview([
+      row({ rowId: 'a', suggestedCategoryId: 'c', suggestionSource: 'MEMORY' }),
+    ])
+    expect(isAiSuggested(rows[0]!)).toBe(false)
+  })
+
+  it('aiPendingCount_ignoresExcludedRows', () => {
+    let rows = initReview([ai('a'), ai('b'), row({ rowId: 'c', suggestionSource: 'NONE' })])
+    expect(aiPendingCount(rows)).toBe(2)
+    rows = setInclude(rows, 'b', false)
+    expect(aiPendingCount(rows)).toBe(1)
   })
 })

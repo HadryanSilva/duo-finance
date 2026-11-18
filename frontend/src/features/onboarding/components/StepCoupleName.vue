@@ -5,7 +5,7 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { z } from 'zod'
 import TextField from '@/shared/ui/TextField.vue'
-import { useRenameAccount } from '@/shared/api/queries/account'
+import { useUpdateAccount } from '@/shared/api/queries/account'
 import { errorMessage } from '@/shared/i18n/error-codes'
 import { Button } from '@/shared/ui/button'
 import { applyFieldErrors } from '@/shared/ui/FormErrors'
@@ -14,7 +14,7 @@ const props = defineProps<{ initialName: string }>()
 const emit = defineEmits<{ done: [] }>()
 
 const { t } = useI18n()
-const rename = useRenameAccount()
+const rename = useUpdateAccount()
 
 // 1-60 characters after trimming.
 const schema = computed(() =>
@@ -39,7 +39,7 @@ function showFieldError(field: string, message: string) {
 const submit = handleSubmit(async (values) => {
   formError.value = null
   try {
-    await rename.mutateAsync(values.name)
+    await rename.mutateAsync({ name: values.name })
   } catch (e) {
     if (!applyFieldErrors(e, showFieldError)) formError.value = errorMessage(e)
     return

@@ -8,6 +8,7 @@ import { errorMessage } from '@/shared/i18n/error-codes'
 import { useSession } from '@/shared/session/session-store'
 import { Button } from '@/shared/ui/button'
 import ConfirmDialog from '@/shared/ui/ConfirmDialog.vue'
+import AiSuggestionsToggle from './AiSuggestionsToggle.vue'
 import CoupleNameForm from './CoupleNameForm.vue'
 import InvitePartnerForm from './InvitePartnerForm.vue'
 import SettingsSection from './SettingsSection.vue'
@@ -67,6 +68,8 @@ async function leave() {
       </p>
 
       <CoupleNameForm :initial-name="account.data.value.name" />
+
+      <AiSuggestionsToggle />
 
       <div class="grid gap-2">
         <h3 class="text-sm font-medium text-foreground">{{ t('settings.couple.members') }}</h3>

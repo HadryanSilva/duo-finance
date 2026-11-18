@@ -5,7 +5,7 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 import { z } from 'zod'
-import { useRenameAccount } from '@/shared/api/queries/account'
+import { useUpdateAccount } from '@/shared/api/queries/account'
 import { errorMessage } from '@/shared/i18n/error-codes'
 import { Button } from '@/shared/ui/button'
 import { applyFieldErrors } from '@/shared/ui/FormErrors'
@@ -14,7 +14,7 @@ import TextField from '@/shared/ui/TextField.vue'
 const props = defineProps<{ initialName: string }>()
 
 const { t } = useI18n()
-const rename = useRenameAccount()
+const rename = useUpdateAccount()
 
 const schema = computed(() =>
   toTypedSchema(
@@ -38,7 +38,7 @@ function showFieldError(field: string, message: string) {
 const submit = handleSubmit(async (values) => {
   formError.value = null
   try {
-    await rename.mutateAsync(values.name)
+    await rename.mutateAsync({ name: values.name })
   } catch (e) {
     if (!applyFieldErrors(e, showFieldError)) formError.value = errorMessage(e)
     return

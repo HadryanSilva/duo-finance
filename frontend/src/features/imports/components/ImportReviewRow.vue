@@ -6,7 +6,8 @@ import type { Locale } from '@/shared/lib/money'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import MoneyText from '@/shared/ui/MoneyText.vue'
-import type { ReviewRow } from '../lib/review-state'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/ui/tooltip'
+import { isAiSuggested, type ReviewRow } from '../lib/review-state'
 
 /** One planned row of the review: include checkbox, amount and category (none for a transfer). */
 const props = defineProps<{
@@ -33,6 +34,7 @@ const { t, locale } = useI18n()
 const locked = computed(() => props.row.status === 'ALREADY_IMPORTED')
 const isTransfer = computed(() => props.row.kind === 'TRANSFER')
 const date = computed(() => formatBusinessDate(props.row.date, locale.value as Locale))
+const aiSuggested = computed(() => isAiSuggested(props.row))
 const errorId = computed(() => `row-error-${props.row.rowId}`)
 const includeInvalid = computed(() => !!props.error && (props.error.onInclude || isTransfer.value))
 const categoryInvalid = computed(
@@ -78,6 +80,12 @@ const SELECT =
         </p>
       </div>
       <MoneyText :cents="row.amountCents" :kind="row.kind" class="font-semibold" />
+      <Tooltip v-if="aiSuggested">
+        <TooltipTrigger as-child>
+          <Badge variant="secondary" tabindex="0">{{ t('imports.review.aiBadge') }}</Badge>
+        </TooltipTrigger>
+        <TooltipContent>{{ t('imports.review.aiBadgeHint') }}</TooltipContent>
+      </Tooltip>
       <select
         v-if="!isTransfer"
         :class="SELECT"

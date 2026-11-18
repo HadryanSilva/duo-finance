@@ -38,6 +38,15 @@ export function setCategory(
   return rows.map((r) => (ids.has(r.rowId) && !locked(r) ? { ...r, categoryId } : r))
 }
 
+/** An AI suggestion the user has not changed: still worth a look before importing. */
+export function isAiSuggested(row: ReviewRow): boolean {
+  return row.suggestionSource === 'AI' && row.categoryId === row.suggestedCategoryId
+}
+
+export function aiPendingCount(rows: ReviewRow[]): number {
+  return rows.filter((r) => r.include && isAiSuggested(r)).length
+}
+
 export function setInclude(rows: ReviewRow[], rowId: string, include: boolean): ReviewRow[] {
   const target = rows.find((r) => r.rowId === rowId)
   if (!target || locked(target)) return rows

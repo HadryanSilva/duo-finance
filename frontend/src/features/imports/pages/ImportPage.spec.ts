@@ -16,6 +16,7 @@ const account = {
   currency: 'EUR',
   members: [],
   pendingInvitation: null,
+  aiSuggestionsEnabled: true,
 }
 
 const cat = { color: '#0000aa', systemDefault: false, archived: false }
@@ -46,6 +47,7 @@ const row = (r: Partial<PreviewRow> & Pick<PreviewRow, 'rowId' | 'description'>)
   bankAccountId: 'b1',
   destinationBankAccountId: null,
   suggestedCategoryId: 'c1',
+  suggestionSource: 'MEMORY',
   status: 'NEW',
   ...r,
 })
@@ -70,9 +72,15 @@ const baseRows: PreviewRow[] = [
     amountCents: 5000,
     destinationBankAccountId: 'b2',
     suggestedCategoryId: null,
+    suggestionSource: 'NONE',
   }),
 ]
-const lojaNova = row({ rowId: 'r4', description: 'Loja nova', suggestedCategoryId: null })
+const lojaNova = row({
+  rowId: 'r4',
+  description: 'Loja nova',
+  suggestedCategoryId: null,
+  suggestionSource: 'NONE',
+})
 
 const preview = (over: Partial<PreviewResponse> = {}): PreviewResponse => ({
   products: [{ product: 'Current', bankAccountId: 'b1' }],
@@ -382,6 +390,35 @@ describe('ImportPage', () => {
     expect((await screen.findByRole('alert')).textContent).toContain(
       'O arquivo é grande demais (máximo de 1 MB).',
     )
+  })
+
+  it('review_aiSuggestion_showsBadgeUntilCategoryChanges_andFooterCounts', async () => {
+    const aiRow = row({
+      rowId: 'a1',
+      description: 'Cafe Novo',
+      suggestedCategoryId: 'c1',
+      suggestionSource: 'AI',
+    })
+    const s = setup({ preview: preview({ rows: [aiRow] }) })
+    const { user } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    const li = rowsIn(panel())[0]!
+    expect(within(li).getByText('Sugerido por IA')).toBeTruthy()
+    expect(screen.getByText('1 sugestão por IA para conferir')).toBeTruthy()
+
+    const select = within(li).getByRole('combobox', { name: 'Categoria de Cafe Novo' })
+    await waitFor(() => expect(optionTexts(select)).toContain('Lazer'))
+    await user.selectOptions(select, 'c4')
+    expect(within(li).queryByText('Sugerido por IA')).toBeNull()
+    expect(screen.queryByText(/sugest.* por IA para conferir/)).toBeNull()
+  })
+
+  it('review_noAiSuggestion_showsNoBadgeOrCounter', async () => {
+    const s = setup()
+    await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    expect(screen.queryByText('Sugerido por IA')).toBeNull()
+    expect(screen.queryByText(/por IA para conferir/)).toBeNull()
   })
 
   it('review_changeCategory_offersApplyToSameDescription', async () => {

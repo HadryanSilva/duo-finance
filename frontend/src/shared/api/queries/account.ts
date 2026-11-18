@@ -18,12 +18,12 @@ export function useAccount() {
   })
 }
 
-export function useRenameAccount() {
+export function useUpdateAccount() {
   const http = useHttp()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (name: string) =>
-      http.patch<AccountResponse, UpdateAccountRequest>('/account', { name }),
+    mutationFn: (body: UpdateAccountRequest) =>
+      http.patch<AccountResponse, UpdateAccountRequest>('/account', body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ACCOUNT_KEY }),
   })
 }

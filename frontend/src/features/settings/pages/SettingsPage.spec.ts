@@ -32,6 +32,7 @@ const solo: AccountResponse = {
   currency: 'EUR',
   members: [ana],
   pendingInvitation: null,
+  aiSuggestionsEnabled: true,
 }
 const full: AccountResponse = { ...solo, name: 'Ana e Bia', members: [ana, bia] }
 

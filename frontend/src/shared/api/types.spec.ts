@@ -75,7 +75,10 @@ describe('generated API types', () => {
     expectTypeOf<ForgotPasswordRequest>().toEqualTypeOf<{ email: string }>()
     expectTypeOf<ResetPasswordRequest>().toEqualTypeOf<{ token: string; newPassword: string }>()
     expectTypeOf<AcceptInvitationRequest>().toEqualTypeOf<{ confirmDiscard?: boolean }>()
-    expectTypeOf<UpdateAccountRequest>().toEqualTypeOf<{ name: string }>()
+    expectTypeOf<UpdateAccountRequest>().toEqualTypeOf<{
+      name?: string
+      aiSuggestionsEnabled?: boolean
+    }>()
     expectTypeOf<CreateInvitationRequest>().toEqualTypeOf<{ email: string }>()
     expectTypeOf<RegistrationModeResponse['mode']>().toEqualTypeOf<RegistrationMode>()
   })

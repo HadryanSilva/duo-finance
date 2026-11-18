@@ -14,6 +14,7 @@ const account: AccountResponse = {
   currency: 'EUR',
   members: [],
   pendingInvitation: null,
+  aiSuggestionsEnabled: true,
 }
 const member = (userId: string, displayName: string): MemberResponse => ({
   userId,

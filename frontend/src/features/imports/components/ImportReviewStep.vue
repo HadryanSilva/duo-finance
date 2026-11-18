@@ -5,8 +5,10 @@ import { useCategories } from '@/shared/api/queries/categories'
 import type { PreviewResponse } from '@/shared/api/types'
 import { Button } from '@/shared/ui/button'
 import MoneyText from '@/shared/ui/MoneyText.vue'
+import { TooltipProvider } from '@/shared/ui/tooltip'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 import {
+  aiPendingCount,
   canSubmit,
   sameGroup,
   setCategory,
@@ -54,6 +56,7 @@ const lists = computed(() => [
   { key: 'duplicates', rows: duplicateRows.value },
 ])
 const sums = computed(() => totals(rows.value))
+const aiPending = computed(() => aiPendingCount(rows.value))
 const ready = computed(() => canSubmit(rows.value))
 
 /** Row whose category just changed, offering to apply it to the same description. */
@@ -125,38 +128,40 @@ const tabLabel = (key: 'new' | 'duplicates' | 'skipped', n: number) =>
       {{ error }}
     </p>
 
-    <Tabs v-model="tab">
-      <TabsList>
-        <TabsTrigger value="new">{{ tabLabel('new', newRows.length) }}</TabsTrigger>
-        <TabsTrigger value="duplicates">
-          {{ tabLabel('duplicates', duplicateRows.length) }}
-        </TabsTrigger>
-        <TabsTrigger value="skipped">{{ tabLabel('skipped', skipped.length) }}</TabsTrigger>
-      </TabsList>
+    <TooltipProvider>
+      <Tabs v-model="tab">
+        <TabsList>
+          <TabsTrigger value="new">{{ tabLabel('new', newRows.length) }}</TabsTrigger>
+          <TabsTrigger value="duplicates">
+            {{ tabLabel('duplicates', duplicateRows.length) }}
+          </TabsTrigger>
+          <TabsTrigger value="skipped">{{ tabLabel('skipped', skipped.length) }}</TabsTrigger>
+        </TabsList>
 
-      <TabsContent v-for="list in lists" :key="list.key" :value="list.key">
-        <ul v-if="list.rows.length" class="grid gap-2">
-          <ImportReviewRow
-            v-for="row in list.rows"
-            :key="row.rowId"
-            :row="row"
-            :categories="categoriesFor(row)"
-            :account-name="accountName"
-            :apply-count="prompt?.rowId === row.rowId ? prompt.count : undefined"
-            :error="rowError(row)"
-            @include="onInclude(row.rowId, $event)"
-            @category="onCategory(row.rowId, $event)"
-            @apply="applyToGroup"
-            @dismiss="prompt = null"
-          />
-        </ul>
-        <p v-else class="text-sm text-muted-foreground">{{ t('imports.review.empty') }}</p>
-      </TabsContent>
+        <TabsContent v-for="list in lists" :key="list.key" :value="list.key">
+          <ul v-if="list.rows.length" class="grid gap-2">
+            <ImportReviewRow
+              v-for="row in list.rows"
+              :key="row.rowId"
+              :row="row"
+              :categories="categoriesFor(row)"
+              :account-name="accountName"
+              :apply-count="prompt?.rowId === row.rowId ? prompt.count : undefined"
+              :error="rowError(row)"
+              @include="onInclude(row.rowId, $event)"
+              @category="onCategory(row.rowId, $event)"
+              @apply="applyToGroup"
+              @dismiss="prompt = null"
+            />
+          </ul>
+          <p v-else class="text-sm text-muted-foreground">{{ t('imports.review.empty') }}</p>
+        </TabsContent>
 
-      <TabsContent value="skipped">
-        <ImportSkippedList :rows="skipped" />
-      </TabsContent>
-    </Tabs>
+        <TabsContent value="skipped">
+          <ImportSkippedList :rows="skipped" />
+        </TabsContent>
+      </Tabs>
+    </TooltipProvider>
 
     <section
       :aria-label="t('imports.review.summary')"
@@ -173,6 +178,9 @@ const tabLabel = (key: 'new' | 'duplicates' | 'skipped', n: number) =>
         {{ t('imports.review.expense') }}
         <MoneyText :cents="sums.expenseCents" kind="EXPENSE" class="font-medium" />
       </span>
+      <span v-if="aiPending" class="text-sm text-muted-foreground">{{
+        t('imports.review.aiPending', { n: aiPending }, aiPending)
+      }}</span>
       <p v-if="sums.count && !ready" role="status" class="text-sm text-destructive">
         {{ t('imports.review.missingCategory') }}
       </p>
