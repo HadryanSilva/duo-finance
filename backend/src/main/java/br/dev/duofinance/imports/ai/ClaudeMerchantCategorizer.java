@@ -184,7 +184,11 @@ public class ClaudeMerchantCategorizer implements MerchantCategorizer {
         assignment.put("type", "object");
         assignment.put(
                 "properties",
-                Map.of("item", Map.of("type", "integer"), "category", Map.of("type", List.of("integer", "null"))));
+                Map.of(
+                        "item",
+                        Map.of("type", "integer"),
+                        "category",
+                        Map.of("anyOf", List.of(Map.of("type", "integer"), Map.of("type", "null")))));
         assignment.put("required", List.of("item", "category"));
         assignment.put("additionalProperties", false);
         return JsonOutputFormat.Schema.builder()

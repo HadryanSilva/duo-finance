@@ -130,6 +130,30 @@ class ClaudeMerchantCategorizerTest {
     }
 
     @Test
+    void schemaUsesOnlyTheDocumentedStructuredOutputSubset() throws Exception {
+        responseText.set("{\"assignments\":[]}");
+
+        categorizer().categorize(account, List.of(merchant("a", "A")), categories);
+
+        String body = bodies.getFirst();
+        assertThat(body).doesNotContainPattern("\"type\"\\s*:\\s*\\[");
+        var schema = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(body)
+                .path("output_config")
+                .path("format")
+                .path("schema");
+        assertThat(schema.path("additionalProperties").isBoolean()).isTrue();
+        assertThat(schema.path("additionalProperties").asBoolean()).isFalse();
+        assertThat(schema.path("required").toString()).isEqualTo("[\"assignments\"]");
+        var assignment = schema.path("properties").path("assignments").path("items");
+        assertThat(assignment.path("additionalProperties").isBoolean()).isTrue();
+        assertThat(assignment.path("additionalProperties").asBoolean()).isFalse();
+        assertThat(assignment.path("required").toString()).isEqualTo("[\"item\",\"category\"]");
+        var anyOf = assignment.path("properties").path("category").path("anyOf");
+        assertThat(anyOf.toString()).isEqualTo("[{\"type\":\"integer\"},{\"type\":\"null\"}]");
+    }
+
+    @Test
     void truncatesDescriptionTo100Chars() {
         responseText.set("{\"assignments\":[]}");
         String longDescription = "A".repeat(100) + "TAILMARKER";
