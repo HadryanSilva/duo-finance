@@ -114,13 +114,15 @@ copy_sources() {
 
 @test "workflowTriggers_ciOnMainAndDevelop_deployOnMainOnly" {
   ci="$REPO_ROOT/.github/workflows/ci.yml"
-  # push.branches of ci.yml, as written on its line.
-  run awk '/^  push:/ { p = 1; next } p && $1 == "branches:" { print; exit }' "$ci"
+  # push.branches of ci.yml, as written on its line; the scan stops at the end of the `on:` block.
+  run awk '/^  push:/ { p = 1; next } p && /^[^ #]/ { exit } p && $1 == "branches:" { print; exit }' "$ci"
   echo "ci.yml push: [$output]"
-  [[ "$output" == *main* ]]
-  [[ "$output" == *develop* ]]
+  # Whole branch names, not substrings: [maintenance, develop] must not count as main.
+  branches="$(echo "$output" | sed -e 's/^[^[]*\[//' -e 's/\].*$//' | tr -d " '\"" | tr ',' '\n')"
+  grep -qx main <<<"$branches"
+  grep -qx develop <<<"$branches"
   # deploy.yml workflow_run.branches must be exactly [main]: merges into develop never deploy.
-  run awk '/^  workflow_run:/ { p = 1; next } p && $1 == "branches:" { print; exit }' "$DEPLOY_YML"
+  run awk '/^  workflow_run:/ { p = 1; next } p && /^[^ #]/ { exit } p && $1 == "branches:" { print; exit }' "$DEPLOY_YML"
   echo "deploy.yml workflow_run: [$output]"
   [ "$(echo "$output" | tr -d ' ')" = "branches:[main]" ]
 }
