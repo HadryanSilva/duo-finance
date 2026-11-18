@@ -117,6 +117,58 @@ class AccountControllerTest {
     }
 
     @Test
+    void get_aiSuggestionsEnabledDefaultsTrue() {
+        TestSession s = testUsers.registered("ana@mail.com");
+
+        assertThat(get(s)).bodyJson().extractingPath("$.aiSuggestionsEnabled").isEqualTo(true);
+    }
+
+    @Test
+    void patch_onlyAiFlag_updatesAndKeepsName() {
+        TestSession s = testUsers.registered("ana@mail.com");
+        patch(s, "{\"name\":\"Casa\"}");
+
+        var result = patch(s, "{\"aiSuggestionsEnabled\":false}");
+
+        assertThat(result).hasStatus(HttpStatus.OK);
+        assertThat(result).bodyJson().extractingPath("$.aiSuggestionsEnabled").isEqualTo(false);
+        assertThat(result).bodyJson().extractingPath("$.name").isEqualTo("Casa");
+        assertThat(get(s)).bodyJson().extractingPath("$.aiSuggestionsEnabled").isEqualTo(false);
+    }
+
+    @Test
+    void patch_onlyName_keepsAiFlag() {
+        TestSession s = testUsers.registered("ana@mail.com");
+        patch(s, "{\"aiSuggestionsEnabled\":false}");
+
+        var result = patch(s, "{\"name\":\"Casa\"}");
+
+        assertThat(result).hasStatus(HttpStatus.OK);
+        assertThat(result).bodyJson().extractingPath("$.name").isEqualTo("Casa");
+        assertThat(result).bodyJson().extractingPath("$.aiSuggestionsEnabled").isEqualTo(false);
+    }
+
+    @Test
+    void patch_empty_400() {
+        TestSession s = testUsers.registered("ana@mail.com");
+
+        var result = patch(s, "{}");
+
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
+    void patch_blankName_400() {
+        TestSession s = testUsers.registered("ana@mail.com");
+
+        var result = patch(s, "{\"name\":\"  \",\"aiSuggestionsEnabled\":true}");
+
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
     void getAccount_withoutToken_returns401() {
         assertThat(mvc.get().uri("/api/v1/account").exchange()).hasStatus(HttpStatus.UNAUTHORIZED);
     }

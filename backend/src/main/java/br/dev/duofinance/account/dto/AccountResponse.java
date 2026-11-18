@@ -10,4 +10,5 @@ public record AccountResponse(
         String name,
         String currency,
         List<MemberResponse> members,
-        @Nullable InvitationSummary pendingInvitation) {}
+        @Nullable InvitationSummary pendingInvitation,
+        boolean aiSuggestionsEnabled) {}

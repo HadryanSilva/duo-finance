@@ -3,6 +3,7 @@ package br.dev.duofinance.account.service;
 import br.dev.duofinance.account.dto.AccountResponse;
 import br.dev.duofinance.account.dto.InvitationSummary;
 import br.dev.duofinance.account.dto.MemberResponse;
+import br.dev.duofinance.account.dto.UpdateAccountRequest;
 import br.dev.duofinance.account.model.Account;
 import br.dev.duofinance.account.model.AccountMember;
 import br.dev.duofinance.account.model.InvitationStatus;
@@ -53,9 +54,14 @@ public class AccountService {
     }
 
     @Transactional
-    public AccountResponse rename(CurrentUser current, String name) {
+    public AccountResponse update(CurrentUser current, UpdateAccountRequest request) {
         Account account = load(current.accountId());
-        account.setName(name.trim());
+        if (request.name() != null) {
+            account.setName(request.name().trim());
+        }
+        if (request.aiSuggestionsEnabled() != null) {
+            account.setAiSuggestionsEnabled(request.aiSuggestionsEnabled());
+        }
         account.setUpdatedAt(Instant.now(clock));
         return toResponse(account);
     }
@@ -83,6 +89,12 @@ public class AccountService {
                         account.getId(), InvitationStatus.PENDING, Instant.now(clock))
                 .map(InvitationSummary::of)
                 .orElse(null);
-        return new AccountResponse(account.getId(), account.getName(), account.getCurrency(), memberDtos, pending);
+        return new AccountResponse(
+                account.getId(),
+                account.getName(),
+                account.getCurrency(),
+                memberDtos,
+                pending,
+                account.isAiSuggestionsEnabled());
     }
 }

@@ -44,7 +44,7 @@ public class AccountController {
     }
 
     @PatchMapping
-    public AccountResponse rename(CurrentUser current, @Valid @RequestBody UpdateAccountRequest request) {
-        return accounts.rename(current, request.name());
+    public AccountResponse update(CurrentUser current, @Valid @RequestBody UpdateAccountRequest request) {
+        return accounts.update(current, request);
     }
 }

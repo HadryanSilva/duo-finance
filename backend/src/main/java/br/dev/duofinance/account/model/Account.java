@@ -30,6 +30,9 @@ public class Account {
     @Column(nullable = false, length = 3)
     private String currency = DEFAULT_CURRENCY;
 
+    @Column(name = "ai_suggestions_enabled", nullable = false)
+    private boolean aiSuggestionsEnabled = true;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -58,6 +61,14 @@ public class Account {
 
     public String getCurrency() {
         return currency;
+    }
+
+    public boolean isAiSuggestionsEnabled() {
+        return aiSuggestionsEnabled;
+    }
+
+    public void setAiSuggestionsEnabled(boolean aiSuggestionsEnabled) {
+        this.aiSuggestionsEnabled = aiSuggestionsEnabled;
     }
 
     public Instant getCreatedAt() {
