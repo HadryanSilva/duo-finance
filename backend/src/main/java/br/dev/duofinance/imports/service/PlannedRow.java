@@ -14,4 +14,13 @@ public record PlannedRow(
         UUID bankAccountId,
         UUID destinationBankAccountId,
         UUID suggestedCategoryId,
-        RowStatus status) {}
+        RowStatus status,
+        SuggestionSource suggestionSource,
+        boolean aiEligible) {
+
+    /** True when the row may be sent to the AI and no memory-based suggestion was found. */
+    public boolean needsAi() {
+        return aiEligible
+                && (suggestionSource == SuggestionSource.DEFAULT || suggestionSource == SuggestionSource.NONE);
+    }
+}

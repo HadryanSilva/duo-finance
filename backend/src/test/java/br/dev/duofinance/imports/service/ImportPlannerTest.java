@@ -34,27 +34,62 @@ class ImportPlannerTest {
         return ctx(Map.of(), Map.of(), Set.of());
     }
 
-    private static PlanContext ctx(Map<String, TransactionKind> known, Map<MemoryKey, UUID> memory, Set<DuplicateKey> manual) {
-        return new PlanContext("BRL", mapping(), known, memory,
-                Map.of(TransactionKind.EXPENSE, CAT_EXPENSE, TransactionKind.INCOME, CAT_INCOME), manual,
+    private static PlanContext ctx(
+            Map<String, TransactionKind> known, Map<MemoryKey, UUID> memory, Set<DuplicateKey> manual) {
+        Map<MemoryKey, PlanContext.RememberedCategory> wrapped = new HashMap<>();
+        memory.forEach((k, v) -> wrapped.put(k, new PlanContext.RememberedCategory(v, java.time.Instant.EPOCH)));
+        return new PlanContext(
+                "BRL",
+                mapping(),
+                known,
+                wrapped,
+                Map.of(TransactionKind.EXPENSE, CAT_EXPENSE, TransactionKind.INCOME, CAT_INCOME),
+                manual,
                 "Revolut fee");
     }
 
-    private static RevolutRow row(String product, String started, String completed, String desc, String amount,
-            long cents, long fee, String currency, String state, String type) {
-        return new RevolutRow(2, type, product, LocalDateTime.parse(started.replace(' ', 'T')), started,
-                completed == null ? null : LocalDateTime.parse(completed.replace(' ', 'T')), desc, cents, amount, fee,
-                currency, state);
+    private static RevolutRow row(
+            String product,
+            String started,
+            String completed,
+            String desc,
+            String amount,
+            long cents,
+            long fee,
+            String currency,
+            String state,
+            String type) {
+        return new RevolutRow(
+                2,
+                type,
+                product,
+                LocalDateTime.parse(started.replace(' ', 'T')),
+                started,
+                completed == null ? null : LocalDateTime.parse(completed.replace(' ', 'T')),
+                desc,
+                cents,
+                amount,
+                fee,
+                currency,
+                state);
     }
 
     private static RevolutRow card(long cents) {
-        return row("Current", "2026-01-10 10:00:00", "2026-01-11 12:00:00", "Shop", String.valueOf(cents / 100.0),
-                cents, 0, "BRL", "COMPLETED", "CARD_PAYMENT");
+        return row(
+                "Current",
+                "2026-01-10 10:00:00",
+                "2026-01-11 12:00:00",
+                "Shop",
+                String.valueOf(cents / 100.0),
+                cents,
+                0,
+                "BRL",
+                "COMPLETED",
+                "CARD_PAYMENT");
     }
 
     private static RevolutRow with(String product, String started, String desc, long cents) {
-        return row(product, started, "2026-01-11 12:00:00", desc, cents + "", cents, 0, "BRL", "COMPLETED",
-                "TRANSFER");
+        return row(product, started, "2026-01-11 12:00:00", desc, cents + "", cents, 0, "BRL", "COMPLETED", "TRANSFER");
     }
 
     @Test
@@ -74,8 +109,8 @@ class ImportPlannerTest {
 
     @Test
     void plan_pending_skippedPending() {
-        RevolutRow r = row("Current", "2026-01-10 10:00:00", null, "Shop", "-1.00", -100, 0, "BRL", "PENDING",
-                "CARD_PAYMENT");
+        RevolutRow r =
+                row("Current", "2026-01-10 10:00:00", null, "Shop", "-1.00", -100, 0, "BRL", "PENDING", "CARD_PAYMENT");
         ImportPlan plan = ImportPlanner.plan(List.of(r), ctx());
         assertThat(plan.rows()).isEmpty();
         assertThat(plan.skipped()).singleElement().satisfies(s -> {
@@ -86,34 +121,74 @@ class ImportPlannerTest {
 
     @Test
     void plan_revertedAndDeclined_skippedReverted() {
-        RevolutRow a = row("Current", "2026-01-10 10:00:00", "2026-01-11 12:00:00", "A", "-1.00", -100, 0, "BRL",
-                "REVERTED", "CARD_PAYMENT");
-        RevolutRow b = row("Current", "2026-01-10 10:00:00", "2026-01-11 12:00:00", "B", "-1.00", -100, 0, "BRL",
-                "DECLINED", "CARD_PAYMENT");
+        RevolutRow a = row(
+                "Current",
+                "2026-01-10 10:00:00",
+                "2026-01-11 12:00:00",
+                "A",
+                "-1.00",
+                -100,
+                0,
+                "BRL",
+                "REVERTED",
+                "CARD_PAYMENT");
+        RevolutRow b = row(
+                "Current",
+                "2026-01-10 10:00:00",
+                "2026-01-11 12:00:00",
+                "B",
+                "-1.00",
+                -100,
+                0,
+                "BRL",
+                "DECLINED",
+                "CARD_PAYMENT");
         ImportPlan plan = ImportPlanner.plan(List.of(a, b), ctx());
-        assertThat(plan.skipped()).extracting(SkippedRow::reason).containsExactly(SkipReason.REVERTED,
-                SkipReason.REVERTED);
+        assertThat(plan.skipped())
+                .extracting(SkippedRow::reason)
+                .containsExactly(SkipReason.REVERTED, SkipReason.REVERTED);
     }
 
     @Test
     void plan_otherCurrency_skipped() {
-        RevolutRow r = row("Current", "2026-01-10 10:00:00", "2026-01-11 12:00:00", "A", "-1.00", -100, 0, "EUR",
-                "COMPLETED", "CARD_PAYMENT");
-        assertThat(ImportPlanner.plan(List.of(r), ctx()).skipped()).extracting(SkippedRow::reason)
+        RevolutRow r = row(
+                "Current",
+                "2026-01-10 10:00:00",
+                "2026-01-11 12:00:00",
+                "A",
+                "-1.00",
+                -100,
+                0,
+                "EUR",
+                "COMPLETED",
+                "CARD_PAYMENT");
+        assertThat(ImportPlanner.plan(List.of(r), ctx()).skipped())
+                .extracting(SkippedRow::reason)
                 .containsExactly(SkipReason.OTHER_CURRENCY);
     }
 
     @Test
     void plan_exchange_skipped() {
-        RevolutRow r = row("Current", "2026-01-10 10:00:00", "2026-01-11 12:00:00", "A", "-1.00", -100, 0, "BRL",
-                "COMPLETED", "EXCHANGE");
-        assertThat(ImportPlanner.plan(List.of(r), ctx()).skipped()).extracting(SkippedRow::reason)
+        RevolutRow r = row(
+                "Current",
+                "2026-01-10 10:00:00",
+                "2026-01-11 12:00:00",
+                "A",
+                "-1.00",
+                -100,
+                0,
+                "BRL",
+                "COMPLETED",
+                "EXCHANGE");
+        assertThat(ImportPlanner.plan(List.of(r), ctx()).skipped())
+                .extracting(SkippedRow::reason)
                 .containsExactly(SkipReason.EXCHANGE);
     }
 
     @Test
     void plan_zeroAmount_skipped() {
-        assertThat(ImportPlanner.plan(List.of(card(0)), ctx()).skipped()).extracting(SkippedRow::reason)
+        assertThat(ImportPlanner.plan(List.of(card(0)), ctx()).skipped())
+                .extracting(SkippedRow::reason)
                 .containsExactly(SkipReason.ZERO_AMOUNT);
     }
 
@@ -123,14 +198,24 @@ class ImportPlannerTest {
         RevolutRow unmapped = with("Other", "2026-01-10 10:00:00", "B", -100);
         ImportPlan plan = ImportPlanner.plan(List.of(ignored, unmapped), ctx());
         assertThat(plan.rows()).isEmpty();
-        assertThat(plan.skipped()).extracting(SkippedRow::reason).containsExactly(SkipReason.PRODUCT_IGNORED,
-                SkipReason.PRODUCT_IGNORED);
+        assertThat(plan.skipped())
+                .extracting(SkippedRow::reason)
+                .containsExactly(SkipReason.PRODUCT_IGNORED, SkipReason.PRODUCT_IGNORED);
     }
 
     @Test
     void plan_feeCreatesSeparateExpense() {
-        RevolutRow r = row("Current", "2026-01-10 10:00:00", "2026-01-11 12:00:00", "Shop", "-10.00", -1000, 50,
-                "BRL", "COMPLETED", "CARD_PAYMENT");
+        RevolutRow r = row(
+                "Current",
+                "2026-01-10 10:00:00",
+                "2026-01-11 12:00:00",
+                "Shop",
+                "-10.00",
+                -1000,
+                50,
+                "BRL",
+                "COMPLETED",
+                "CARD_PAYMENT");
         List<PlannedRow> rows = ImportPlanner.plan(List.of(r), ctx()).rows();
         assertThat(rows).hasSize(2);
         PlannedRow fee = rows.get(1);
@@ -162,7 +247,8 @@ class ImportPlannerTest {
     void plan_transferWithoutPair_staysExpense() {
         RevolutRow out = with("Current", "2026-01-10 10:00:00", "To savings", -5000);
         RevolutRow other = with("Savings", "2026-01-10 10:00:01", "From current", 5000);
-        assertThat(ImportPlanner.plan(List.of(out, other), ctx()).rows()).extracting(PlannedRow::kind)
+        assertThat(ImportPlanner.plan(List.of(out, other), ctx()).rows())
+                .extracting(PlannedRow::kind)
                 .containsExactly(TransactionKind.EXPENSE, TransactionKind.INCOME);
     }
 
@@ -170,7 +256,8 @@ class ImportPlannerTest {
     void plan_oppositeAmountsSameProduct_notPaired() {
         RevolutRow out = with("Current", "2026-01-10 10:00:00", "A", -5000);
         RevolutRow in = with("Current", "2026-01-10 10:00:00", "B", 5000);
-        assertThat(ImportPlanner.plan(List.of(out, in), ctx()).rows()).extracting(PlannedRow::kind)
+        assertThat(ImportPlanner.plan(List.of(out, in), ctx()).rows())
+                .extracting(PlannedRow::kind)
                 .containsExactly(TransactionKind.EXPENSE, TransactionKind.INCOME);
     }
 
@@ -178,7 +265,10 @@ class ImportPlannerTest {
     void plan_knownFingerprint_isAlreadyImported() {
         RevolutRow r = card(-100);
         String fp = RowFingerprints.of(List.of(r)).get(0);
-        assertThat(ImportPlanner.plan(List.of(r), ctx(Map.of(fp, TransactionKind.EXPENSE), Map.of(), Set.of())).rows().get(0).status())
+        assertThat(ImportPlanner.plan(List.of(r), ctx(Map.of(fp, TransactionKind.EXPENSE), Map.of(), Set.of()))
+                        .rows()
+                        .get(0)
+                        .status())
                 .isEqualTo(RowStatus.ALREADY_IMPORTED);
     }
 
@@ -186,35 +276,60 @@ class ImportPlannerTest {
     void plan_matchingManualTransaction_isPossibleDuplicate() {
         Set<DuplicateKey> manual = new HashSet<>();
         manual.add(new DuplicateKey(LocalDate.of(2026, 1, 11), TransactionKind.EXPENSE, 100, CURRENT));
-        assertThat(ImportPlanner.plan(List.of(card(-100)), ctx(Map.of(), Map.of(), manual)).rows().get(0).status())
+        assertThat(ImportPlanner.plan(List.of(card(-100)), ctx(Map.of(), Map.of(), manual))
+                        .rows()
+                        .get(0)
+                        .status())
                 .isEqualTo(RowStatus.POSSIBLE_DUPLICATE);
     }
 
     @Test
     void plan_suggestsMemoryThenDefaultThenNull() {
         UUID remembered = UUID.randomUUID();
-        Map<MemoryKey, UUID> memory = Map.of(new MemoryKey(DescriptionKeys.of("Shop"), TransactionKind.EXPENSE),
-                remembered);
-        assertThat(ImportPlanner.plan(List.of(card(-100)), ctx(Map.of(), memory, Set.of())).rows().get(0)
-                .suggestedCategoryId()).isEqualTo(remembered);
+        Map<MemoryKey, UUID> memory =
+                Map.of(new MemoryKey(DescriptionKeys.of("Shop"), TransactionKind.EXPENSE), remembered);
+        assertThat(ImportPlanner.plan(List.of(card(-100)), ctx(Map.of(), memory, Set.of()))
+                        .rows()
+                        .get(0)
+                        .suggestedCategoryId())
+                .isEqualTo(remembered);
         assertThat(ImportPlanner.plan(List.of(card(-100)), ctx()).rows().get(0).suggestedCategoryId())
                 .isEqualTo(CAT_EXPENSE);
         PlanContext bare = new PlanContext("BRL", mapping(), Map.of(), Map.of(), Map.of(), Set.of(), "Revolut fee");
-        assertThat(ImportPlanner.plan(List.of(card(-100)), bare).rows().get(0).suggestedCategoryId()).isNull();
+        assertThat(ImportPlanner.plan(List.of(card(-100)), bare).rows().get(0).suggestedCategoryId())
+                .isNull();
     }
 
     @Test
     void plan_usesCompletedDateDayWithoutTimeZoneShift() {
-        RevolutRow r = row("Current", "2026-01-10 23:59:59", "2026-01-11 00:00:01", "Shop", "-1.00", -100, 0, "BRL",
-                "COMPLETED", "CARD_PAYMENT");
+        RevolutRow r = row(
+                "Current",
+                "2026-01-10 23:59:59",
+                "2026-01-11 00:00:01",
+                "Shop",
+                "-1.00",
+                -100,
+                0,
+                "BRL",
+                "COMPLETED",
+                "CARD_PAYMENT");
         assertThat(ImportPlanner.plan(List.of(r), ctx()).rows().get(0).date()).isEqualTo(LocalDate.of(2026, 1, 11));
     }
 
     @Test
     void plan_cutsDescriptionTo140() {
         String longDesc = "x".repeat(200);
-        RevolutRow r = row("Current", "2026-01-10 10:00:00", "2026-01-11 12:00:00", longDesc, "-1.00", -100, 0,
-                "BRL", "COMPLETED", "CARD_PAYMENT");
+        RevolutRow r = row(
+                "Current",
+                "2026-01-10 10:00:00",
+                "2026-01-11 12:00:00",
+                longDesc,
+                "-1.00",
+                -100,
+                0,
+                "BRL",
+                "COMPLETED",
+                "CARD_PAYMENT");
         PlannedRow p = ImportPlanner.plan(List.of(r), ctx()).rows().get(0);
         assertThat(p.description()).hasSize(140);
         assertThat(p.rowId()).isEqualTo(RowFingerprints.of(List.of(r)).get(0));
@@ -233,15 +348,21 @@ class ImportPlannerTest {
         RevolutRow in = with("Savings", "2026-01-10 10:00:00", "From current", 5000);
         List<String> fps = RowFingerprints.of(List.of(out, in));
         String known = positiveKnown ? fps.get(1) : fps.get(0);
-        List<PlannedRow> rows =
-                ImportPlanner.plan(List.of(out, in), ctx(Map.of(known, positiveKnown ? TransactionKind.INCOME : TransactionKind.EXPENSE), Map.of(),
-                        Set.of())).rows();
+        List<PlannedRow> rows = ImportPlanner.plan(
+                        List.of(out, in),
+                        ctx(
+                                Map.of(known, positiveKnown ? TransactionKind.INCOME : TransactionKind.EXPENSE),
+                                Map.of(),
+                                Set.of()))
+                .rows();
         assertThat(rows).extracting(PlannedRow::kind).containsExactly(TransactionKind.EXPENSE, TransactionKind.INCOME);
         assertThat(rows).extracting(PlannedRow::bankAccountId).containsExactly(CURRENT, SAVINGS);
         assertThat(rows).extracting(PlannedRow::rowId).containsExactly(fps.get(0), fps.get(1));
-        assertThat(rows).extracting(PlannedRow::status).containsExactly(
-                positiveKnown ? RowStatus.NEW : RowStatus.ALREADY_IMPORTED,
-                positiveKnown ? RowStatus.ALREADY_IMPORTED : RowStatus.NEW);
+        assertThat(rows)
+                .extracting(PlannedRow::status)
+                .containsExactly(
+                        positiveKnown ? RowStatus.NEW : RowStatus.ALREADY_IMPORTED,
+                        positiveKnown ? RowStatus.ALREADY_IMPORTED : RowStatus.NEW);
     }
 
     @Test
@@ -277,16 +398,37 @@ class ImportPlannerTest {
         String fp = RowFingerprints.of(List.of(r)).get(0);
         Set<DuplicateKey> manual =
                 Set.of(new DuplicateKey(LocalDate.of(2026, 1, 11), TransactionKind.EXPENSE, 100, CURRENT));
-        assertThat(ImportPlanner.plan(List.of(r), ctx(Map.of(fp, TransactionKind.EXPENSE), Map.of(), manual)).rows().get(0).status())
+        assertThat(ImportPlanner.plan(List.of(r), ctx(Map.of(fp, TransactionKind.EXPENSE), Map.of(), manual))
+                        .rows()
+                        .get(0)
+                        .status())
                 .isEqualTo(RowStatus.ALREADY_IMPORTED);
     }
 
     @Test
     void plan_pairedTransferFees_createExpensePerSide() {
-        RevolutRow out = row("Current", "2026-01-10 10:00:00", "2026-01-11 12:00:00", "Out", "-50.00", -5000, 30,
-                "BRL", "COMPLETED", "TRANSFER");
-        RevolutRow in = row("Savings", "2026-01-10 10:00:00", "2026-01-11 12:00:00", "In", "50.00", 5000, 20, "BRL",
-                "COMPLETED", "TRANSFER");
+        RevolutRow out = row(
+                "Current",
+                "2026-01-10 10:00:00",
+                "2026-01-11 12:00:00",
+                "Out",
+                "-50.00",
+                -5000,
+                30,
+                "BRL",
+                "COMPLETED",
+                "TRANSFER");
+        RevolutRow in = row(
+                "Savings",
+                "2026-01-10 10:00:00",
+                "2026-01-11 12:00:00",
+                "In",
+                "50.00",
+                5000,
+                20,
+                "BRL",
+                "COMPLETED",
+                "TRANSFER");
         List<String> fps = RowFingerprints.of(List.of(out, in));
         List<PlannedRow> rows = ImportPlanner.plan(List.of(out, in), ctx()).rows();
         assertThat(rows).hasSize(3);
@@ -303,8 +445,17 @@ class ImportPlannerTest {
 
     @Test
     void plan_zeroAmountWithFee_producesNoFeeRow() {
-        RevolutRow r = row("Current", "2026-01-10 10:00:00", "2026-01-11 12:00:00", "Z", "0.00", 0, 50, "BRL",
-                "COMPLETED", "CARD_PAYMENT");
+        RevolutRow r = row(
+                "Current",
+                "2026-01-10 10:00:00",
+                "2026-01-11 12:00:00",
+                "Z",
+                "0.00",
+                0,
+                50,
+                "BRL",
+                "COMPLETED",
+                "CARD_PAYMENT");
         ImportPlan plan = ImportPlanner.plan(List.of(r), ctx());
         assertThat(plan.rows()).isEmpty();
         assertThat(plan.skipped()).extracting(SkippedRow::reason).containsExactly(SkipReason.ZERO_AMOUNT);
@@ -313,8 +464,8 @@ class ImportPlannerTest {
     @Test
     void plan_transferCounterpartSkipped_staysExpense() {
         RevolutRow out = with("Current", "2026-01-10 10:00:00", "To savings", -5000);
-        RevolutRow pending = row("Savings", "2026-01-10 10:00:00", null, "From current", "50.00", 5000, 0, "BRL",
-                "PENDING", "TRANSFER");
+        RevolutRow pending = row(
+                "Savings", "2026-01-10 10:00:00", null, "From current", "50.00", 5000, 0, "BRL", "PENDING", "TRANSFER");
         ImportPlan plan = ImportPlanner.plan(List.of(out, pending), ctx());
         assertThat(plan.rows()).singleElement().satisfies(p -> {
             assertThat(p.kind()).isEqualTo(TransactionKind.EXPENSE);
@@ -329,9 +480,9 @@ class ImportPlannerTest {
         RevolutRow in1 = with("Savings", "2026-01-10 10:00:00", "In one", 5000);
         RevolutRow in2 = with("Savings", "2026-01-10 10:00:00", "In two", 5000);
         List<String> fps = RowFingerprints.of(List.of(out, in1, in2));
-        List<PlannedRow> rows = ImportPlanner.plan(List.of(out, in1, in2), ctx()).rows();
-        assertThat(rows).extracting(PlannedRow::kind).containsExactly(TransactionKind.TRANSFER,
-                TransactionKind.INCOME);
+        List<PlannedRow> rows =
+                ImportPlanner.plan(List.of(out, in1, in2), ctx()).rows();
+        assertThat(rows).extracting(PlannedRow::kind).containsExactly(TransactionKind.TRANSFER, TransactionKind.INCOME);
         assertThat(rows.get(0).rowId()).isEqualTo(fps.get(0));
         assertThat(rows.get(1).rowId()).isEqualTo(fps.get(2));
         assertThat(rows.get(1).description()).isEqualTo("In two");
@@ -339,14 +490,159 @@ class ImportPlannerTest {
 
     @Test
     void plan_feeRowSuggestion_usesMemoryThenDefaultExpense() {
-        RevolutRow r = row("Current", "2026-01-10 10:00:00", "2026-01-11 12:00:00", "Shop", "-10.00", -1000, 50,
-                "BRL", "COMPLETED", "CARD_PAYMENT");
-        assertThat(ImportPlanner.plan(List.of(r), ctx()).rows().get(1).suggestedCategoryId()).isEqualTo(CAT_EXPENSE);
+        RevolutRow r = row(
+                "Current",
+                "2026-01-10 10:00:00",
+                "2026-01-11 12:00:00",
+                "Shop",
+                "-10.00",
+                -1000,
+                50,
+                "BRL",
+                "COMPLETED",
+                "CARD_PAYMENT");
+        assertThat(ImportPlanner.plan(List.of(r), ctx()).rows().get(1).suggestedCategoryId())
+                .isEqualTo(CAT_EXPENSE);
         UUID feeCat = UUID.randomUUID();
         Map<MemoryKey, UUID> memory =
                 Map.of(new MemoryKey(DescriptionKeys.of("Revolut fee"), TransactionKind.EXPENSE), feeCat);
-        List<PlannedRow> rows = ImportPlanner.plan(List.of(r), ctx(Map.of(), memory, Set.of())).rows();
+        List<PlannedRow> rows =
+                ImportPlanner.plan(List.of(r), ctx(Map.of(), memory, Set.of())).rows();
         assertThat(rows.get(1).suggestedCategoryId()).isEqualTo(feeCat);
         assertThat(rows.get(0).suggestedCategoryId()).isEqualTo(CAT_EXPENSE);
+    }
+
+    private static RevolutRow named(String desc, long cents, String type) {
+        return row(
+                "Current",
+                "2026-01-10 10:00:00",
+                "2026-01-11 12:00:00",
+                desc,
+                String.valueOf(cents / 100.0),
+                cents,
+                0,
+                "BRL",
+                "COMPLETED",
+                type);
+    }
+
+    private static PlannedRow single(RevolutRow r, PlanContext c) {
+        return ImportPlanner.plan(List.of(r), c).rows().get(0);
+    }
+
+    @Test
+    void memoryExact_sourceMemory() {
+        UUID remembered = UUID.randomUUID();
+        Map<MemoryKey, UUID> memory =
+                Map.of(new MemoryKey(DescriptionKeys.of("Shop"), TransactionKind.EXPENSE), remembered);
+        PlannedRow p = single(card(-100), ctx(Map.of(), memory, Set.of()));
+        assertThat(p.suggestionSource()).isEqualTo(SuggestionSource.MEMORY);
+        assertThat(p.suggestedCategoryId()).isEqualTo(remembered);
+        assertThat(p.needsAi()).isFalse();
+    }
+
+    @Test
+    void memoryPointingToDefault_isIgnored_fallsToDefault() {
+        Map<MemoryKey, UUID> memory =
+                Map.of(new MemoryKey(DescriptionKeys.of("Shop"), TransactionKind.EXPENSE), CAT_EXPENSE);
+        PlannedRow p = single(card(-100), ctx(Map.of(), memory, Set.of()));
+        assertThat(p.suggestionSource()).isEqualTo(SuggestionSource.DEFAULT);
+        assertThat(p.suggestedCategoryId()).isEqualTo(CAT_EXPENSE);
+        assertThat(p.aiEligible()).isTrue();
+        assertThat(p.needsAi()).isTrue();
+    }
+
+    @Test
+    void similar_cardPaymentGetsSimilar() {
+        UUID groceries = UUID.randomUUID();
+        Map<MemoryKey, UUID> memory =
+                Map.of(new MemoryKey(DescriptionKeys.of("Pingo Doce Lisboa"), TransactionKind.EXPENSE), groceries);
+        PlannedRow p = single(named("Pingo Doce Porto", -100, "CARD_PAYMENT"), ctx(Map.of(), memory, Set.of()));
+        assertThat(p.suggestionSource()).isEqualTo(SuggestionSource.SIMILAR);
+        assertThat(p.suggestedCategoryId()).isEqualTo(groceries);
+        assertThat(p.needsAi()).isFalse();
+    }
+
+    @Test
+    void similar_onlyForCardPayment() {
+        Map<MemoryKey, UUID> memory = Map.of(
+                new MemoryKey(DescriptionKeys.of("Pingo Doce Lisboa"), TransactionKind.EXPENSE), UUID.randomUUID());
+        for (String type : List.of("TRANSFER", "TOPUP")) {
+            PlannedRow p = single(named("Pingo Doce Porto", -100, type), ctx(Map.of(), memory, Set.of()));
+            assertThat(p.suggestionSource()).isEqualTo(SuggestionSource.DEFAULT);
+            assertThat(p.suggestedCategoryId()).isEqualTo(CAT_EXPENSE);
+        }
+    }
+
+    @Test
+    void cardPaymentExpense_isAiEligible() {
+        PlannedRow p = single(card(-100), ctx());
+        assertThat(p.aiEligible()).isTrue();
+        assertThat(p.suggestionSource()).isEqualTo(SuggestionSource.DEFAULT);
+    }
+
+    @Test
+    void income_notEligible() {
+        PlannedRow p = single(card(900), ctx());
+        assertThat(p.aiEligible()).isFalse();
+        assertThat(p.needsAi()).isFalse();
+    }
+
+    @Test
+    void fee_notEligible() {
+        RevolutRow r = row(
+                "Current",
+                "2026-01-10 10:00:00",
+                "2026-01-11 12:00:00",
+                "Shop",
+                "-10.00",
+                -1000,
+                50,
+                "BRL",
+                "COMPLETED",
+                "CARD_PAYMENT");
+        List<PlannedRow> rows = ImportPlanner.plan(List.of(r), ctx()).rows();
+        assertThat(rows.get(0).aiEligible()).isTrue();
+        assertThat(rows.get(1).aiEligible()).isFalse();
+    }
+
+    @Test
+    void alreadyImported_notEligible_butKeepsDefaultSuggestion() {
+        RevolutRow r = card(-100);
+        String fp = RowFingerprints.of(List.of(r)).get(0);
+        PlannedRow p = single(r, ctx(Map.of(fp, TransactionKind.EXPENSE), Map.of(), Set.of()));
+        assertThat(p.status()).isEqualTo(RowStatus.ALREADY_IMPORTED);
+        assertThat(p.aiEligible()).isFalse();
+        assertThat(p.suggestionSource()).isEqualTo(SuggestionSource.DEFAULT);
+    }
+
+    @Test
+    void noDefaultCategory_sourceNone() {
+        PlanContext bare = new PlanContext("BRL", mapping(), Map.of(), Map.of(), Map.of(), Set.of(), "Revolut fee");
+        PlannedRow p = single(card(-100), bare);
+        assertThat(p.suggestionSource()).isEqualTo(SuggestionSource.NONE);
+        assertThat(p.suggestedCategoryId()).isNull();
+        assertThat(p.needsAi()).isTrue();
+    }
+
+    @Test
+    void applyAiSuggestions_onlyTouchesRowsThatNeedAi() {
+        UUID remembered = UUID.randomUUID();
+        Map<MemoryKey, UUID> memory =
+                Map.of(new MemoryKey(DescriptionKeys.of("Shop"), TransactionKind.EXPENSE), remembered);
+        ImportPlan plan = ImportPlanner.plan(List.of(card(-100)), ctx(Map.of(), memory, Set.of()));
+        ImportPlan out = ImportPlanner.applyAiSuggestions(plan, Map.of("shop", UUID.randomUUID()));
+        assertThat(out.rows().get(0)).isEqualTo(plan.rows().get(0));
+    }
+
+    @Test
+    void applyAiSuggestions_marksAi() {
+        UUID ai = UUID.randomUUID();
+        ImportPlan plan = ImportPlanner.plan(List.of(card(-100)), ctx());
+        PlannedRow p = ImportPlanner.applyAiSuggestions(plan, Map.of("shop", ai))
+                .rows()
+                .get(0);
+        assertThat(p.suggestedCategoryId()).isEqualTo(ai);
+        assertThat(p.suggestionSource()).isEqualTo(SuggestionSource.AI);
     }
 }

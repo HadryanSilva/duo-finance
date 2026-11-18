@@ -82,7 +82,7 @@ class RevolutCsvParserTest {
 
         assertThat(rows).hasSize(3);
         RevolutRow first = rows.get(0);
-        assertThat(first.type()).isEqualTo("Pagamento com cartão");
+        assertThat(first.type()).isEqualTo("CARD_PAYMENT");
         assertThat(first.product()).isEqualTo("Current");
         assertThat(first.startedAt()).isEqualTo(LocalDateTime.of(2026, 11, 3, 15, 0, 2));
         assertThat(first.description()).isEqualTo("Cafe");
@@ -225,5 +225,13 @@ class RevolutCsvParserTest {
         String csv = HEADER + ROW.repeat(5000) + "\n\n";
 
         assertThat(RevolutCsvParser.parse(bytes(csv))).hasSize(5000);
+    }
+
+    @Test
+    void localizedCardPayment_isCanonical() {
+        String csv = "Tipo,Produto,Data de início,Data de Conclusão,Descrição,Montante,Comissão,Moeda,Estado,Saldo\n"
+                + "Pagamento com cartão,Atual,2026-11-03 15:00:02,2026-11-04 09:00:00,Cafe,-12.50,0.00,EUR,"
+                + "CONCLUÍDA,87.40\n";
+        assertThat(RevolutCsvParser.parse(bytes(csv)).get(0).type()).isEqualTo("CARD_PAYMENT");
     }
 }

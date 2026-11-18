@@ -153,7 +153,8 @@ class ImportCommitTest {
         var stored = jdbc.queryForMap(
                 "SELECT import_fingerprint, kind, amount_cents, category_id, bank_account_id, created_by"
                         + " FROM transactions WHERE description = 'Cafe Aurora'");
-        assertThat(stored.get("import_fingerprint")).isEqualTo(cafe.path("rowId").asString());
+        assertThat(stored.get("import_fingerprint"))
+                .isEqualTo(cafe.path("rowId").asString());
         assertThat(stored.get("kind")).isEqualTo("EXPENSE");
         assertThat(stored.get("category_id")).isEqualTo(cafes);
         assertThat(stored.get("bank_account_id")).isEqualTo(bank);
@@ -197,7 +198,8 @@ class ImportCommitTest {
         assertThat(cinemas.get(0).path("rowId").asString())
                 .isNotEqualTo(cinemas.get(1).path("rowId").asString());
 
-        var first = commit(s, bank, cinemas.stream().map(r -> decision(r, true, leisure)).toList());
+        var first = commit(
+                s, bank, cinemas.stream().map(r -> decision(r, true, leisure)).toList());
 
         assertThat(body(first).path("created").asInt()).isEqualTo(2);
         assertThat(count("SELECT count(*) FROM transactions WHERE description = 'Cinema Plaza'"))
@@ -206,7 +208,11 @@ class ImportCommitTest {
         assertThat(rowsNamed(after, "Cinema Plaza"))
                 .allMatch(r -> r.path("status").asString().equals("ALREADY_IMPORTED"));
         var again = commit(
-                s, bank, rowsNamed(after, "Cinema Plaza").stream().map(r -> decision(r, false, null)).toList());
+                s,
+                bank,
+                rowsNamed(after, "Cinema Plaza").stream()
+                        .map(r -> decision(r, false, null))
+                        .toList());
         assertThat(body(again).path("created").asInt()).isZero();
         assertThat(count("SELECT count(*) FROM transactions WHERE description = 'Cinema Plaza'"))
                 .isEqualTo(2);
@@ -283,7 +289,9 @@ class ImportCommitTest {
                 bank,
                 null,
                 null,
-                br.dev.duofinance.imports.service.RowStatus.NEW);
+                br.dev.duofinance.imports.service.RowStatus.NEW,
+                br.dev.duofinance.imports.service.SuggestionSource.NONE,
+                false);
         java.time.Instant now = java.time.Instant.parse("2026-11-10T10:00:00Z");
 
         int[] results = new org.springframework.transaction.support.TransactionTemplate(txManager).execute(status -> {
@@ -308,8 +316,16 @@ class ImportCommitTest {
         fixtures.transaction(
                 s,
                 Map.of(
-                        "kind", "EXPENSE", "amountCents", 4530, "date", "2026-10-06",
-                        "categoryId", cat, "bankAccountId", bank));
+                        "kind",
+                        "EXPENSE",
+                        "amountCents",
+                        4530,
+                        "date",
+                        "2026-10-06",
+                        "categoryId",
+                        cat,
+                        "bankAccountId",
+                        bank));
         JsonNode rows = previewRows(s, bank, null);
         JsonNode mercado = row(rows, "Mercado Lua, Lda");
         assertThat(mercado.path("status").asString()).isEqualTo("POSSIBLE_DUPLICATE");
@@ -369,7 +385,8 @@ class ImportCommitTest {
         JsonNode transfer = row(previewRows(s, bank, mapping), "To Savings");
         assertThat(transfer.path("kind").asString()).isEqualTo("TRANSFER");
 
-        var result = post(COMMIT, s, sample(), bank.toString(), mapping, decisions(List.of(decision(transfer, true, null))));
+        var result =
+                post(COMMIT, s, sample(), bank.toString(), mapping, decisions(List.of(decision(transfer, true, null))));
 
         assertThat(result).hasStatus(HttpStatus.CREATED);
         var stored = jdbc.queryForMap(
@@ -470,7 +487,8 @@ class ImportCommitTest {
         String mapping = "{\"Savings\":\"" + savings + "\"}";
         JsonNode transfer = row(previewRows(s, bank, mapping), "To Savings");
 
-        var result = post(COMMIT, s, sample(), bank.toString(), mapping, decisions(List.of(decision(transfer, true, cat))));
+        var result =
+                post(COMMIT, s, sample(), bank.toString(), mapping, decisions(List.of(decision(transfer, true, cat))));
 
         assertSingleError(result, "decisions[" + transfer.path("rowId").asString() + "]", "CATEGORY_NOT_ALLOWED");
     }
@@ -490,12 +508,18 @@ class ImportCommitTest {
         JsonNode cinema = rowsNamed(rows, "Cinema Plaza").get(0);
 
         var result = commit(
-                s, bank, List.of(decision(cafe, true, archived), decision(mercado, true, income), decision(cinema, true, foreign)));
+                s,
+                bank,
+                List.of(
+                        decision(cafe, true, archived),
+                        decision(mercado, true, income),
+                        decision(cinema, true, foreign)));
 
         assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
         JsonNode errors = body(result).path("errors");
         assertThat(errors.size()).isEqualTo(3);
-        assertThat(errors.get(0).path("field").asString()).isEqualTo("decisions[" + cafe.path("rowId").asString() + "]");
+        assertThat(errors.get(0).path("field").asString())
+                .isEqualTo("decisions[" + cafe.path("rowId").asString() + "]");
         assertThat(errors.get(0).path("code").asString()).isEqualTo("CATEGORY_ARCHIVED");
         assertThat(errors.get(1).path("code").asString()).isEqualTo("CATEGORY_KIND_MISMATCH");
         assertThat(errors.get(2).path("code").asString()).isEqualTo("NOT_FOUND");
@@ -512,7 +536,9 @@ class ImportCommitTest {
 
         commit(s, bank, List.of(decision(cinemas.get(0), true, first), decision(cinemas.get(1), true, second)));
 
-        assertThat(count("SELECT count(*) FROM category_memory WHERE description_key = ?", DescriptionKeys.of("Cinema Plaza")))
+        assertThat(count(
+                        "SELECT count(*) FROM category_memory WHERE description_key = ?",
+                        DescriptionKeys.of("Cinema Plaza")))
                 .isEqualTo(1);
         assertThat(jdbc.queryForObject(
                         "SELECT category_id FROM category_memory WHERE description_key = ?",
@@ -526,7 +552,8 @@ class ImportCommitTest {
         TestSession s = testUsers.verified("ana@mail.com");
         UUID bank = fixtures.bankAccount(s, "Revolut", 0);
 
-        for (String bad : List.of("{not json", "{\"rowId\":\"x\"}", "[{\"rowId\":\"x\",\"include\":true,\"categoryId\":\"nope\"}]")) {
+        for (String bad : List.of(
+                "{not json", "{\"rowId\":\"x\"}", "[{\"rowId\":\"x\",\"include\":true,\"categoryId\":\"nope\"}]")) {
             var result = post(COMMIT, s, sample(), bank.toString(), null, bad);
             assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
             assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("VALIDATION_FAILED");

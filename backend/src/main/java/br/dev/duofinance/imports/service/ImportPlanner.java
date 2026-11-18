@@ -2,6 +2,7 @@ package br.dev.duofinance.imports.service;
 
 import br.dev.duofinance.imports.service.PlanContext.DuplicateKey;
 import br.dev.duofinance.imports.service.PlanContext.MemoryKey;
+import br.dev.duofinance.imports.service.PlanContext.RememberedCategory;
 import br.dev.duofinance.transaction.model.TransactionKind;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -17,6 +18,28 @@ public final class ImportPlanner {
     private static final int MAX_DESCRIPTION = 140;
 
     private ImportPlanner() {}
+
+    /** Applies AI-suggested categories (by description key) to the rows that still need one. */
+    public static ImportPlan applyAiSuggestions(ImportPlan plan, Map<String, UUID> byDescriptionKey) {
+        List<PlannedRow> rows = plan.rows().stream()
+                .map(r -> r.needsAi() && byDescriptionKey.containsKey(r.descriptionKey())
+                        ? new PlannedRow(
+                                r.rowId(),
+                                r.date(),
+                                r.kind(),
+                                r.amountCents(),
+                                r.description(),
+                                r.descriptionKey(),
+                                r.bankAccountId(),
+                                r.destinationBankAccountId(),
+                                byDescriptionKey.get(r.descriptionKey()),
+                                r.status(),
+                                SuggestionSource.AI,
+                                r.aiEligible())
+                        : r)
+                .toList();
+        return new ImportPlan(plan.products(), rows, plan.skipped());
+    }
 
     public static ImportPlan plan(List<RevolutRow> rows, PlanContext ctx) {
         List<String> fingerprints = RowFingerprints.of(rows);
@@ -45,17 +68,32 @@ public final class ImportPlanner {
             RevolutRow row = rows.get(i);
             if (p == -1) {
                 TransactionKind kind = row.amountCents() < 0 ? TransactionKind.EXPENSE : TransactionKind.INCOME;
-                planned.add(build(fingerprints.get(i), row, kind, Math.abs(row.amountCents()), account(row, ctx),
-                        null, row.description(), ctx));
+                planned.add(build(
+                        fingerprints.get(i),
+                        row,
+                        kind,
+                        Math.abs(row.amountCents()),
+                        account(row, ctx),
+                        null,
+                        row.description(),
+                        false,
+                        ctx));
                 addFee(planned, fingerprints.get(i), row, ctx);
             } else {
                 int neg = row.amountCents() < 0 ? i : p;
                 int pos = neg == i ? p : i;
                 RevolutRow negRow = rows.get(neg);
                 RevolutRow posRow = rows.get(pos);
-                planned.add(build(fingerprints.get(neg), negRow, TransactionKind.TRANSFER,
-                        Math.abs(negRow.amountCents()), account(negRow, ctx), account(posRow, ctx),
-                        negRow.description(), ctx));
+                planned.add(build(
+                        fingerprints.get(neg),
+                        negRow,
+                        TransactionKind.TRANSFER,
+                        Math.abs(negRow.amountCents()),
+                        account(negRow, ctx),
+                        account(posRow, ctx),
+                        negRow.description(),
+                        false,
+                        ctx));
                 addFee(planned, fingerprints.get(neg), negRow, ctx);
                 addFee(planned, fingerprints.get(pos), posRow, ctx);
             }
@@ -121,28 +159,66 @@ public final class ImportPlanner {
 
     private static void addFee(List<PlannedRow> out, String parentFingerprint, RevolutRow row, PlanContext ctx) {
         if (row.feeCents() <= 0) return;
-        out.add(build(RowFingerprints.fee(parentFingerprint), row, TransactionKind.EXPENSE, row.feeCents(),
-                account(row, ctx), null, ctx.feeDescription(), ctx));
+        out.add(build(
+                RowFingerprints.fee(parentFingerprint),
+                row,
+                TransactionKind.EXPENSE,
+                row.feeCents(),
+                account(row, ctx),
+                null,
+                ctx.feeDescription(),
+                true,
+                ctx));
     }
 
-    private static PlannedRow build(String rowId, RevolutRow row, TransactionKind kind, long amount, UUID account,
-            UUID destination, String fullDescription, PlanContext ctx) {
+    private static PlannedRow build(
+            String rowId,
+            RevolutRow row,
+            TransactionKind kind,
+            long amount,
+            UUID account,
+            UUID destination,
+            String fullDescription,
+            boolean fee,
+            PlanContext ctx) {
         LocalDate date = dateOf(row);
         String key = DescriptionKeys.of(fullDescription);
         String description = fullDescription.length() > MAX_DESCRIPTION
                 ? fullDescription.substring(0, MAX_DESCRIPTION)
                 : fullDescription;
-        UUID category = null;
-        if (kind != TransactionKind.TRANSFER) {
-            category = ctx.memory().get(new MemoryKey(key, kind));
-            if (category == null) category = ctx.defaultCategories().get(kind);
-        }
         RowStatus status = RowStatus.NEW;
         if (ctx.existingFingerprints().containsKey(rowId)) {
             status = RowStatus.ALREADY_IMPORTED;
         } else if (ctx.manualTransactions().contains(new DuplicateKey(date, kind, amount, account))) {
             status = RowStatus.POSSIBLE_DUPLICATE;
         }
-        return new PlannedRow(rowId, date, kind, amount, description, key, account, destination, category, status);
+        boolean eligible = !fee
+                && kind == TransactionKind.EXPENSE
+                && "CARD_PAYMENT".equals(row.type())
+                && status != RowStatus.ALREADY_IMPORTED;
+        UUID category = null;
+        SuggestionSource source = SuggestionSource.NONE;
+        if (kind != TransactionKind.TRANSFER) {
+            UUID defaultCategory = ctx.defaultCategories().get(kind);
+            RememberedCategory exact = ctx.memory().get(new MemoryKey(key, kind));
+            if (exact != null && !exact.categoryId().equals(defaultCategory)) {
+                category = exact.categoryId();
+                source = SuggestionSource.MEMORY;
+            } else {
+                UUID similar = eligible
+                        ? SimilarMemory.find(key, kind, ctx.memory(), defaultCategory)
+                                .orElse(null)
+                        : null;
+                if (similar != null) {
+                    category = similar;
+                    source = SuggestionSource.SIMILAR;
+                } else if (defaultCategory != null) {
+                    category = defaultCategory;
+                    source = SuggestionSource.DEFAULT;
+                }
+            }
+        }
+        return new PlannedRow(
+                rowId, date, kind, amount, description, key, account, destination, category, status, source, eligible);
     }
 }

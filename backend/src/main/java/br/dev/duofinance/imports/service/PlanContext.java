@@ -1,6 +1,7 @@
 package br.dev.duofinance.imports.service;
 
 import br.dev.duofinance.transaction.model.TransactionKind;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.Set;
@@ -14,10 +15,12 @@ public record PlanContext(
         String accountCurrency,
         Map<String, UUID> productMapping,
         Map<String, TransactionKind> existingFingerprints,
-        Map<MemoryKey, UUID> memory,
+        Map<MemoryKey, RememberedCategory> memory,
         Map<TransactionKind, UUID> defaultCategories,
         Set<DuplicateKey> manualTransactions,
         String feeDescription) {
+
+    public record RememberedCategory(UUID categoryId, Instant updatedAt) {}
 
     public record MemoryKey(String descriptionKey, TransactionKind kind) {}
 

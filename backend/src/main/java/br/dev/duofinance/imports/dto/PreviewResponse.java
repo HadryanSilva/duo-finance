@@ -5,6 +5,7 @@ import br.dev.duofinance.imports.service.PlannedRow;
 import br.dev.duofinance.imports.service.RowStatus;
 import br.dev.duofinance.imports.service.SkipReason;
 import br.dev.duofinance.imports.service.SkippedRow;
+import br.dev.duofinance.imports.service.SuggestionSource;
 import br.dev.duofinance.transaction.model.TransactionKind;
 import java.time.LocalDate;
 import java.util.EnumMap;
@@ -27,7 +28,8 @@ public record PreviewResponse(List<ProductMapping> products, List<PreviewRow> ro
             UUID bankAccountId,
             @Nullable UUID destinationBankAccountId,
             @Nullable UUID suggestedCategoryId,
-            RowStatus status) {
+            RowStatus status,
+            SuggestionSource suggestionSource) {
 
         static PreviewRow of(PlannedRow row) {
             return new PreviewRow(
@@ -40,7 +42,8 @@ public record PreviewResponse(List<ProductMapping> products, List<PreviewRow> ro
                     row.bankAccountId(),
                     row.destinationBankAccountId(),
                     row.suggestedCategoryId(),
-                    row.status());
+                    row.status(),
+                    row.suggestionSource());
         }
     }
 

@@ -61,7 +61,8 @@ public final class RevolutCsvParser {
     /** Localized {@code Product} values mapped to the canonical English ones (default mapping, fingerprints). */
     private static final Map<String, String> PRODUCT_ALIASES = Map.of("Atual", "Current");
     /** Localized {@code Type} values the planner acts on, mapped to the canonical English ones. */
-    private static final Map<String, String> TYPE_ALIASES = Map.of("Câmbio", "EXCHANGE");
+    private static final Map<String, String> TYPE_ALIASES =
+            Map.of("Câmbio", "EXCHANGE", "Pagamento com cartão", "CARD_PAYMENT");
 
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
