@@ -45,6 +45,11 @@ app:
     cookie-secure: true
   recurring:
     scheduler-enabled: true
+  ai:
+    anthropic-api-key: ${ANTHROPIC_API_KEY:}
+    model: claude-haiku-5-5
+    timeout: 6s
+    max-items: 150
 
 springdoc:
   api-docs:

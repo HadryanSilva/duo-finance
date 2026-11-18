@@ -20,7 +20,7 @@ class JwtKeyConfigTest {
     }
 
     private static AppProperties props(String privateKey, String publicKey) {
-        return new AppProperties(null, null, new AppProperties.Auth(privateKey, publicKey, true), null);
+        return new AppProperties(null, null, new AppProperties.Auth(privateKey, publicKey, true), null, null);
     }
 
     private static MockEnvironment profiles(String... active) {
@@ -55,7 +55,7 @@ class JwtKeyConfigTest {
                         .getPublic()
                         .getAlgorithm())
                 .isEqualTo("RSA");
-        assertThat(config.jwtKeyPair(new AppProperties(null, null, null, null), profiles("test")))
+        assertThat(config.jwtKeyPair(new AppProperties(null, null, null, null, null), profiles("test")))
                 .isNotNull();
     }
 
@@ -64,7 +64,7 @@ class JwtKeyConfigTest {
         assertThatThrownBy(() -> config.jwtKeyPair(props(null, null), profiles()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("jwt-private-key");
-        assertThatThrownBy(() -> config.jwtKeyPair(new AppProperties(null, null, null, null), profiles("prod")))
+        assertThatThrownBy(() -> config.jwtKeyPair(new AppProperties(null, null, null, null, null), profiles("prod")))
                 .isInstanceOf(IllegalStateException.class);
     }
 

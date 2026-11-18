@@ -31,7 +31,8 @@ class ResendEmailSenderTest {
                 null,
                 null,
                 null,
-                new AppProperties.Email("Duo <no-reply@duo.dev>", AppProperties.EmailProvider.RESEND, "re_test"));
+                new AppProperties.Email("Duo <no-reply@duo.dev>", AppProperties.EmailProvider.RESEND, "re_test"),
+                null);
         sender = new ResendEmailSender(builder, props, ResendEmailSender.BASE_URL);
     }
 
@@ -65,7 +66,8 @@ class ResendEmailSenderTest {
                     null,
                     null,
                     null,
-                    new AppProperties.Email("Duo <no-reply@duo.dev>", AppProperties.EmailProvider.RESEND, "re_test"));
+                    new AppProperties.Email("Duo <no-reply@duo.dev>", AppProperties.EmailProvider.RESEND, "re_test"),
+                    null);
             var slow = new ResendEmailSender(
                     ResendEmailSender.withTimeouts(RestClient.builder()),
                     props,
