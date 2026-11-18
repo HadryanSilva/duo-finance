@@ -1,6 +1,7 @@
 # Continuous deployment. Trigger: workflow_run of "CI" (ci.yml), chosen over duplicating CI's jobs
 # as `needs`: it runs only after CI finished green on a push to main, so every deployed commit
-# passed the same required checks as its pull request.
+# passed the same required checks as its pull request. Work is merged into develop, which never
+# deploys; main only receives pull requests from develop (a release), so each release deploys once.
 #   images: builds api (context backend/, backend/Dockerfile) and nginx (context: the repo root,
 #           frontend/Dockerfile, trimmed by frontend/Dockerfile.dockerignore) and pushes
 #           ghcr.io/hadryansilva/duo-finance-{api,nginx}:sha-<12> and :main. The context/file

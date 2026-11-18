@@ -1,5 +1,6 @@
-# Pull request CI. Job names (backend, frontend, api-types, e2e, infra) are stable: they are the
-# required status checks for branch protection on main.
+# CI for pull requests and for pushes to main and develop. Job names (backend, frontend, api-types,
+# e2e, infra) are stable: they are the required status checks of the repository ruleset on main and
+# develop. A push to develop only runs CI; Deploy (deploy.yml) follows CI on main only.
 #
 # infra/tests/*.bats are picked up by glob, so new files need no workflow change. Convention: a
 # test file that builds images or starts containers declares `# bats file_tags=docker` on its
@@ -10,7 +11,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, develop]
 
 permissions:
   contents: read
