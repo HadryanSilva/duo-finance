@@ -20,7 +20,7 @@ class JwtKeyConfigTest {
     }
 
     private static AppProperties props(String privateKey, String publicKey) {
-        return new AppProperties(null, null, new AppProperties.Auth(privateKey, publicKey, true), null);
+        return new AppProperties(null, null, new AppProperties.Auth(privateKey, publicKey, null, true), null);
     }
 
     private static MockEnvironment profiles(String... active) {
