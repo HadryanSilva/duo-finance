@@ -1,9 +1,12 @@
 import { screen, waitFor } from '@testing-library/dom'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { AuthResponse, InvitationPreviewResponse } from '@/shared/api/types'
 import { useSession } from '@/shared/session/session-store'
 import { renderRoute, testUser } from '@/test/render'
+
+const gsi = vi.hoisted(() => ({ initialize: vi.fn(), renderButton: vi.fn() }))
+vi.mock('../google/load-gsi', () => ({ loadGsi: () => Promise.resolve(gsi) }))
 
 const api = `${window.location.origin}/api/v1`
 const preview = (over: Partial<InvitationPreviewResponse> = {}) =>
@@ -61,6 +64,36 @@ describe('AcceptInvitePage', () => {
     expect(url.searchParams.get('invite')).toBe('tok')
     expect(url.searchParams.get('email')).toBe('ana@example.com')
     expect(screen.queryByRole('link', { name: 'Entrar' })).toBeNull()
+  })
+
+  it('acceptInvite_googleAuthenticated_showsAcceptStep', async () => {
+    gsi.initialize.mockClear()
+    const r = await renderRoute({
+      route: '/invite/tok',
+      handlers: [
+        preview(),
+        http.get(`${api}/public/registration-mode`, () =>
+          HttpResponse.json({ mode: 'INVITE_ONLY', googleClientId: 'cid' }),
+        ),
+        http.post(`${api}/auth/google`, () =>
+          HttpResponse.json({
+            status: 'AUTHENTICATED',
+            accessToken: 'google-token',
+            expiresIn: 900,
+            user: testUser,
+          }),
+        ),
+      ],
+    })
+    await waitFor(() => expect(gsi.initialize).toHaveBeenCalled())
+    expect(screen.queryByRole('button', { name: 'Aceitar convite' })).toBeNull()
+    const { callback } = gsi.initialize.mock.calls[0]![0] as {
+      callback: (x: { credential: string }) => void
+    }
+    callback({ credential: 'cred' })
+    expect(await screen.findByRole('button', { name: 'Aceitar convite' })).toBeTruthy()
+    expect(r.router.currentRoute.value.path).toBe('/invite/tok')
+    expect(useSession(r.pinia).accessToken).toBe('google-token')
   })
 
   it('acceptInvite_authenticated_acceptsAndSwitchesAccount', async () => {

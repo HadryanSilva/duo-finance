@@ -27,6 +27,19 @@ export const registerSchema = (t: T, accessCodeRequired: boolean) =>
       }
     })
 
+export const googleSignupSchema = (t: T, accessCodeRequired: boolean) =>
+  z
+    .object({
+      displayName: z.string().trim().min(1, t('validation.NotBlank')).max(60, t('validation.Size')),
+      acceptTerms: z.boolean().refine((v) => v, t('validation.AssertTrue')),
+      accessCode: z.string().trim().optional(),
+    })
+    .superRefine((v, ctx) => {
+      if (accessCodeRequired && !v.accessCode) {
+        ctx.addIssue({ code: 'custom', path: ['accessCode'], message: t('validation.NotBlank') })
+      }
+    })
+
 export const forgotPasswordSchema = (t: T) => z.object({ email: email(t) })
 
 export const resetPasswordSchema = (t: T) => z.object({ newPassword: password(t) })

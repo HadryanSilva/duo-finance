@@ -113,6 +113,7 @@
     "forgotPassword": "Esqueci minha senha",
     "resetPassword": "Nova senha",
     "acceptInvite": "Convite",
+    "googleSignup": "Concluir cadastro",
     "onboarding": "Boas-vindas"
   },
   "suspended": {
@@ -144,6 +145,12 @@
       "noAccount": "Ainda não tem conta?",
       "createAccount": "Criar conta",
       "resetDone": "Senha redefinida. Entre com a nova senha."
+    },
+    "google": {
+      "subtitle": "Falta pouco para entrar com a sua conta Google.",
+      "inviteOtherEmail": "Este convite foi enviado para {email}, outro e-mail. Use o código de acesso para se cadastrar com esta conta Google.",
+      "ticketExpired": "Seu cadastro pelo Google expirou. Continue com o Google para começar de novo.",
+      "submit": "Concluir cadastro"
     },
     "register": {
       "subtitle": "Comece a organizar as finanças a dois.",

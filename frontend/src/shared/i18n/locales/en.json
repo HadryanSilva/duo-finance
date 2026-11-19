@@ -113,6 +113,7 @@
     "forgotPassword": "Forgot password",
     "resetPassword": "New password",
     "acceptInvite": "Invitation",
+    "googleSignup": "Finish sign-up",
     "onboarding": "Welcome"
   },
   "suspended": {
@@ -144,6 +145,12 @@
       "noAccount": "Don't have an account yet?",
       "createAccount": "Create account",
       "resetDone": "Password reset. Sign in with your new password."
+    },
+    "google": {
+      "subtitle": "Just a few details left to sign up with your Google account.",
+      "inviteOtherEmail": "This invitation was sent to {email}, a different email. Use an access code to sign up with this Google account.",
+      "ticketExpired": "Your Google sign-up expired. Continue with Google to start again.",
+      "submit": "Finish sign-up"
     },
     "register": {
       "subtitle": "Start organizing your finances together.",
