@@ -9,6 +9,8 @@ import br.dev.duofinance.auth.service.AuthSessionService.SessionTokens;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ErrorCode;
 import br.dev.duofinance.shared.security.CurrentUser;
+import br.dev.duofinance.shared.token.SecureTokens;
+import br.dev.duofinance.user.dto.DeleteMeRequest;
 import br.dev.duofinance.user.dto.MeResponse;
 import br.dev.duofinance.user.dto.UpdateMeRequest;
 import br.dev.duofinance.user.model.IdentityProvider;
@@ -58,7 +60,7 @@ public class MeService {
 
     @Transactional(readOnly = true)
     public MeResponse get(CurrentUser current) {
-        return MeResponse.of(load(current), current.accountId());
+        return view(load(current), current);
     }
 
     @Transactional
@@ -71,7 +73,7 @@ public class MeService {
             user.setLocale(request.locale());
         }
         user.setUpdatedAt(Instant.now(clock));
-        return MeResponse.of(user, current.accountId());
+        return view(user, current);
     }
 
     /** Marks onboarding as done (finished or skipped). Idempotent: the first completion time is kept. */
@@ -83,7 +85,7 @@ public class MeService {
             user.setOnboardedAt(now);
             user.setUpdatedAt(now);
         }
-        return MeResponse.of(user, current.accountId());
+        return view(user, current);
     }
 
     /** Replaces the password, revokes every session and starts a fresh one, atomically. */
@@ -108,15 +110,9 @@ public class MeService {
      * with the partner. The database cascades remove identities and tokens and null out {@code invited_by}.
      */
     @Transactional
-    public void delete(CurrentUser current, String password) {
+    public void delete(CurrentUser current, DeleteMeRequest request) {
         User user = load(current);
-        UserIdentity identity = identities
-                .findByUserIdAndProvider(user.getId(), IdentityProvider.LOCAL)
-                .filter(i -> i.getPasswordHash() != null)
-                .orElseThrow(() -> new ApiException(ErrorCode.INVALID_CREDENTIALS));
-        if (!passwordEncoder.matches(password, identity.getPasswordHash())) {
-            throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
-        }
+        confirmDeletion(user, request);
         sessions.revokeAll(user.getId());
         accounts.findByIdForUpdate(current.accountId()).orElseThrow(() -> new ApiException(ErrorCode.SESSION_STALE));
         invitations.cancelPendingByInviter(user.getId());
@@ -125,6 +121,25 @@ public class MeService {
         }
         users.delete(user);
         users.flush();
+    }
+
+    /** With a password the user must prove it; without one, retyping their own e-mail is the confirmation. */
+    private void confirmDeletion(User user, DeleteMeRequest request) {
+        UserIdentity local = identities
+                .findByUserIdAndProvider(user.getId(), IdentityProvider.LOCAL)
+                .filter(i -> i.getPasswordHash() != null)
+                .orElse(null);
+        boolean confirmed = local != null
+                ? request.password() != null && passwordEncoder.matches(request.password(), local.getPasswordHash())
+                : request.confirmEmail() != null
+                        && SecureTokens.normalizeEmail(request.confirmEmail()).equals(user.getEmail());
+        if (!confirmed) {
+            throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
+        }
+    }
+
+    private MeResponse view(User user, CurrentUser current) {
+        return MeResponse.of(user, current.accountId(), identities.findByUserId(user.getId()));
     }
 
     private User load(CurrentUser current) {

@@ -13,6 +13,7 @@ import br.dev.duofinance.auth.service.AuthSessionService;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ErrorCode;
 import br.dev.duofinance.shared.security.CurrentUser;
+import br.dev.duofinance.user.dto.DeleteMeRequest;
 import br.dev.duofinance.user.model.UserRole;
 import br.dev.duofinance.user.repository.UserIdentityRepository;
 import br.dev.duofinance.user.repository.UserRepository;
@@ -54,7 +55,7 @@ class MeServiceTest {
     void delete_userDeletedMeanwhile_isSessionStale() {
         when(users.findById(USER_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.delete(CURRENT, "secret123"))
+        assertThatThrownBy(() -> service.delete(CURRENT, new DeleteMeRequest("secret123", null)))
                 .isInstanceOfSatisfying(
                         ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.SESSION_STALE));
     }

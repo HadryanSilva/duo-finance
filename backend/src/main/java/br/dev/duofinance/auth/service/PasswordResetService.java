@@ -57,14 +57,11 @@ public class PasswordResetService {
         this.clock = clock;
     }
 
-    /** Silent for unknown e-mails and accounts without a password identity, so callers cannot probe for users. */
+    /** Silent for unknown e-mails, so callers cannot probe for users. */
     @Transactional
     public void requestReset(String rawEmail) {
         String email = SecureTokens.normalizeEmail(rawEmail);
-        identities
-                .findByProviderAndProviderSubject(IdentityProvider.LOCAL, email)
-                .flatMap(identity -> users.findById(identity.getUserId()))
-                .ifPresent(this::sendReset);
+        users.findByEmail(email).ifPresent(this::sendReset);
     }
 
     private void sendReset(User user) {
@@ -92,10 +89,13 @@ public class PasswordResetService {
                 .orElseThrow()
                 .getUserId();
         User user = users.findByIdForUpdate(userId).orElseThrow(() -> new ApiException(ErrorCode.TOKEN_INVALID));
-        UserIdentity identity = identities
+        String encoded = passwordEncoder.encode(newPassword);
+        identities
                 .findByUserIdAndProvider(userId, IdentityProvider.LOCAL)
-                .orElseThrow(() -> new ApiException(ErrorCode.TOKEN_INVALID));
-        identity.setPasswordHash(passwordEncoder.encode(newPassword));
+                .ifPresentOrElse(
+                        identity -> identity.setPasswordHash(encoded),
+                        () -> identities.save(
+                                new UserIdentity(userId, IdentityProvider.LOCAL, user.getEmail(), encoded, now)));
         user.setFailedLoginCount(0);
         user.setLockedUntil(null);
         user.setUpdatedAt(now);

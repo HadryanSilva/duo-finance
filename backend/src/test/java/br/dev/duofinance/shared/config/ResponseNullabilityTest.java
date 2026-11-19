@@ -88,6 +88,7 @@ class ResponseNullabilityTest {
             "MeResponse.email",
             "MeResponse.id",
             "MeResponse.locale",
+            "MeResponse.providers",
             "MeResponse.role",
             "MemberResponse.displayName",
             "MemberResponse.email",

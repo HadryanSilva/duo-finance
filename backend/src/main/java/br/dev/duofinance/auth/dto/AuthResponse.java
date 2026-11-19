@@ -9,6 +9,6 @@ public record AuthResponse(String accessToken, long expiresIn, MeResponse user) 
         return new AuthResponse(
                 session.access().token(),
                 session.access().expiresInSeconds(),
-                MeResponse.of(session.user(), session.accountId()));
+                MeResponse.of(session.user(), session.accountId(), session.identities()));
     }
 }

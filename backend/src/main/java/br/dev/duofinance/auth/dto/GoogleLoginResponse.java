@@ -20,7 +20,7 @@ public record GoogleLoginResponse(
                 "AUTHENTICATED",
                 session.access().token(),
                 session.access().expiresInSeconds(),
-                MeResponse.of(session.user(), session.accountId()),
+                MeResponse.of(session.user(), session.accountId(), session.identities()),
                 null,
                 null,
                 null);
