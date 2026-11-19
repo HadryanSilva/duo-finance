@@ -676,7 +676,15 @@
       "immediateNotice": "Como o início é hoje ou no passado, as ocorrências até hoje serão geradas agora.",
       "lockedNote": "Tipo, frequência e início não podem ser alterados. Para mudá-los, crie outra recorrência.",
       "futureOnlyNote": "As alterações valem só para as próximas ocorrências; lançamentos já gerados não mudam."
-    }
+    },
+    "summary": {
+      "label": "Compromisso fixo por mês",
+      "in": "Entradas fixas",
+      "out": "Saídas fixas",
+      "left": "Sobra fixa por mês",
+      "short": "Falta fixa por mês"
+    },
+    "perMonth": "≈ {amount}/mês"
   },
   "dashboard": {
     "subtitle": "O mês de vocês em um relance.",

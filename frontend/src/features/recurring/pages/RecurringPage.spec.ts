@@ -118,6 +118,34 @@ const section = async (name: string) => {
 }
 
 describe('RecurringPage', () => {
+  it('row_weekly_showsMonthlyEquivalent', async () => {
+    await setup().render('/recurring')
+    const row = (await screen.findByText('Freela')).closest('li') as HTMLElement
+    expect(norm(row.textContent)).toContain('≈ € 2.166,67/mês')
+  })
+
+  it('row_monthly_noEquivalent', async () => {
+    await setup().render('/recurring')
+    const row = (await screen.findByText('Aluguel')).closest('li') as HTMLElement
+    expect(row.textContent).not.toContain('≈')
+  })
+
+  it('summary_coversActiveRulesOnly', async () => {
+    await setup().render('/recurring')
+    await screen.findByText('Aluguel')
+    const text = norm(document.body.textContent)
+    expect(text).toContain('Saídas fixas')
+    expect(text).toContain('Falta fixa por mês')
+  })
+
+  it('summary_ignoresPausedAndFinished', async () => {
+    await setup([
+      http.get(`${api}/recurring-rules`, () => HttpResponse.json([pausada, encerrada])),
+    ]).render('/recurring')
+    await screen.findByText('Freela')
+    expect(screen.queryByText('Entradas fixas')).toBeNull()
+  })
+
   it('recurring_splitsActiveAndFinished', async () => {
     await setup().render('/recurring')
     const active = await section('Ativas')

@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { RecurringRuleResponse } from '@/shared/api/types'
 import { formatBusinessDate } from '@/shared/lib/dates'
+import { monthlyEquivalentCents } from '@/shared/lib/figures'
 import { swatchInkClass } from '@/shared/lib/contrast'
 import type { Locale } from '@/shared/lib/money'
 import { useIsDesktop } from '@/shared/lib/breakpoints'
@@ -16,6 +17,13 @@ import CategoryIcon from '@/shared/ui/CategoryIcon.vue'
 import MoneyText from '@/shared/ui/MoneyText.vue'
 
 const props = defineProps<{ rule: RecurringRuleResponse }>()
+
+/** Weekly and yearly amounts also say what they weigh per month; transfers move no money out. */
+const perMonth = computed(() =>
+  props.rule.kind !== 'TRANSFER' && props.rule.frequency !== 'MONTHLY'
+    ? monthlyEquivalentCents(props.rule.amountCents, props.rule.frequency)
+    : null,
+)
 const emit = defineEmits<{ edit: []; toggle: []; remove: [] }>()
 
 const { t, locale } = useI18n()
@@ -100,11 +108,17 @@ function onMenuSelect(key: string) {
     </span>
 
     <AuthorAvatar :author="rule.createdBy" />
-    <MoneyText
-      :cents="rule.amountCents"
-      :kind="rule.kind"
-      class="shrink-0 text-right font-medium"
-    />
+    <span class="flex shrink-0 flex-col items-end">
+      <MoneyText :cents="rule.amountCents" :kind="rule.kind" class="text-right font-medium" />
+      <i18n-t
+        v-if="perMonth !== null"
+        keypath="recurring.perMonth"
+        tag="span"
+        class="text-xs text-muted-foreground"
+      >
+        <template #amount><MoneyText :cents="perMonth" /></template>
+      </i18n-t>
+    </span>
     <ActionsMenu
       v-if="!isDesktop"
       class="shrink-0"
