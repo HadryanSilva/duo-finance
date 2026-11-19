@@ -1,4 +1,10 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/vue-query'
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { useHttp } from '@/app/providers'
 import type {
@@ -6,6 +12,7 @@ import type {
   TransactionKind,
   TransactionRequest,
   TransactionResponse,
+  TransactionTotalsResponse,
 } from '../types'
 
 const KEY = ['transactions'] as const
@@ -41,6 +48,21 @@ export function useTransactions(
       }),
     initialPageParam: 0,
     getNextPageParam: (last) => (last.page < last.totalPages - 1 ? last.page + 1 : undefined),
+  })
+}
+
+/**
+ * Income, expense, net and count of every row the filter matches, not only the loaded pages. Under the
+ * `['transactions']` prefix, so whatever invalidates the list refreshes it too.
+ */
+export function useTransactionTotals(filter: MaybeRefOrGetter<TransactionFilter>) {
+  const http = useHttp()
+  return useQuery({
+    queryKey: computed(() => [...KEY, 'totals', toValue(filter)]),
+    queryFn: () =>
+      http.get<TransactionTotalsResponse>('/transactions/totals', { ...toValue(filter) }),
+    // a new filter keeps the previous figures on screen until its own arrive: no skeleton flash
+    placeholderData: keepPreviousData,
   })
 }
 

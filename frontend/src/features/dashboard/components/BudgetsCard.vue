@@ -7,7 +7,7 @@ import BudgetProgressBar from '@/shared/ui/BudgetProgressBar.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import MoneyText from '@/shared/ui/MoneyText.vue'
 import { Skeleton } from '@/shared/ui/skeleton'
-import { budgetRemainder, daysLeftInMonth } from '../lib/figures'
+import { budgetRemainder, daysLeftInMonth } from '@/shared/lib/figures'
 import CardEmpty from './CardEmpty.vue'
 
 /** `undefined` while the dashboard loads; `month` is the dashboard's `YYYY-MM`. */

@@ -299,7 +299,8 @@
       "archive": "Archive {name}",
       "unarchive": "Unarchive {name}",
       "delete": "Delete {name}"
-    }
+    },
+    "activeCount": "across {n} active account | across {n} active accounts"
   },
   "categories": {
     "subtitle": "Organize income and expenses.",
@@ -410,7 +411,15 @@
     },
     "deleteTitle": "Delete transaction?",
     "deleteMessage": "This permanently removes the transaction and updates the balances.",
-    "importStatement": "Import statement"
+    "importStatement": "Import statement",
+    "totals": {
+      "label": "Period totals",
+      "in": "In",
+      "out": "Out",
+      "net": "Period balance",
+      "count": "{n} transaction | {n} transactions",
+      "transfers": "{n} transfer | {n} transfers"
+    }
   },
   "imports": {
     "title": "Import a Revolut statement",
@@ -521,7 +530,17 @@
       "limit": "Monthly limit",
       "limitPositive": "Enter a limit greater than zero.",
       "noCategories": "Every active expense category already has a budget."
-    }
+    },
+    "summary": {
+      "title": "Month total",
+      "remaining": "{amount} left in total",
+      "over": "{amount} over in total",
+      "exceeded": "{n} over budget | {n} over budget",
+      "daysLeft": "{n} day left | {n} days left",
+      "lastDay": "last day of the month"
+    },
+    "remaining": "{amount} left",
+    "over": "{amount} over"
   },
   "goals": {
     "subtitle": "Set money aside for what you want to achieve.",
@@ -623,7 +642,8 @@
       "noSalary": "No salary in {month} in the {name} category.",
       "allDone": "All decided for {month}.",
       "title": "Contributions for {month}"
-    }
+    },
+    "savedTotal": "{amount} saved across {n} goal | {amount} saved across {n} goals"
   },
   "recurring": {
     "subtitle": "Transactions that repeat on their own.",
@@ -657,7 +677,15 @@
       "immediateNotice": "Because the start is today or in the past, the occurrences up to today will be generated now.",
       "lockedNote": "Type, frequency and start cannot be changed. To change them, create another recurring transaction.",
       "futureOnlyNote": "Changes apply only to future occurrences; transactions already generated are not changed."
-    }
+    },
+    "summary": {
+      "label": "Fixed monthly commitment",
+      "in": "Fixed income",
+      "out": "Fixed spending",
+      "left": "Left each month",
+      "short": "Short each month"
+    },
+    "perMonth": "≈ {amount}/month"
   },
   "dashboard": {
     "subtitle": "Your month at a glance.",

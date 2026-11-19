@@ -299,7 +299,8 @@
       "archive": "Arquivar {name}",
       "unarchive": "Desarquivar {name}",
       "delete": "Excluir {name}"
-    }
+    },
+    "activeCount": "em {n} conta ativa | em {n} contas ativas"
   },
   "categories": {
     "subtitle": "Organize receitas e despesas.",
@@ -410,7 +411,15 @@
     },
     "deleteTitle": "Excluir lançamento?",
     "deleteMessage": "Isso remove o lançamento definitivamente e atualiza os saldos.",
-    "importStatement": "Importar extrato"
+    "importStatement": "Importar extrato",
+    "totals": {
+      "label": "Totais do período",
+      "in": "Entrou",
+      "out": "Saiu",
+      "net": "Saldo do período",
+      "count": "{n} lançamento | {n} lançamentos",
+      "transfers": "{n} transferência | {n} transferências"
+    }
   },
   "imports": {
     "title": "Importar extrato da Revolut",
@@ -521,7 +530,17 @@
       "limit": "Limite mensal",
       "limitPositive": "Informe um limite maior que zero.",
       "noCategories": "Todas as categorias de despesa ativas já têm orçamento."
-    }
+    },
+    "summary": {
+      "title": "Total do mês",
+      "remaining": "restam {amount} no total",
+      "over": "passou {amount} no total",
+      "exceeded": "{n} estourado | {n} estourados",
+      "daysLeft": "falta {n} dia | faltam {n} dias",
+      "lastDay": "último dia do mês"
+    },
+    "remaining": "restam {amount}",
+    "over": "passou {amount}"
   },
   "goals": {
     "subtitle": "Separe dinheiro para o que vocês querem conquistar.",
@@ -623,7 +642,8 @@
       "noSalary": "Nenhum salário em {month} na categoria {name}.",
       "allDone": "Tudo decidido em {month}.",
       "title": "Contribuições de {month}"
-    }
+    },
+    "savedTotal": "{amount} guardados em {n} objetivo | {amount} guardados em {n} objetivos"
   },
   "recurring": {
     "subtitle": "Lançamentos que se repetem sozinhos.",
@@ -657,7 +677,15 @@
       "immediateNotice": "Como o início é hoje ou no passado, as ocorrências até hoje serão geradas agora.",
       "lockedNote": "Tipo, frequência e início não podem ser alterados. Para mudá-los, crie outra recorrência.",
       "futureOnlyNote": "As alterações valem só para as próximas ocorrências; lançamentos já gerados não mudam."
-    }
+    },
+    "summary": {
+      "label": "Compromisso fixo por mês",
+      "in": "Entradas fixas",
+      "out": "Saídas fixas",
+      "left": "Sobra fixa por mês",
+      "short": "Falta fixa por mês"
+    },
+    "perMonth": "≈ {amount}/mês"
   },
   "dashboard": {
     "subtitle": "O mês de vocês em um relance.",

@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  budgetRemainder,
-  daysLeftInMonth,
-  moneyLabel,
-  monthSummary,
-  shareLabel,
-  spendingSlices,
-} from './figures'
+import { moneyLabel, monthSummary, shareLabel, spendingSlices } from './figures'
 
 describe('monthSummary', () => {
   it('left_withShare', () =>
@@ -63,21 +56,6 @@ describe('spendingSlices', () => {
 describe('shareLabel', () => {
   it('underOnePercent', () => expect(shareLabel(0, 10)).toBe('<1%'))
   it('normal', () => expect(shareLabel(40, 98000)).toBe('40%'))
-})
-
-describe('daysLeftInMonth', () => {
-  it('countsToday', () => expect(daysLeftInMonth('2026-11', '2026-11-20')).toBe(11))
-  it('lastDayIsOne', () => expect(daysLeftInMonth('2026-02', '2026-02-28')).toBe(1))
-  it('firstDayCountsWholeMonth', () => expect(daysLeftInMonth('2026-12', '2026-12-01')).toBe(31))
-  it('otherMonth_isNull', () => expect(daysLeftInMonth('2026-10', '2026-11-20')).toBeNull())
-})
-
-describe('budgetRemainder', () => {
-  it('under', () =>
-    expect(budgetRemainder(98000, 100000)).toEqual({ over: false, amountCents: 2000 }))
-  it('exactlyAtLimit_isNotOver', () =>
-    expect(budgetRemainder(100000, 100000)).toEqual({ over: false, amountCents: 0 }))
-  it('over', () => expect(budgetRemainder(36750, 30000)).toEqual({ over: true, amountCents: 6750 }))
 })
 
 describe('moneyLabel', () => {

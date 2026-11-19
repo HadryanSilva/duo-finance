@@ -7,20 +7,27 @@ import type { Locale } from '@/shared/lib/money'
 import MoneyText from '@/shared/ui/MoneyText.vue'
 import TransactionRow from './TransactionRow.vue'
 
-const props = defineProps<{ date: string; rows: TransactionResponse[] }>()
+/** `bankAccountId`: the list is filtered by this account, so transfers into or out of it count. */
+const props = defineProps<{ date: string; rows: TransactionResponse[]; bankAccountId?: string }>()
 const emit = defineEmits<{ edit: [transaction: TransactionResponse] }>()
 
 const { t, locale } = useI18n()
 const headingId = useId()
 
-/** Income − expense of the day; transfers only move money between own accounts. */
-const net = computed(() =>
-  props.rows.reduce(
-    (sum, r) =>
-      r.kind === 'INCOME' ? sum + r.amountCents : r.kind === 'EXPENSE' ? sum - r.amountCents : sum,
-    0,
-  ),
-)
+/**
+ * Income − expense of the day. Transfers only move money between own accounts, so they count only
+ * when the list is filtered by one: into it as income, out of it as expense (as the period totals).
+ */
+function signed(r: TransactionResponse): number {
+  if (r.kind === 'INCOME') return r.amountCents
+  if (r.kind === 'EXPENSE') return -r.amountCents
+  const account = props.bankAccountId
+  if (!account) return 0
+  if (r.destinationBankAccount?.id === account) return r.amountCents
+  if (r.bankAccount?.id === account) return -r.amountCents
+  return 0
+}
+const net = computed(() => props.rows.reduce((sum, r) => sum + signed(r), 0))
 </script>
 
 <template>
