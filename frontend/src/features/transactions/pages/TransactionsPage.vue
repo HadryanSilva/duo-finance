@@ -19,6 +19,7 @@ import SidePanel from '@/shared/ui/SidePanel.vue'
 import { filterFromQuery, queryPatch, type TransactionFilter } from '../api/transactions-api'
 import TransactionDayGroup from '../components/TransactionDayGroup.vue'
 import TransactionFilters from '../components/TransactionFilters.vue'
+import TransactionTotals from '../components/TransactionTotals.vue'
 import TransactionForm from '../components/TransactionForm.vue'
 
 const { t } = useI18n()
@@ -106,6 +107,8 @@ const closePanel = () => (panelOpen.value = false)
 
   <TransactionFilters :filter="filter" @change="onFilterChange" />
 
+  <TransactionTotals :filter="filter" />
+
   <div v-if="transactions.isPending.value" class="grid gap-3">
     <Skeleton class="h-16 w-full" />
     <Skeleton class="h-16 w-full" />
@@ -125,6 +128,7 @@ const closePanel = () => (panelOpen.value = false)
         :key="day.date"
         :date="day.date"
         :rows="day.rows"
+        :bank-account-id="filter.bankAccountId"
         @edit="openEdit"
       />
     </ul>

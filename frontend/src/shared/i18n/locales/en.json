@@ -410,7 +410,15 @@
     },
     "deleteTitle": "Delete transaction?",
     "deleteMessage": "This permanently removes the transaction and updates the balances.",
-    "importStatement": "Import statement"
+    "importStatement": "Import statement",
+    "totals": {
+      "label": "Period totals",
+      "in": "In",
+      "out": "Out",
+      "net": "Period balance",
+      "count": "{n} transaction | {n} transactions",
+      "transfers": "{n} transfer | {n} transfers"
+    }
   },
   "imports": {
     "title": "Import a Revolut statement",
