@@ -1,11 +1,10 @@
-import { screen, waitFor, within } from '@testing-library/dom'
+import { screen, within } from '@testing-library/dom'
 import { describe, expect, it } from 'vitest'
 import type { DashboardResponse, GoalResponse } from '@/shared/api/types'
 import { addMonths, currentMonth, formatMonth } from '@/shared/lib/dates'
 import { render } from '@/test/render'
 import GoalsCard from './GoalsCard.vue'
 
-const api = `${window.location.origin}/api/v1`
 const norm = (s: string | null) => (s ?? '').replace(/\s/g, ' ')
 
 const goal = (over: Partial<GoalResponse> = {}): GoalResponse => ({
