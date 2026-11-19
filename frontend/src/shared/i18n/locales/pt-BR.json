@@ -713,7 +713,9 @@
       "emptyTitle": "Nada agendado",
       "emptyDescription": "As recorrências aparecem aqui antes de serem lançadas.",
       "emptyCta": "Criar recorrência",
-      "listLabel": "Próximos lançamentos"
+      "listLabel": "Próximos lançamentos",
+      "viewAll": "Ver todos",
+      "viewAllLabel": "Ver todas as recorrências"
     },
     "recent": {
       "title": "Últimos lançamentos",

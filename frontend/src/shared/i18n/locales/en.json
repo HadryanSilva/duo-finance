@@ -713,7 +713,9 @@
       "emptyTitle": "Nothing scheduled",
       "emptyDescription": "Recurring transactions show up here before they are posted.",
       "emptyCta": "Create a recurring transaction",
-      "listLabel": "Upcoming transactions"
+      "listLabel": "Upcoming transactions",
+      "viewAll": "See all",
+      "viewAllLabel": "See all recurring rules"
     },
     "recent": {
       "title": "Recent transactions",

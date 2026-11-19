@@ -55,4 +55,24 @@ describe('UpcomingCard', () => {
     const cta = screen.getByRole('link', { name: 'Criar recorrência' })
     expect(cta.getAttribute('href')).toBe('/recurring')
   })
+
+  const many = (n: number) =>
+    withUpcoming(
+      Array.from({ length: n }, (_, i) =>
+        rule({ ruleId: 'r' + i, date: '2026-04-' + String(i + 1).padStart(2, '0') }),
+      ),
+    )
+
+  it('moreThanFive_showsFiveAndLinkToRecurring', async () => {
+    await render(UpcomingCard, {}, { props: { data: many(7) } })
+    const list = screen.getByRole('list', { name: 'Próximos lançamentos' })
+    expect(within(list).getAllByRole('listitem')).toHaveLength(5)
+    const link = screen.getByRole('link', { name: 'Ver todas as recorrências' })
+    expect(link.getAttribute('href')).toBe('/recurring')
+  })
+
+  it('fiveOrFewer_noLink', async () => {
+    await render(UpcomingCard, {}, { props: { data: many(5) } })
+    expect(screen.queryByRole('link', { name: 'Ver todas as recorrências' })).toBeNull()
+  })
 })
