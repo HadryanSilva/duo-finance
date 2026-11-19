@@ -11,7 +11,7 @@ import MoneyText from '@/shared/ui/MoneyText.vue'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { useChartColors } from '../lib/chart-colors'
 import { spendingOption } from '../lib/chart-options'
-import { shareLabel, spendingSlices, type SpendingSlice } from '../lib/figures'
+import { moneyLabel, shareLabel, spendingSlices, type SpendingSlice } from '../lib/figures'
 import CardEmpty from './CardEmpty.vue'
 import { LazyChart } from './lazy-chart'
 
@@ -72,6 +72,7 @@ const option = computed<EChartsCoreOption>(() =>
                       to: transactionsOf(s.categoryId),
                       'aria-label': t('dashboard.spending.linkLabel', {
                         name: nameOf(s),
+                        amount: moneyLabel(s.totalCents, locale as Locale),
                         share: share(s),
                       }),
                     }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   budgetRemainder,
   daysLeftInMonth,
+  moneyLabel,
   monthSummary,
   shareLabel,
   spendingSlices,
@@ -77,4 +78,9 @@ describe('budgetRemainder', () => {
   it('exactlyAtLimit_isNotOver', () =>
     expect(budgetRemainder(100000, 100000)).toEqual({ over: false, amountCents: 0 }))
   it('over', () => expect(budgetRemainder(36750, 30000)).toEqual({ over: true, amountCents: 6750 }))
+})
+
+describe('moneyLabel', () => {
+  it('formatsForTheLocale', () =>
+    expect(moneyLabel(45000, 'pt-BR').replace(/\s/g, ' ')).toBe('€ 450,00'))
 })

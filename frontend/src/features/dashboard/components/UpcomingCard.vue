@@ -5,8 +5,14 @@ import { RouterLink } from 'vue-router'
 import type { DashboardResponse } from '@/shared/api/types'
 import { formatBusinessDate } from '@/shared/lib/dates'
 import type { Locale } from '@/shared/lib/money'
-import { Button } from '@/shared/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/shared/ui/card'
 import MoneyText from '@/shared/ui/MoneyText.vue'
 import { Skeleton } from '@/shared/ui/skeleton'
 import CardEmpty from './CardEmpty.vue'
@@ -24,16 +30,18 @@ const { t, locale } = useI18n()
 
 <template>
   <Card>
-    <CardHeader class="flex-row items-start justify-between gap-2">
-      <div class="grid gap-1.5">
-        <CardTitle>{{ t('dashboard.upcoming.title') }}</CardTitle>
-        <CardDescription>{{ t('dashboard.upcoming.subtitle') }}</CardDescription>
-      </div>
-      <Button v-if="hasMore" as-child variant="link" size="sm">
-        <RouterLink to="/recurring" :aria-label="t('dashboard.upcoming.viewAllLabel')">
+    <CardHeader>
+      <CardTitle>{{ t('dashboard.upcoming.title') }}</CardTitle>
+      <CardDescription>{{ t('dashboard.upcoming.subtitle') }}</CardDescription>
+      <CardAction v-if="hasMore">
+        <RouterLink
+          to="/recurring"
+          :aria-label="t('dashboard.upcoming.viewAllLabel')"
+          class="text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
           {{ t('dashboard.upcoming.viewAll') }}
         </RouterLink>
-      </Button>
+      </CardAction>
     </CardHeader>
     <CardContent>
       <div v-if="!data" class="grid gap-3">

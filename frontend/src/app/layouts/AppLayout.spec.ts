@@ -151,6 +151,10 @@ describe('AppLayout', () => {
       const admin = [...document.querySelectorAll('[role="menuitem"]')].find(
         (el) => el.textContent?.trim() === 'Admin',
       )
+      const setupGroup = [...document.querySelectorAll('[role="group"]')].find((g) =>
+        g.textContent?.includes('Cadastros'),
+      )
+      expect(setupGroup?.textContent).not.toContain('Admin')
       await r.user.click(admin!)
       await vi.waitFor(() => expect(r.router.currentRoute.value.path).toBe('/admin'))
     })

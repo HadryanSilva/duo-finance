@@ -50,7 +50,9 @@ describe('SpendingDonut', () => {
 
   it('legend_rowLinksToTransactionsOfThatCategoryAndMonth', async () => {
     await render(SpendingDonut, {}, { props: { data, month } })
-    const link = screen.getByRole('link', { name: 'Ver lançamentos de Mercado (79%)' })
+    const link = screen.getByRole('link', {
+      name: (n) => norm(n) === 'Ver lançamentos de Mercado: € 450,00 (79%)',
+    })
     expect(link.getAttribute('href')).toBe(
       '/transactions?from=2026-03-01&to=2026-03-31&categoryId=c1',
     )

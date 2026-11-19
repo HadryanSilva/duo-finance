@@ -20,11 +20,12 @@ const daysLeft = computed(() => daysLeftInMonth(props.month, todayIso()))
 
 function remainder(b: BudgetResponse) {
   const r = budgetRemainder(b.spentCents, b.monthlyLimitCents)
-  const color = r.over
-    ? 'text-expense'
-    : b.status === 'WARNING'
-      ? 'text-warning'
-      : 'text-foreground'
+  const color =
+    r.over || b.status === 'EXCEEDED'
+      ? 'text-expense'
+      : b.status === 'WARNING'
+        ? 'text-warning'
+        : 'text-foreground'
   return { ...r, color }
 }
 </script>

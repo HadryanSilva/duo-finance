@@ -1,4 +1,5 @@
 import type { DashboardResponse } from '@/shared/api/types'
+import { formatMoney, type Locale } from '@/shared/lib/money'
 
 export interface MonthSummary {
   /** `short` when the month spent more than it received. */
@@ -88,4 +89,9 @@ export function budgetRemainder(
 ): { over: boolean; amountCents: number } {
   const diff = limitCents - spentCents
   return { over: diff < 0, amountCents: Math.abs(diff) }
+}
+
+/** Money inside an aria-label, which is a plain string (it cannot hold a MoneyText). */
+export function moneyLabel(cents: number, locale: Locale): string {
+  return formatMoney(cents, locale)
 }

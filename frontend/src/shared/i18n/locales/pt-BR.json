@@ -689,7 +689,7 @@
       "chartLabel": "Gráfico de rosca dos gastos do mês por categoria",
       "legendLabel": "Gastos por categoria",
       "others": "Outras {n}",
-      "linkLabel": "Ver lançamentos de {name} ({share})"
+      "linkLabel": "Ver lançamentos de {name}: {amount} ({share})"
     },
     "budgets": {
       "title": "Orçamentos",

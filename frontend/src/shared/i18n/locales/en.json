@@ -689,7 +689,7 @@
       "chartLabel": "Doughnut chart of the month's spending by category",
       "legendLabel": "Spending by category",
       "others": "{n} others",
-      "linkLabel": "See {name} transactions ({share})"
+      "linkLabel": "See {name} transactions: {amount} ({share})"
     },
     "budgets": {
       "title": "Budgets",

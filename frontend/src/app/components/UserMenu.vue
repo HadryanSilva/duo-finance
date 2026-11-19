@@ -28,8 +28,6 @@ const initials = computed(() =>
     .join(''),
 )
 // Below md the sidebar is hidden and the bottom nav has no room for these pages.
-/** Setup pages, then Admin for admins (the bottom nav has room for neither). */
-const setup = computed(() => (session.isAdmin ? [...SETUP_ITEMS, ADMIN] : SETUP_ITEMS))
 </script>
 
 <template>
@@ -61,13 +59,22 @@ const setup = computed(() => (session.isAdmin ? [...SETUP_ITEMS, ADMIN] : SETUP_
         <DropdownMenuLabel class="text-xs text-muted-foreground">{{
           t('nav.setup')
         }}</DropdownMenuLabel>
-        <DropdownMenuItem v-for="item in setup" :key="item.to" as-child>
+        <DropdownMenuItem v-for="item in SETUP_ITEMS" :key="item.to" as-child>
           <RouterLink :to="item.to">
             <component :is="item.icon" aria-hidden="true" />
             {{ t(item.label) }}
           </RouterLink>
         </DropdownMenuItem>
       </DropdownMenuGroup>
+      <template v-if="session.isAdmin">
+        <DropdownMenuSeparator />
+        <DropdownMenuItem as-child>
+          <RouterLink :to="ADMIN.to">
+            <component :is="ADMIN.icon" aria-hidden="true" />
+            {{ t(ADMIN.label) }}
+          </RouterLink>
+        </DropdownMenuItem>
+      </template>
       <DropdownMenuSeparator />
       <DropdownMenuItem @select="session.logout()">
         <LogOut aria-hidden="true" />

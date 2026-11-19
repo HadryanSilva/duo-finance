@@ -76,6 +76,14 @@ describe('BudgetsCard', () => {
     expect(left.classList).toContain('text-warning')
   })
 
+  it('exceededAtLimit_showsRemainingInExpenseColor', async () => {
+    await mount(withBudgets(budget('Mercado', 100000, 100000, 'EXCEEDED')))
+    const left = screen.getByText(
+      (_, el) => el?.tagName === 'P' && norm(el.textContent) === 'restam € 0,00',
+    )
+    expect(left.classList).toContain('text-expense')
+  })
+
   it('empty_offersCta', async () => {
     await mount(withBudgets())
     expect(screen.getByRole('link', { name: 'Definir orçamento' }).getAttribute('href')).toBe(

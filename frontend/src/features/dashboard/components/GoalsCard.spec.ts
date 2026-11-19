@@ -88,9 +88,9 @@ describe('GoalsCard', () => {
     expect(norm(item.textContent)).toContain('€ 400,00')
     expect(norm(item.textContent)).toContain('€ 1.000,00')
     expect(within(item).getByText('40%')).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Ver todos os objetivos' }).getAttribute('href')).toBe(
-      '/goals',
-    )
+    const all = screen.getByRole('link', { name: 'Ver todos os objetivos' })
+    expect(all.closest('[data-slot="card-action"]')).not.toBeNull()
+    expect(all.getAttribute('href')).toBe('/goals')
   })
 
   it('reached_showsBadge', async () => {

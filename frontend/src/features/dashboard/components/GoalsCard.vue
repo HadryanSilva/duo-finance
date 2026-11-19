@@ -6,8 +6,7 @@ import type { DashboardResponse, GoalResponse } from '@/shared/api/types'
 import { currentMonth, formatMonth } from '@/shared/lib/dates'
 import type { Locale } from '@/shared/lib/money'
 import { Badge } from '@/shared/ui/badge'
-import { Button } from '@/shared/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import MoneyText from '@/shared/ui/MoneyText.vue'
 import { Skeleton } from '@/shared/ui/skeleton'
 import CardEmpty from './CardEmpty.vue'
@@ -44,13 +43,17 @@ function percent(g: GoalResponse): number {
 
 <template>
   <Card>
-    <CardHeader class="flex-row items-center justify-between gap-2">
+    <CardHeader>
       <CardTitle>{{ t('dashboard.goals.title') }}</CardTitle>
-      <Button v-if="goals?.goals.length" as-child variant="link" size="sm">
-        <RouterLink to="/goals" :aria-label="t('dashboard.goals.viewAllLabel')">
+      <CardAction v-if="goals?.goals.length">
+        <RouterLink
+          to="/goals"
+          :aria-label="t('dashboard.goals.viewAllLabel')"
+          class="text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
           {{ t('dashboard.goals.viewAll') }}
         </RouterLink>
-      </Button>
+      </CardAction>
     </CardHeader>
     <CardContent class="grid gap-4">
       <div v-if="!goals" class="grid gap-4">

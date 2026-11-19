@@ -69,6 +69,7 @@ describe('UpcomingCard', () => {
     expect(within(list).getAllByRole('listitem')).toHaveLength(5)
     const link = screen.getByRole('link', { name: 'Ver todas as recorrências' })
     expect(link.getAttribute('href')).toBe('/recurring')
+    expect(link.closest('[data-slot="card-action"]')).not.toBeNull()
   })
 
   it('fiveOrFewer_noLink', async () => {
