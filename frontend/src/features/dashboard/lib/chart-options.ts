@@ -1,8 +1,8 @@
 import type { EChartsCoreOption } from 'echarts/core'
-import type { DashboardResponse } from '@/shared/api/types'
 import { escapeHtml } from '@/shared/lib/html'
 import { formatMoney, type Locale } from '@/shared/lib/money'
 import type { ChartColors } from './chart-colors'
+import type { SpendingSlice } from './figures'
 
 type Tooltip = { name: string; value: number }
 
@@ -19,11 +19,12 @@ const tooltip = (colors: ChartColors, text: (p: Tooltip) => string) => ({
   textStyle: { color: colors.text },
 })
 
-/** Doughnut of spending; each slice takes the color of its category. */
+/** Doughnut of spending; each slice takes the color of its category, the grouped rest is muted. */
 export function spendingOption(
-  spending: DashboardResponse['spendingByCategory'],
+  slices: SpendingSlice[],
   colors: ChartColors,
   locale: Locale,
+  othersName: (n: number) => string,
 ): EChartsCoreOption {
   return {
     tooltip: tooltip(colors, (p) => `${p.name}: ${formatMoney(p.value, locale)}`),
@@ -34,11 +35,11 @@ export function spendingOption(
         label: { show: false },
         labelLine: { show: false },
         itemStyle: { borderColor: colors.surface, borderWidth: 2 },
-        data: spending.map((c) => ({
-          name: c.name,
-          value: c.totalCents,
-          // the category's own color comes from the API, not from the tokens
-          itemStyle: { color: c.color },
+        data: slices.map((s) => ({
+          name: s.name ?? othersName(s.othersCount),
+          value: s.totalCents,
+          // a category's own color comes from the API, not from the tokens
+          itemStyle: { color: s.color ?? colors.muted },
         })),
       },
     ],

@@ -39,7 +39,9 @@ const summary = computed(() =>
         </div>
         <div>
           <dt class="text-sm text-muted-foreground">
-            {{ summary.kind === 'short' ? t('dashboard.summary.short') : t('dashboard.summary.left') }}
+            {{
+              summary.kind === 'short' ? t('dashboard.summary.short') : t('dashboard.summary.left')
+            }}
           </dt>
           <dd
             class="text-2xl font-semibold"

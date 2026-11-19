@@ -48,7 +48,7 @@ const dashboard = useDashboard(month)
     <template v-if="!dashboard.isError.value">
       <BalanceCard :data="dashboard.data.value" />
       <MonthSummaryCard class="lg:col-span-2" :data="dashboard.data.value" />
-      <SpendingDonut :data="dashboard.data.value" />
+      <SpendingDonut :data="dashboard.data.value" :month="month" />
       <BudgetsCard :data="dashboard.data.value" />
       <GoalsCard :data="dashboard.data.value" />
       <UpcomingCard :data="dashboard.data.value" />

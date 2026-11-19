@@ -666,12 +666,14 @@
       "leftShare": "{percent}% of what came in"
     },
     "spending": {
-      "title": "Spending by category",
+      "title": "Where the money went",
       "empty": "No expenses in this month.",
       "emptyDescription": "Record an expense to see where the money goes.",
       "emptyCta": "Record an expense",
       "chartLabel": "Doughnut chart of the month's spending by category",
-      "legendLabel": "Spending by category"
+      "legendLabel": "Spending by category",
+      "others": "{n} others",
+      "linkLabel": "See {name} transactions ({share})"
     },
     "budgets": {
       "title": "Budgets",

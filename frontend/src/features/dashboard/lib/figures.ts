@@ -40,9 +40,7 @@ const MAX_LISTED = 6
 const KEPT_WHEN_GROUPED = 5
 
 /** Spending as slices with shares, in the API's order (largest first). */
-export function spendingSlices(
-  spending: DashboardResponse['spendingByCategory'],
-): SpendingSlice[] {
+export function spendingSlices(spending: DashboardResponse['spendingByCategory']): SpendingSlice[] {
   const total = spending.reduce((sum, c) => sum + c.totalCents, 0)
   const share = (cents: number) => (total > 0 ? Math.round((cents * 100) / total) : 0)
   const named = spending.length > MAX_LISTED ? spending.slice(0, KEPT_WHEN_GROUPED) : spending
