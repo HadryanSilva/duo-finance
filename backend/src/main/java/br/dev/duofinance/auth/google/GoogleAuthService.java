@@ -69,9 +69,12 @@ public class GoogleAuthService {
     }
 
     private void link(User user, GoogleIdentity google) {
-        if (identities
-                .findByUserIdAndProvider(user.getId(), IdentityProvider.GOOGLE)
-                .isPresent()) {
+        Optional<UserIdentity> existing = identities.findByUserIdAndProvider(user.getId(), IdentityProvider.GOOGLE);
+        if (existing.isPresent()) {
+            // The same Google account already linked (double click, or a concurrent request that won): nothing to do.
+            if (existing.get().getProviderSubject().equals(google.subject())) {
+                return;
+            }
             throw new ApiException(ErrorCode.GOOGLE_ACCOUNT_CONFLICT);
         }
         Instant now = Instant.now(clock);
