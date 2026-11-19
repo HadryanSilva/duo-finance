@@ -135,7 +135,8 @@ describe('RecurringPage', () => {
     await screen.findByText('Aluguel')
     const text = norm(document.body.textContent)
     expect(text).toContain('Saídas fixas')
-    expect(text).toContain('Falta fixa por mês')
+    // no fixed income among the active rules: no "Falta fixa"
+    expect(text).not.toContain('Falta fixa por mês')
   })
 
   it('summary_ignoresPausedAndFinished', async () => {

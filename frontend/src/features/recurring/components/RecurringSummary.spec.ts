@@ -35,6 +35,15 @@ describe('RecurringSummary', () => {
     expect(wrapper.find('[data-testid="fixed-net"]').classes()).toContain('text-expense')
   })
 
+  it('summary_noFixedIncome_hidesShort', async () => {
+    const wrapper = await mount([rule('EXPENSE', 95000, 'MONTHLY')])
+    const text = norm(wrapper.text())
+    expect(text).toContain('Saídas fixas')
+    expect(text).toContain('€ 950,00')
+    expect(text).not.toContain('Falta fixa')
+    expect(wrapper.find('[data-testid="fixed-net"]').exists()).toBe(false)
+  })
+
   it('summary_onlyTransfers_rendersNothing', async () => {
     const wrapper = await mount([rule('TRANSFER', 50000, 'MONTHLY')])
     expect(wrapper.text()).toBe('')

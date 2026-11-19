@@ -13,6 +13,11 @@ const { t } = useI18n()
 const counted = computed(() => props.rules.filter((r) => r.kind !== 'TRANSFER'))
 const fixed = computed(() => fixedMonthly(counted.value))
 const short = computed(() => fixed.value.netCents < 0)
+/**
+ * Without any fixed income (a salary not set up as a recurring rule), "Falta fixa" would only
+ * repeat the spending total in red, so the balance is left out.
+ */
+const hasIncome = computed(() => counted.value.some((r) => r.kind === 'INCOME'))
 </script>
 
 <template>
@@ -35,7 +40,7 @@ const short = computed(() => fixed.value.netCents < 0)
           <MoneyText :cents="fixed.outCents" kind="EXPENSE" />
         </dd>
       </div>
-      <div>
+      <div v-if="hasIncome">
         <dt class="text-sm text-muted-foreground">
           {{ short ? t('recurring.summary.short') : t('recurring.summary.left') }}
         </dt>
