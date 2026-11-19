@@ -83,7 +83,8 @@ teardown_file() {
 @test "public api works through nginx" {
   run curl -fsS http://localhost:8088/api/v1/public/registration-mode
   [ "$status" -eq 0 ]
-  [ "$output" = '{"mode":"INVITE_ONLY"}' ]
+  # The response also carries googleClientId (null here: the local stack leaves GOOGLE_CLIENT_ID empty).
+  [[ "$output" == *'"mode":"INVITE_ONLY"'* ]]
   run curl -sS -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
     -d '{"email":"smoke@example.com","locale":"pt-BR"}' http://localhost:8088/api/v1/public/waitlist
   [ "$output" = "202" ]
