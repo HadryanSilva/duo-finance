@@ -18,8 +18,9 @@ const EXCEEDED_PERCENT = 100
 
 const spent = computed(() => props.budgets.reduce((sum, b) => sum + b.spentCents, 0))
 const limit = computed(() => props.budgets.reduce((sum, b) => sum + b.monthlyLimitCents, 0))
+/** Truncated, as the backend's BudgetResponse.percent: 99.5% is still 99%, not exceeded. */
 const percent = computed(() =>
-  limit.value > 0 ? Math.round((spent.value * 100) / limit.value) : 0,
+  limit.value > 0 ? Math.floor((spent.value * 100) / limit.value) : 0,
 )
 const status = computed<BudgetStatus>(() =>
   percent.value >= EXCEEDED_PERCENT

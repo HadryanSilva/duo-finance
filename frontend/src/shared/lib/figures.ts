@@ -31,7 +31,7 @@ export function monthlyEquivalentCents(amountCents: number, frequency: Recurring
 
 /**
  * Fixed monthly inflow and outflow of recurring rules; transfers only move money between own
- * accounts and are left out. Each total is rounded once, after summing the exact equivalents.
+ * accounts and are left out. In and out are rounded once, after summing the exact equivalents.
  */
 export function fixedMonthly(
   rules: { kind: TransactionKind; amountCents: number; frequency: RecurringFrequency }[],
@@ -43,9 +43,8 @@ export function fixedMonthly(
     if (r.kind === 'INCOME') income += monthly
     else if (r.kind === 'EXPENSE') expense += monthly
   }
-  return {
-    inCents: Math.round(income),
-    outCents: Math.round(expense),
-    netCents: Math.round(income - expense),
-  }
+  const inCents = Math.round(income)
+  const outCents = Math.round(expense)
+  // Derived from the rounded totals, so the three figures on screen always add up.
+  return { inCents, outCents, netCents: inCents - outCents }
 }

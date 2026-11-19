@@ -34,6 +34,14 @@ describe('fixedMonthly', () => {
       ]),
     ).toEqual({ inCents: 320000, outCents: 112333, netCents: 207667 }))
 
+  it('fixedMonthly_netIsInMinusOut', () => {
+    const f = fixedMonthly([
+      { kind: 'INCOME', amountCents: 17, frequency: 'YEARLY' },
+      { kind: 'EXPENSE', amountCents: 7, frequency: 'YEARLY' },
+    ])
+    expect(f.netCents).toBe(f.inCents - f.outCents)
+  })
+
   it('fixedMonthly_roundsOnce', () =>
     expect(
       fixedMonthly(

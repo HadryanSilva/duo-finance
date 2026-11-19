@@ -12,7 +12,7 @@ const budget = (name: string, spentCents: number, limitCents: number, status: st
     monthlyLimitCents: limitCents,
     month: '2026-11',
     spentCents,
-    percent: Math.round((spentCents * 100) / limitCents),
+    percent: Math.floor((spentCents * 100) / limitCents),
     status,
   }) as BudgetResponse
 
@@ -55,6 +55,14 @@ describe('BudgetsSummary', () => {
     expect(
       screen.getByRole('progressbar', { name: 'Total do mês' }).getAttribute('data-status'),
     ).toBe('WARNING')
+  })
+
+  it('summary_truncatesPercentLikeTheBackend', async () => {
+    const text = await mount([budget('Mercado', 99500, 100000, 'WARNING')])
+    const bar = screen.getByRole('progressbar', { name: 'Total do mês' })
+    expect(bar.getAttribute('data-status')).toBe('WARNING')
+    expect(text).toContain('99%')
+    expect(text).toContain('restam € 5,00 no total')
   })
 
   it('summary_currentMonth_daysLeft', async () => {

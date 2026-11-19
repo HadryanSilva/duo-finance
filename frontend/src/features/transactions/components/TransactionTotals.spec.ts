@@ -45,6 +45,25 @@ describe('TransactionTotals', () => {
     expect(await screen.findByRole('alert')).toBeTruthy()
   })
 
+  it('totals_filterChange_keepsPreviousFiguresWhileLoading', async () => {
+    let calls = 0
+    let release: () => void = () => {}
+    const { wrapper } = await mount({ categoryId: 'c1' }, () => {
+      calls++
+      if (calls === 1) return totals(0, 98000, 14)()
+      return new Promise<Response>((resolve) => {
+        release = () => resolve(totals(0, 1000, 1)())
+      }) as unknown as Response
+    })
+    await waitFor(() => expect(norm(wrapper.text())).toContain('14 lançamentos'))
+    await wrapper.setProps({ filter: { categoryId: 'c2' } })
+    await waitFor(() => expect(calls).toBe(2))
+    expect(wrapper.find('[data-slot="skeleton"]').exists()).toBe(false)
+    expect(norm(wrapper.text())).toContain('14 lançamentos')
+    release()
+    await waitFor(() => expect(norm(wrapper.text())).toContain('1 lançamento'))
+  })
+
   it('totals_zeroCount_rendersNothing', async () => {
     let answered = false
     const { wrapper } = await mount({}, () => {

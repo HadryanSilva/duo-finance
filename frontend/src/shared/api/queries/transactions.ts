@@ -1,4 +1,10 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/vue-query'
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { useHttp } from '@/app/providers'
 import type {
@@ -55,6 +61,8 @@ export function useTransactionTotals(filter: MaybeRefOrGetter<TransactionFilter>
     queryKey: computed(() => [...KEY, 'totals', toValue(filter)]),
     queryFn: () =>
       http.get<TransactionTotalsResponse>('/transactions/totals', { ...toValue(filter) }),
+    // a new filter keeps the previous figures on screen until its own arrive: no skeleton flash
+    placeholderData: keepPreviousData,
   })
 }
 
