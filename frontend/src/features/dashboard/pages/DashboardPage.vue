@@ -10,7 +10,7 @@ import { useDashboard } from '../api/dashboard-api'
 import BalanceCard from '../components/BalanceCard.vue'
 import BudgetsCard from '../components/BudgetsCard.vue'
 import GoalsCard from '../components/GoalsCard.vue'
-import IncomeExpenseChart from '../components/IncomeExpenseChart.vue'
+import MonthSummaryCard from '../components/MonthSummaryCard.vue'
 import RecentTransactionsCard from '../components/RecentTransactionsCard.vue'
 import SpendingDonut from '../components/SpendingDonut.vue'
 import UpcomingCard from '../components/UpcomingCard.vue'
@@ -47,7 +47,7 @@ const dashboard = useDashboard(month)
     <!-- A failed dashboard request hides its cards instead of leaving them on skeletons. -->
     <template v-if="!dashboard.isError.value">
       <BalanceCard :data="dashboard.data.value" />
-      <IncomeExpenseChart class="lg:col-span-2" :data="dashboard.data.value" />
+      <MonthSummaryCard class="lg:col-span-2" :data="dashboard.data.value" />
       <SpendingDonut :data="dashboard.data.value" />
       <BudgetsCard :data="dashboard.data.value" />
       <GoalsCard :data="dashboard.data.value" />

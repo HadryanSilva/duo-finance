@@ -19,42 +19,6 @@ const tooltip = (colors: ChartColors, text: (p: Tooltip) => string) => ({
   textStyle: { color: colors.text },
 })
 
-/** Income x expense bars; values stay in cents and are formatted for display only. */
-export function incomeExpenseOption(
-  data: Pick<DashboardResponse, 'incomeCents' | 'expenseCents'>,
-  colors: ChartColors,
-  labels: { income: string; expense: string },
-  locale: Locale,
-): EChartsCoreOption {
-  const money = (cents: number) => formatMoney(cents, locale)
-  return {
-    grid: { left: 8, right: 8, top: 16, bottom: 8, containLabel: true },
-    tooltip: tooltip(colors, (p) => `${p.name}: ${money(p.value)}`),
-    xAxis: {
-      type: 'category',
-      data: [labels.income, labels.expense],
-      axisLabel: { color: colors.muted },
-      axisLine: { lineStyle: { color: colors.border } },
-      axisTick: { show: false },
-    },
-    yAxis: {
-      type: 'value',
-      axisLabel: { color: colors.muted, formatter: (v: number) => money(v) },
-      splitLine: { lineStyle: { color: colors.border } },
-    },
-    series: [
-      {
-        type: 'bar',
-        barMaxWidth: 64,
-        data: [
-          { value: data.incomeCents, itemStyle: { color: colors.income } },
-          { value: data.expenseCents, itemStyle: { color: colors.expense } },
-        ],
-      },
-    ],
-  }
-}
-
 /** Doughnut of spending; each slice takes the color of its category. */
 export function spendingOption(
   spending: DashboardResponse['spendingByCategory'],

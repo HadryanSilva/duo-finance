@@ -657,11 +657,13 @@
       "emptyDescription": "Add a bank account to see your balances.",
       "emptyCta": "Create first account"
     },
-    "incomeExpense": {
-      "title": "Income and expenses",
-      "income": "Income",
-      "expense": "Expenses",
-      "chartLabel": "Bar chart comparing the month's income and expenses"
+    "summary": {
+      "label": "Month summary",
+      "in": "In",
+      "out": "Out",
+      "left": "Left over",
+      "short": "Short by",
+      "leftShare": "{percent}% of what came in"
     },
     "spending": {
       "title": "Spending by category",

@@ -657,11 +657,13 @@
       "emptyDescription": "Adicione uma conta bancária para ver os saldos.",
       "emptyCta": "Criar primeira conta"
     },
-    "incomeExpense": {
-      "title": "Receitas e despesas",
-      "income": "Receitas",
-      "expense": "Despesas",
-      "chartLabel": "Gráfico de barras comparando receitas e despesas do mês"
+    "summary": {
+      "label": "Resumo do mês",
+      "in": "Entrou",
+      "out": "Saiu",
+      "left": "Sobrou",
+      "short": "Faltou",
+      "leftShare": "{percent}% do que entrou"
     },
     "spending": {
       "title": "Gastos por categoria",

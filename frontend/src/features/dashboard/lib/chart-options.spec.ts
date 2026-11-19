@@ -2,7 +2,7 @@ import { init, use, type EChartsCoreOption } from 'echarts/core'
 import { SVGRenderer } from 'echarts/renderers'
 import { describe, expect, it, vi } from 'vitest'
 import type { ChartColors } from './chart-colors'
-import { incomeExpenseOption, spendingOption } from './chart-options'
+import { spendingOption } from './chart-options'
 import { ECHARTS_MODULES } from './echarts-modules'
 
 // The global mock in test/setup.ts hides missing registrations: use the real ECharts here.
@@ -31,12 +31,7 @@ function renderSvg(option: EChartsCoreOption): string {
 
 describe('tooltip theme', () => {
   it('tooltip_followsThemeColors', () => {
-    const opt = incomeExpenseOption(
-      { incomeCents: 1, expenseCents: 1 },
-      colors,
-      { income: 'a', expense: 'b' },
-      'en',
-    ) as { tooltip: Record<string, unknown> }
+    const opt = spendingOption([], colors, 'en') as { tooltip: Record<string, unknown> }
     expect(opt.tooltip).toMatchObject({
       backgroundColor: 'white',
       borderColor: 'silver',
@@ -62,32 +57,10 @@ describe('tooltip text', () => {
     expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;')
   })
 
-  it('incomeExpenseTooltip_escapesLabels', () => {
-    const opt = incomeExpenseOption(
-      { incomeCents: 1, expenseCents: 1 },
-      colors,
-      { income: '<b>in</b>', expense: 'out' },
-      'en',
-    )
-    expect(formatterOf(opt)({ name: '<b>in</b>', value: 1 })).toMatch(/^&lt;b&gt;in&lt;\/b&gt;: /)
-  })
+
 })
 
 describe('chart options with the registered ECharts modules', () => {
-  it('incomeExpenseOption_drawsBarsOnAxes', () => {
-    const svg = renderSvg(
-      incomeExpenseOption(
-        { incomeCents: 500000, expenseCents: 123456 },
-        colors,
-        { income: 'Receitas', expense: 'Despesas' },
-        'pt-BR',
-      ),
-    )
-    expect(svg).toMatch(/<path|<rect/)
-    expect(svg).toContain('green')
-    expect(svg).toContain('red')
-  })
-
   it('spendingOption_drawsDoughnutSlices', () => {
     const svg = renderSvg(
       spendingOption(

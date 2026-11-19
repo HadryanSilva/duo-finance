@@ -158,8 +158,8 @@ describe('DashboardPage', () => {
       '/transactions',
     )
 
-    // both charts got an option (income x expense bars and the spending doughnut)
-    await waitFor(() => expect(wrapper.findAllComponents({ name: 'VChart' })).toHaveLength(2))
+    // the spending doughnut is the only chart left
+    await waitFor(() => expect(wrapper.findAllComponents({ name: 'VChart' })).toHaveLength(1))
   })
 
   it('recent_asksForFiveWithoutDateFilter', async () => {
