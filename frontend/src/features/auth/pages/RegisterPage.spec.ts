@@ -2,7 +2,11 @@ import { screen, waitFor } from '@testing-library/dom'
 import { http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AuthResponse } from '@/shared/api/types'
+import { useGoogleSignup } from '../google/google-signup-store'
 import { renderRoute, testUser } from '@/test/render'
+
+const gsi = vi.hoisted(() => ({ initialize: vi.fn(), renderButton: vi.fn() }))
+vi.mock('../google/load-gsi', () => ({ loadGsi: () => Promise.resolve(gsi) }))
 
 const api = `${window.location.origin}/api/v1`
 const authResponse: AuthResponse = { accessToken: 'new-token', expiresIn: 900, user: testUser }
@@ -29,6 +33,33 @@ async function fill(r: R, opts: { terms?: boolean; code?: string } = {}) {
 }
 
 describe('RegisterPage', () => {
+  it('register_googleSignupWithInvite_keepsInvitationToken', async () => {
+    gsi.initialize.mockClear()
+    const r = await renderRoute({
+      route: '/register?invite=inv-tok',
+      handlers: [
+        http.get(`${api}/public/registration-mode`, () =>
+          HttpResponse.json({ mode: 'INVITE_ONLY', googleClientId: 'cid' }),
+        ),
+        http.post(`${api}/auth/google`, () =>
+          HttpResponse.json({
+            status: 'SIGNUP_REQUIRED',
+            signupTicket: 't1',
+            email: 'ana@example.com',
+            displayName: 'Ana',
+          }),
+        ),
+      ],
+    })
+    await waitFor(() => expect(gsi.initialize).toHaveBeenCalled())
+    const { callback } = gsi.initialize.mock.calls[0]![0] as {
+      callback: (x: { credential: string }) => void
+    }
+    callback({ credential: 'cred' })
+    await waitFor(() => expect(useGoogleSignup(r.pinia).signup).not.toBeNull())
+    expect(useGoogleSignup(r.pinia).signup?.invitationToken).toBe('inv-tok')
+  })
+
   afterEach(() => vi.restoreAllMocks())
 
   it('register_hidesCodeField_whenOpenMode', async () => {

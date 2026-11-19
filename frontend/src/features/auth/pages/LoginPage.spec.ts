@@ -1,9 +1,12 @@
 import { screen, waitFor } from '@testing-library/dom'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthResponse } from '@/shared/api/types'
 import { useSession } from '@/shared/session/session-store'
 import { renderRoute, testUser } from '@/test/render'
+
+const loadGsi = vi.hoisted(() => vi.fn())
+vi.mock('../google/load-gsi', () => ({ loadGsi }))
 
 const api = `${window.location.origin}/api/v1`
 const authResponse: AuthResponse = { accessToken: 'new-token', expiresIn: 900, user: testUser }
@@ -15,6 +18,26 @@ async function fillAndSubmit(r: Awaited<ReturnType<typeof renderRoute>>) {
 }
 
 describe('LoginPage', () => {
+  beforeEach(() => loadGsi.mockClear())
+
+  it('login_googleClientIdNull_hasNoGoogleButton', async () => {
+    let asked = false
+    await renderRoute({
+      route: '/login',
+      handlers: [
+        http.get(`${api}/public/registration-mode`, () => {
+          asked = true
+          return HttpResponse.json({ mode: 'OPEN', googleClientId: null })
+        }),
+      ],
+    })
+    await waitFor(() => expect(asked).toBe(true))
+    // let the query result reach the page before asserting absence
+    await new Promise((r) => setTimeout(r, 0))
+    expect(screen.queryByRole('group', { name: 'Continuar com o Google' })).toBeNull()
+    expect(loadGsi).not.toHaveBeenCalled()
+  })
+
   it('login_success_redirectsToRedirectParam', async () => {
     let body: unknown
     const r = await renderRoute({

@@ -120,12 +120,6 @@ describe('GoogleButton', () => {
     )
   })
 
-  it('is not shown on the login page when googleClientId is null', async () => {
-    await renderRoute({ route: '/login', handlers: [config(null)] })
-    await new Promise((r) => setTimeout(r, 50))
-    expect(gsi.initialize).not.toHaveBeenCalled()
-  })
-
   it('is shown on the register page when googleClientId is set', async () => {
     await renderRoute({ route: '/register', handlers: [config('cid')] })
     await waitFor(() => expect(gsi.initialize).toHaveBeenCalled())
