@@ -56,3 +56,10 @@ export function formatInstant(iso: string, locale: Locale): string {
     new Date(iso),
   )
 }
+
+/** First and last day (YYYY-MM-DD) of a YYYY-MM month, built from its parts. */
+export function monthRange(month: string): { from: string; to: string } {
+  const [y = 0, m = 1] = month.split('-').map(Number)
+  const last = new Date(y, m, 0).getDate()
+  return { from: `${month}-01`, to: `${month}-${String(last).padStart(2, '0')}` }
+}

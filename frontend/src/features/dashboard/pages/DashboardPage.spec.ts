@@ -137,7 +137,8 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Conta Corrente')).toBeTruthy()
     expect(screen.getByText('Poupança')).toBeTruthy()
 
-    // income and expense totals
+    // month summary: in, out and what is left
+    expect(norm(document.body.textContent)).toContain('Sobrou')
     expect(norm(document.body.textContent)).toContain('€ 5.000,00')
     expect(norm(document.body.textContent)).toContain('€ 1.234,56')
 
@@ -160,6 +161,25 @@ describe('DashboardPage', () => {
 
     // the spending doughnut is the only chart left
     await waitFor(() => expect(wrapper.findAllComponents({ name: 'VChart' })).toHaveLength(1))
+  })
+
+  it('dashboard_cardsInReadingOrder', async () => {
+    const s = setup(full, [tx('t1', 'Feira', '2026-03-30')])
+    await s.render('/dashboard?month=2026-03')
+    await screen.findByText('Saldo total')
+    await screen.findByRole('list', { name: 'Últimos lançamentos' })
+    const text = norm(document.body.textContent)
+    const order = [
+      'Entrou',
+      'Para onde foi o dinheiro',
+      'Orçamentos',
+      'Saldo total',
+      'Próximos',
+      'Objetivos',
+      'Últimos lançamentos',
+    ].map((label) => text.indexOf(label, text.indexOf('Entrou')))
+    expect(order.every((i) => i >= 0)).toBe(true)
+    expect([...order].sort((a, b) => a - b)).toEqual(order)
   })
 
   it('recent_asksForFiveWithoutDateFilter', async () => {
