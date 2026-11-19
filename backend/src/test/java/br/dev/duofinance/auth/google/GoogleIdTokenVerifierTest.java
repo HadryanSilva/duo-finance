@@ -10,8 +10,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.security.oauth2.jwt.BadJwtException;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtException;
 
 class GoogleIdTokenVerifierTest {
 
@@ -84,6 +88,32 @@ class GoogleIdTokenVerifierTest {
                 CLIENT_ID);
 
         assertCode(() -> verifier.verify("t"), ErrorCode.GOOGLE_TOKEN_INVALID);
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    void verify_jwksUnavailable_isTokenInvalidAndLogsWarnWithoutToken(CapturedOutput output) {
+        var verifier = new GoogleIdTokenVerifier(
+                token -> {
+                    throw new JwtException("Couldn't retrieve remote JWK set");
+                },
+                CLIENT_ID);
+
+        assertCode(() -> verifier.verify("secret-id-token"), ErrorCode.GOOGLE_TOKEN_INVALID);
+        assertThat(output).contains("WARN").contains("JWK set").doesNotContain("secret-id-token");
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    void verify_badToken_doesNotWarn(CapturedOutput output) {
+        var verifier = new GoogleIdTokenVerifier(
+                token -> {
+                    throw new BadJwtException("bad signature");
+                },
+                CLIENT_ID);
+
+        assertCode(() -> verifier.verify("t"), ErrorCode.GOOGLE_TOKEN_INVALID);
+        assertThat(output).doesNotContain("WARN");
     }
 
     @Test

@@ -6,13 +6,18 @@ import br.dev.duofinance.shared.error.ErrorCode;
 import br.dev.duofinance.shared.token.SecureTokens;
 import java.util.List;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.oauth2.jwt.BadJwtException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Service;
 
 @Service
 public class GoogleIdTokenVerifier {
+
+    private static final Logger log = LoggerFactory.getLogger(GoogleIdTokenVerifier.class);
 
     private static final Set<String> ISSUERS = Set.of("https://accounts.google.com", "accounts.google.com");
 
@@ -40,7 +45,12 @@ public class GoogleIdTokenVerifier {
         Jwt jwt;
         try {
             jwt = decoder.decode(idToken);
+        } catch (BadJwtException e) {
+            throw new ApiException(ErrorCode.GOOGLE_TOKEN_INVALID);
         } catch (JwtException e) {
+            // Not a bad token but a failure to check it (typically Google's JWKS could not be fetched). The client
+            // still gets the same 401; the message never carries the token itself.
+            log.warn("Google ID token could not be verified: {}", e.getMessage());
             throw new ApiException(ErrorCode.GOOGLE_TOKEN_INVALID);
         }
         List<String> audience = jwt.getAudience();
