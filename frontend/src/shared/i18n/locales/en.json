@@ -607,7 +607,22 @@
     "completeMessage": "{amount} will no longer be set aside.",
     "deleteTitle": "Delete {name}?",
     "deleteMessage": "The history will be erased and {amount} will no longer be set aside.",
-    "deleteCompletedMessage": "The history will be erased."
+    "deleteCompletedMessage": "The history will be erased.",
+    "suggestions": {
+      "header": "Suggestions for {month} · Salary {salary}",
+      "listLabel": "Monthly suggestions",
+      "confirm": "Confirm",
+      "adjust": "Adjust",
+      "confirmLabel": "Confirm {name}",
+      "failureFor": "{name}: {message}",
+      "adjustLabel": "Adjust {name}",
+      "skipLabel": "Skip {name}",
+      "amountFor": "Amount for {name}",
+      "amountTooHigh": "The amount is more than what is left: {amount}.",
+      "noSalary": "No salary in {month} in the {name} category.",
+      "allDone": "All decided for {month}.",
+      "title": "Contributions for {month}"
+    }
   },
   "recurring": {
     "subtitle": "Transactions that repeat on their own.",
