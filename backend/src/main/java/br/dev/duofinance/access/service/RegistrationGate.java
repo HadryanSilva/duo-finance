@@ -2,7 +2,6 @@ package br.dev.duofinance.access.service;
 
 import br.dev.duofinance.account.model.Invitation;
 import br.dev.duofinance.account.repository.InvitationRepository;
-import br.dev.duofinance.auth.dto.RegisterRequest;
 import br.dev.duofinance.shared.config.AppProperties;
 import br.dev.duofinance.shared.config.AppProperties.RegistrationMode;
 import br.dev.duofinance.shared.error.ApiException;
@@ -32,13 +31,13 @@ public class RegistrationGate {
 
     /** An invitation token takes priority over an access code. */
     @Transactional(readOnly = true)
-    public RegistrationGrant authorize(RegisterRequest req, String normalizedEmail) {
-        if (hasText(req.invitationToken())) {
-            return new InvitationGrant(requireValidInvitation(req.invitationToken(), normalizedEmail));
+    public RegistrationGrant authorize(String accessCode, String invitationToken, String normalizedEmail) {
+        if (hasText(invitationToken)) {
+            return new InvitationGrant(requireValidInvitation(invitationToken, normalizedEmail));
         }
-        if (hasText(req.accessCode())) {
-            accessCodes.check(req.accessCode(), normalizedEmail);
-            return new CodeGrant(req.accessCode());
+        if (hasText(accessCode)) {
+            accessCodes.check(accessCode, normalizedEmail);
+            return new CodeGrant(accessCode);
         }
         if (props.registration().mode() == RegistrationMode.OPEN) {
             return new OpenGrant();

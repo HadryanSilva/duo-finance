@@ -2,10 +2,17 @@ package br.dev.duofinance.auth.controller;
 
 import br.dev.duofinance.auth.dto.AuthResponse;
 import br.dev.duofinance.auth.dto.ForgotPasswordRequest;
+import br.dev.duofinance.auth.dto.GoogleCompleteRequest;
+import br.dev.duofinance.auth.dto.GoogleLoginRequest;
+import br.dev.duofinance.auth.dto.GoogleLoginResponse;
 import br.dev.duofinance.auth.dto.LoginRequest;
 import br.dev.duofinance.auth.dto.RegisterRequest;
 import br.dev.duofinance.auth.dto.ResetPasswordRequest;
 import br.dev.duofinance.auth.dto.TokenRequest;
+import br.dev.duofinance.auth.google.GoogleAuthService;
+import br.dev.duofinance.auth.google.GoogleAuthService.Authenticated;
+import br.dev.duofinance.auth.google.GoogleAuthService.GoogleAuthResult;
+import br.dev.duofinance.auth.google.GoogleAuthService.SignupRequired;
 import br.dev.duofinance.auth.service.AuthSessionService;
 import br.dev.duofinance.auth.service.AuthSessionService.SessionTokens;
 import br.dev.duofinance.auth.service.EmailVerificationService;
@@ -35,6 +42,7 @@ public class AuthController {
     private final LoginService login;
     private final EmailVerificationService verification;
     private final PasswordResetService passwordReset;
+    private final GoogleAuthService google;
 
     public AuthController(
             AuthSessionService sessions,
@@ -42,7 +50,9 @@ public class AuthController {
             RegistrationService registration,
             LoginService login,
             EmailVerificationService verification,
-            PasswordResetService passwordReset) {
+            PasswordResetService passwordReset,
+            GoogleAuthService google) {
+        this.google = google;
         this.verification = verification;
         this.passwordReset = passwordReset;
         this.sessions = sessions;
@@ -62,6 +72,27 @@ public class AuthController {
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
         SessionTokens session = login.login(request.email(), request.password());
+        cookies.set(response, session.rawRefreshToken());
+        return AuthResponse.of(session);
+    }
+
+    @PostMapping("/google")
+    public GoogleLoginResponse google(@Valid @RequestBody GoogleLoginRequest request, HttpServletResponse response) {
+        GoogleAuthResult result = google.authenticate(request.credential());
+        return switch (result) {
+            case Authenticated authenticated -> {
+                cookies.set(response, authenticated.session().rawRefreshToken());
+                yield GoogleLoginResponse.authenticated(authenticated.session());
+            }
+            case SignupRequired required -> GoogleLoginResponse.signupRequired(required);
+        };
+    }
+
+    @PostMapping("/google/complete")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AuthResponse googleComplete(
+            @Valid @RequestBody GoogleCompleteRequest request, HttpServletResponse response) {
+        SessionTokens session = registration.registerWithGoogle(request);
         cookies.set(response, session.rawRefreshToken());
         return AuthResponse.of(session);
     }

@@ -223,6 +223,7 @@ finais de linha LF, `chmod 600` e dono `deploy`:
    | `RESEND_API_KEY` | a API key do Resend |
    | `EMAIL_FROM` | `Duo Finance <no-reply@duofinance.dev.br>` (remetente do domínio verificado) |
    | `PUBLIC_BASE_URL` | `https://duofinance.dev.br` |
+   | `GOOGLE_CLIENT_ID` | o Client ID do login com Google (seção 10, "Login com Google"); vazio esconde o botão |
 
    As chaves do backup (`BACKUP_S3_*`, `AWS_*`) não existem no `.env`: ficam no `backup.env`
    (seção 9). Nunca as acrescente ao `.env`, pois tudo o que está nele chega ao contêiner `api`.
@@ -704,6 +705,40 @@ docker compose exec postgres psql -U duofinance -d duofinance \
 
 Resultado esperado: `UPDATE 1`. Se for `UPDATE 0`, o e-mail está errado. Faça logout e login de novo
 para o papel valer.
+
+### Login com Google
+
+O botão "Continuar com o Google" só aparece quando `GOOGLE_CLIENT_ID` está preenchido. Nada do
+Google carrega nas nossas páginas: o clique leva o navegador à tela de login do Google, que devolve um
+ID token para `/auth/google/callback`. O backend valida esse token contra o Client ID.
+
+1. No [Google Cloud Console](https://console.cloud.google.com/), abra (ou crie) um projeto e vá em
+   **APIs e serviços > Credenciais > Criar credenciais > ID do cliente OAuth**.
+2. Tipo de aplicativo: **Aplicativo da Web**.
+3. Em **URIs de redirecionamento autorizados**, adicione
+   `https://duofinance.dev.br/auth/google/callback` e, para desenvolvimento,
+   `http://localhost:5173/auth/google/callback` (Vite) e
+   `http://localhost:8088/auth/google/callback` (stack local com nginx). O endereço precisa bater
+   exatamente, senão o Google responde `redirect_uri_mismatch`. As **Origens JavaScript
+   autorizadas** podem ficar vazias.
+4. Na **tela de consentimento OAuth**, informe o nome do app e os links das páginas
+   `https://duofinance.dev.br/terms` (termos) e `https://duofinance.dev.br/privacy` (privacidade).
+   Os escopos são só os básicos (`openid`, `email`, `profile`).
+5. Copie o Client ID (termina em `.apps.googleusercontent.com`) para `GOOGLE_CLIENT_ID` no `.env` e
+   reinicie o backend:
+
+   ```bash
+   cd /opt/duo-finance
+   nano .env
+   docker compose up -d api
+   ```
+
+   Resultado esperado: o contêiner `api` é recriado e a tela de login mostra o botão do Google.
+6. Com `GOOGLE_CLIENT_ID` vazio, o botão some e o login com Google fica desligado. O login com e-mail e
+   senha não é afetado.
+
+A CSP do nginx não precisa liberar nada do Google: o login acontece numa navegação de página inteira,
+fora do nosso site.
 
 ## 11. Operação
 

@@ -19,6 +19,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
@@ -104,7 +109,11 @@ public class JwtKeyConfig {
                 .build();
         JwtTimestampValidator timestamps = new JwtTimestampValidator(Duration.ZERO);
         timestamps.setClock(clock);
-        decoder.setJwtValidator(timestamps);
+        OAuth2TokenValidator<Jwt> noAudience = jwt -> jwt.getAudience() == null || jwt.getAudience().isEmpty()
+                ? OAuth2TokenValidatorResult.success()
+                : OAuth2TokenValidatorResult.failure(
+                        new OAuth2Error("invalid_token", "Tokens with an audience are not access tokens", null));
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(timestamps, noAudience));
         return decoder;
     }
 

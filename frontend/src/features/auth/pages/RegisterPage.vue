@@ -6,7 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useHttp } from '@/app/providers'
 import type { AuthResponse } from '@/shared/api/types'
-import { useRegistrationMode } from '@/shared/api/queries/public'
+import { useAuthConfig } from '@/shared/api/queries/public'
 import { detectLocale } from '@/shared/i18n'
 import { errorMessage } from '@/shared/i18n/error-codes'
 import { TERMS_VERSION } from '@/shared/lib/legal'
@@ -18,6 +18,7 @@ import { register } from '../api/auth-api'
 import PasswordField from '../components/PasswordField.vue'
 import TextField from '@/shared/ui/TextField.vue'
 import { registerSchema } from '../schemas'
+import GoogleButton from '../google/GoogleButton.vue'
 
 const { t } = useI18n()
 const http = useHttp()
@@ -28,10 +29,13 @@ const router = useRouter()
 const first = (v: unknown) => (typeof v === 'string' && v ? v : undefined)
 const inviteToken = first(route.query.invite)
 
-const mode = useRegistrationMode({ enabled: () => !inviteToken })
+const config = useAuthConfig()
+const googleClientId = computed(() => config.data.value?.googleClientId ?? null)
 // An invitation replaces the code; in OPEN mode none is needed. If the mode can't be read, ask for it.
-const modeKnown = computed(() => !!inviteToken || !mode.isPending.value)
-const showCode = computed(() => !inviteToken && modeKnown.value && mode.data.value !== 'OPEN')
+const modeKnown = computed(() => !!inviteToken || !config.isPending.value)
+const showCode = computed(
+  () => !inviteToken && modeKnown.value && config.data.value?.mode !== 'OPEN',
+)
 
 const { defineField, handleSubmit, errors, isSubmitting, setFieldError } = useForm({
   validationSchema: computed(() => toTypedSchema(registerSchema(t, showCode.value))),
@@ -61,6 +65,10 @@ function showFieldError(field: string, message: string) {
   if (isField(field)) setFieldError(field, message)
   else formError.value = message
 }
+
+// A Google account that already exists signs in; a new one is sent to /register/google. An existing account that
+// came with an invitation still has to accept it, on the invite page.
+const googleReturnTo = inviteToken ? `/invite/${encodeURIComponent(inviteToken)}` : '/dashboard'
 
 const submit = handleSubmit(async (v) => {
   formError.value = null
@@ -95,6 +103,18 @@ const submit = handleSubmit(async (v) => {
 
 <template>
   <PageHeader :title="t('pages.register')" :subtitle="t('auth.register.subtitle')" />
+  <div v-if="googleClientId" class="mb-6 grid gap-4">
+    <GoogleButton
+      :client-id="googleClientId"
+      :invitation-token="inviteToken"
+      :return-to="googleReturnTo"
+    />
+    <div class="flex items-center gap-3 text-xs text-muted-foreground" aria-hidden="true">
+      <span class="h-px flex-1 bg-border" />
+      {{ t('auth.or') }}
+      <span class="h-px flex-1 bg-border" />
+    </div>
+  </div>
   <form class="grid gap-4" novalidate @submit.prevent="submit">
     <p v-if="formError" role="alert" class="rounded-md bg-muted p-3 text-sm text-destructive">
       {{ formError }}

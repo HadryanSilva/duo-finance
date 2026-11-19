@@ -23,10 +23,11 @@ public record AppProperties(@NotNull URI publicBaseUrl, Registration registratio
 
     public record Registration(@DefaultValue("INVITE_ONLY") RegistrationMode mode) {}
 
-    /** PEM-encoded RSA keys; both optional. */
+    /** PEM-encoded RSA keys; both optional. A blank {@code googleClientId} turns Google login off. */
     public record Auth(
             String jwtPrivateKey,
             String jwtPublicKey,
+            String googleClientId,
             @DefaultValue("true") boolean cookieSecure) {}
 
     public record Email(String from, @DefaultValue("RESEND") EmailProvider provider, String resendApiKey) {}

@@ -1,5 +1,7 @@
 package br.dev.duofinance.user.dto;
 
-import jakarta.validation.constraints.NotBlank;
+import org.jspecify.annotations.Nullable;
 
-public record DeleteMeRequest(@NotBlank String password) {}
+/** A user with a password confirms with it; a password-less (Google) user confirms with their e-mail. */
+public record DeleteMeRequest(
+        @Nullable String password, @Nullable String confirmEmail) {}

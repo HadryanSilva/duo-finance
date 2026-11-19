@@ -10,7 +10,9 @@ import { useSession } from '@/shared/session/session-store'
 import { Button } from '@/shared/ui/button'
 import ConfirmDialog from '@/shared/ui/ConfirmDialog.vue'
 import PageHeader from '@/shared/ui/PageHeader.vue'
+import { useAuthConfig } from '@/shared/api/queries/public'
 import { acceptInvitation, invitationPreview } from '../api/auth-api'
+import GoogleButton from '../google/GoogleButton.vue'
 
 const { t } = useI18n()
 const http = useHttp()
@@ -28,6 +30,9 @@ const preview = useQuery({
   enabled: computed(() => !accepted.value),
   retry: false,
 })
+
+const config = useAuthConfig()
+const googleClientId = computed(() => config.data.value?.googleClientId ?? null)
 
 const authenticated = computed(() => session.status === 'authenticated')
 const confirmOpen = ref(false)
@@ -105,6 +110,19 @@ async function accept(confirmDiscard: boolean) {
     <Button v-else as-child>
       <RouterLink :to="registerTo">{{ t('invite.createAccount') }}</RouterLink>
     </Button>
+    <div v-if="!authenticated && googleClientId" class="grid gap-4">
+      <div class="flex items-center gap-3 text-xs text-muted-foreground" aria-hidden="true">
+        <span class="h-px flex-1 bg-border" />
+        {{ t('auth.or') }}
+        <span class="h-px flex-1 bg-border" />
+      </div>
+      <!-- A signed-in Google account comes back here, where the accept step is shown. -->
+      <GoogleButton
+        :client-id="googleClientId"
+        :invitation-token="token"
+        :return-to="`/invite/${encodeURIComponent(token)}`"
+      />
+    </div>
   </div>
   <ConfirmDialog
     v-model:open="confirmOpen"

@@ -83,10 +83,10 @@ class DeleteMeTest {
     }
 
     @Test
-    void deleteMe_blankPassword_returns400() {
+    void deleteMe_blankPassword_returns401() {
         TestSession ana = testUsers.verified("ana@mail.com");
 
-        assertThat(deleteMe(ana, "")).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(deleteMe(ana, "")).hasStatus(HttpStatus.UNAUTHORIZED);
     }
 
     @Test

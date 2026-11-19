@@ -12,6 +12,13 @@ public interface AccountMemberRepository extends JpaRepository<AccountMember, Ac
     @Query("select m.accountId from AccountMember m where m.userId = :userId")
     Optional<UUID> findAccountIdByUserId(UUID userId);
 
+    /** The account and session epoch of a user in one round trip, for per-request token validation. */
+    @Query("""
+            select new br.dev.duofinance.account.repository.MemberSession(m.accountId, u.sessionsValidAfter)
+            from AccountMember m join User u on u.id = m.userId
+            where m.userId = :userId""")
+    Optional<MemberSession> findSessionByUserId(UUID userId);
+
     long countByAccountId(UUID accountId);
 
     boolean existsByAccountIdAndUserId(UUID accountId, UUID userId);

@@ -34,6 +34,9 @@ const { defineField, handleSubmit, errors, isSubmitting, setFieldError } = useFo
 })
 const [displayName, displayNameAttrs] = defineField('displayName')
 const formError = ref<string | null>(null)
+const providers = computed(() =>
+  (session.user?.providers ?? []).map((p) => t(`settings.profile.provider.${p}`)).join(', '),
+)
 
 function showFieldError(field: string, message: string) {
   if (field === 'displayName') setFieldError(field, message)
@@ -92,6 +95,12 @@ async function resend() {
             {{ t('settings.profile.resend') }}
           </Button>
         </div>
+      </div>
+      <div v-if="session.user?.providers?.length" class="grid gap-2">
+        <span class="text-sm font-medium text-foreground">
+          {{ t('settings.profile.signInMethods') }}
+        </span>
+        <span class="text-sm text-foreground">{{ providers }}</span>
       </div>
       <div>
         <Button type="submit" :disabled="isSubmitting">{{ t('common.save') }}</Button>

@@ -10,7 +10,6 @@ import br.dev.duofinance.access.service.RegistrationGate;
 import br.dev.duofinance.account.model.Invitation;
 import br.dev.duofinance.account.model.InvitationStatus;
 import br.dev.duofinance.account.repository.InvitationRepository;
-import br.dev.duofinance.auth.dto.RegisterRequest;
 import br.dev.duofinance.shared.token.SecureTokens;
 import br.dev.duofinance.support.MutableClock;
 import br.dev.duofinance.support.TestUsers;
@@ -78,7 +77,7 @@ class RegisterInvitationRaceTest {
                     return grant;
                 })
                 .when(gate)
-                .authorize(any(RegisterRequest.class), anyString());
+                .authorize(any(), any(), anyString());
 
         var result = mvc.post()
                 .uri("/api/v1/auth/register")

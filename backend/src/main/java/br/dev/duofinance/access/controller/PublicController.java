@@ -27,7 +27,9 @@ public class PublicController {
 
     @GetMapping("/registration-mode")
     public RegistrationModeResponse registrationMode() {
-        return new RegistrationModeResponse(props.registration().mode());
+        String clientId = props.auth() == null ? null : props.auth().googleClientId();
+        return new RegistrationModeResponse(
+                props.registration().mode(), clientId == null || clientId.isBlank() ? null : clientId);
     }
 
     @PostMapping("/waitlist")
