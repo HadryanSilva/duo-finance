@@ -95,7 +95,8 @@
     "settings": "Configurações",
     "admin": "Admin",
     "newTransaction": "Novo lançamento",
-    "more": "Mais"
+    "more": "Mais",
+    "setup": "Cadastros"
   },
   "theme": {
     "toggle": "Mudar tema (atual: {theme})",

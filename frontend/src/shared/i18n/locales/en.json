@@ -95,7 +95,8 @@
     "settings": "Settings",
     "admin": "Admin",
     "newTransaction": "New transaction",
-    "more": "More"
+    "more": "More",
+    "setup": "Setup"
   },
   "theme": {
     "toggle": "Change theme (current: {theme})",
