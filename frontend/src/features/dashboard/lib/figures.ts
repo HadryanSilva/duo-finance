@@ -75,22 +75,6 @@ export function shareLabel(share: number, totalCents: number): string {
   return totalCents > 0 && share < 1 ? '<1%' : `${share}%`
 }
 
-/** Days left in `month` (YYYY-MM) counting `today` (YYYY-MM-DD); null when today is not in it. */
-export function daysLeftInMonth(month: string, today: string): number | null {
-  if (today.slice(0, 7) !== month) return null
-  const [year, mon] = month.split('-').map(Number) as [number, number]
-  const lastDay = new Date(Date.UTC(year, mon, 0)).getUTCDate()
-  return lastDay - Number(today.slice(8, 10)) + 1
-}
-
-export function budgetRemainder(
-  spentCents: number,
-  limitCents: number,
-): { over: boolean; amountCents: number } {
-  const diff = limitCents - spentCents
-  return { over: diff < 0, amountCents: Math.abs(diff) }
-}
-
 /** Money inside an aria-label, which is a plain string (it cannot hold a MoneyText). */
 export function moneyLabel(cents: number, locale: Locale): string {
   return formatMoney(cents, locale)
