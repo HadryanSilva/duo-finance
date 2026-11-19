@@ -149,6 +149,7 @@
     "google": {
       "subtitle": "Falta pouco para entrar com a sua conta Google.",
       "inviteOtherEmail": "Este convite foi enviado para {email}, outro e-mail. Use o código de acesso para se cadastrar com esta conta Google.",
+      "inviteInvalid": "Este convite não é mais válido. Use o código de acesso para se cadastrar.",
       "ticketExpired": "Seu cadastro pelo Google expirou. Continue com o Google para começar de novo.",
       "submit": "Concluir cadastro"
     },

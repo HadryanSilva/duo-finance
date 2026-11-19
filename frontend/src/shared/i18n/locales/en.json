@@ -149,6 +149,7 @@
     "google": {
       "subtitle": "Just a few details left to sign up with your Google account.",
       "inviteOtherEmail": "This invitation was sent to {email}, a different email. Use an access code to sign up with this Google account.",
+      "inviteInvalid": "This invitation is no longer valid. Use an access code to sign up.",
       "ticketExpired": "Your Google sign-up expired. Continue with Google to start again.",
       "submit": "Finish sign-up"
     },

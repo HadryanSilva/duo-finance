@@ -35,6 +35,8 @@ const config = useAuthConfig()
 const googleClientId = computed(() => config.data.value?.googleClientId ?? null)
 
 const expired = ref(false)
+// The invitation outlives an expired ticket: the new Google sign-in carries it again.
+const expiredInvitationToken = ref<string | undefined>()
 const dropInvite = ref(false)
 const invitationToken = computed(() =>
   dropInvite.value ? undefined : store.signup?.invitationToken,
@@ -57,10 +59,16 @@ watch(
     }
   },
 )
+// A rejected invitation (expired, used, unknown) is dropped with a notice; on a network or server error the token
+// is kept and the server decides on submit.
+const inviteInvalid = ref(false)
 watch(
-  () => preview.isError.value,
-  (failed) => {
-    if (failed) dropInvite.value = true
+  () => preview.error.value,
+  (e) => {
+    if (isApiError(e) && e.status >= 400 && e.status < 500) {
+      inviteInvalid.value = true
+      dropInvite.value = true
+    }
   },
 )
 const invitePending = computed(() => !!invitationToken.value && preview.isPending.value)
@@ -90,6 +98,7 @@ watch(
     expired.value = false
     dropInvite.value = false
     inviteOtherEmail.value = null
+    inviteInvalid.value = false
     setValues({ displayName: s.displayName, acceptTerms: false, accessCode: '' })
   },
 )
@@ -131,6 +140,7 @@ const submit = handleSubmit(async (v) => {
     })
   } catch (e) {
     if (isApiError(e) && e.code === 'GOOGLE_SIGNUP_TICKET_INVALID') {
+      expiredInvitationToken.value = pending.invitationToken
       store.clear()
       expired.value = true
     } else if (isApiError(e) && e.code === 'EMAIL_ALREADY_REGISTERED') {
@@ -171,7 +181,11 @@ async function retryLogin(credential: string) {
     <p role="alert" class="rounded-md bg-muted p-3 text-sm text-destructive">
       {{ t('auth.google.ticketExpired') }}
     </p>
-    <GoogleButton v-if="googleClientId" :client-id="googleClientId" />
+    <GoogleButton
+      v-if="googleClientId"
+      :client-id="googleClientId"
+      :invitation-token="expiredInvitationToken"
+    />
   </div>
   <form v-else-if="store.signup" class="grid gap-4" novalidate @submit.prevent="submit">
     <p v-if="formError" role="alert" class="rounded-md bg-muted p-3 text-sm text-destructive">
@@ -183,6 +197,13 @@ async function retryLogin(credential: string) {
       class="rounded-md bg-muted p-3 text-sm text-muted-foreground"
     >
       {{ t('auth.google.inviteOtherEmail', { email: inviteOtherEmail }) }}
+    </p>
+    <p
+      v-else-if="inviteInvalid"
+      role="status"
+      class="rounded-md bg-muted p-3 text-sm text-muted-foreground"
+    >
+      {{ t('auth.google.inviteInvalid') }}
     </p>
     <TextField :model-value="store.signup.email" :label="t('auth.email')" type="email" readonly />
     <TextField

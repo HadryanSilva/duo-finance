@@ -139,6 +139,83 @@ describe('GoogleSignupPage', () => {
     expect(screen.getByRole('group', { name: 'Continuar com o Google' })).toBeTruthy()
   })
 
+  it('googleSignup_expiredTicketWithInvite_newGoogleSignInKeepsInvitation', async () => {
+    gsi.initialize.mockClear()
+    const r = await open(
+      [
+        mode('INVITE_ONLY'),
+        invitePreview('ana@example.com'),
+        http.post(`${api}/auth/google/complete`, () =>
+          problem(401, 'GOOGLE_SIGNUP_TICKET_INVALID'),
+        ),
+        http.post(`${api}/auth/google`, () =>
+          HttpResponse.json({
+            status: 'SIGNUP_REQUIRED',
+            signupTicket: 'tk2',
+            email: 'ana@example.com',
+            displayName: 'Ana Google',
+          }),
+        ),
+      ],
+      { ...signup, invitationToken: 'inv-tok' },
+    )
+    await waitFor(() => expect((submit() as HTMLButtonElement).disabled).toBe(false))
+    await r.user.click(screen.getByRole('checkbox'))
+    await r.user.click(submit())
+    expect((await screen.findByRole('alert')).textContent).toContain('expirou')
+    await waitFor(() => expect(gsi.initialize).toHaveBeenCalled())
+    const { callback } = gsi.initialize.mock.calls[0]![0] as {
+      callback: (x: { credential: string }) => void
+    }
+    callback({ credential: 'cred2' })
+    await waitFor(() => expect(useGoogleSignup(r.pinia).signup?.ticket).toBe('tk2'))
+    expect(useGoogleSignup(r.pinia).signup?.invitationToken).toBe('inv-tok')
+  })
+
+  it('googleSignup_invitationGone_dropsTokenAndShowsNotice', async () => {
+    let body: Record<string, unknown> = {}
+    const r = await open(
+      [
+        mode('INVITE_ONLY'),
+        http.get(`${api}/account/invitations/inv-tok`, () => problem(410, 'INVITATION_INVALID')),
+        http.post(`${api}/auth/google/complete`, async ({ request }) => {
+          body = (await request.json()) as Record<string, unknown>
+          return HttpResponse.json(authResponse, { status: 201 })
+        }),
+      ],
+      { ...signup, invitationToken: 'inv-tok' },
+    )
+    expect((await screen.findByRole('status')).textContent).toContain('convite')
+    await r.user.type(await screen.findByLabelText(/^Código de acesso/), 'CODE-1')
+    await r.user.click(screen.getByRole('checkbox'))
+    await r.user.click(submit())
+    await waitFor(() => expect(r.router.currentRoute.value.path).toBe('/onboarding'))
+    expect(body.accessCode).toBe('CODE-1')
+    expect(body).not.toHaveProperty('invitationToken')
+  })
+
+  it('googleSignup_invitationPreviewServerError_keepsToken', async () => {
+    let body: Record<string, unknown> = {}
+    const r = await open(
+      [
+        mode('INVITE_ONLY'),
+        http.get(`${api}/account/invitations/inv-tok`, () => problem(503, 'INTERNAL_ERROR')),
+        http.post(`${api}/auth/google/complete`, async ({ request }) => {
+          body = (await request.json()) as Record<string, unknown>
+          return HttpResponse.json(authResponse, { status: 201 })
+        }),
+      ],
+      { ...signup, invitationToken: 'inv-tok' },
+    )
+    await waitFor(() => expect((submit() as HTMLButtonElement).disabled).toBe(false))
+    expect(screen.queryByLabelText(/^Código de acesso/)).toBeNull()
+    expect(screen.queryByRole('status')).toBeNull()
+    await r.user.click(screen.getByRole('checkbox'))
+    await r.user.click(submit())
+    await waitFor(() => expect(r.router.currentRoute.value.path).toBe('/dashboard'))
+    expect(body.invitationToken).toBe('inv-tok')
+  })
+
   it('googleSignup_emailAlreadyRegistered_retriesGoogleLoginAndContinues', async () => {
     let credential: unknown
     const r = await open([
