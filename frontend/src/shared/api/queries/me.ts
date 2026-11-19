@@ -64,9 +64,6 @@ export function useChangePassword() {
 export function useDeleteMe() {
   const http = useHttp()
   return useMutation({
-    mutationFn: (password: string) => {
-      const body: DeleteMeRequest = { password }
-      return http.del('/me', body)
-    },
+    mutationFn: (body: DeleteMeRequest) => http.del('/me', body),
   })
 }

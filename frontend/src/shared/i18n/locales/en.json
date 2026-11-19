@@ -720,7 +720,12 @@
       "unverified": "Not verified",
       "resend": "Resend verification",
       "resent": "We sent a new confirmation link to your email.",
-      "saved": "Profile updated."
+      "saved": "Profile updated.",
+      "signInMethods": "Signs in with",
+      "provider": {
+        "GOOGLE": "Google",
+        "LOCAL": "Email and password"
+      }
     },
     "password": {
       "title": "Password",
@@ -728,7 +733,9 @@
       "new": "New password",
       "submit": "Change password",
       "changed": "Password changed. Your other devices were signed out.",
-      "wrongCurrent": "The current password is incorrect."
+      "wrongCurrent": "The current password is incorrect.",
+      "googleOnly": "You sign in with Google and have no password.",
+      "googleOnlyLink": "Create one with \"Forgot password\"."
     },
     "preferences": {
       "title": "Preferences",
@@ -780,7 +787,9 @@
       "confirmMessage": "If you are the only member, all the account's data is erased. If there is a partner, the transactions stay with them and show as \"Former member\". This cannot be undone.",
       "confirm": "Delete permanently",
       "deleted": "Your account was deleted.",
-      "wrongPassword": "The password is incorrect."
+      "wrongPassword": "The password is incorrect.",
+      "confirmEmail": "Type your email to confirm",
+      "wrongEmail": "The email does not match."
     }
   },
   "admin": {

@@ -20,14 +20,24 @@ const router = useRouter()
 const session = useSession()
 const deleteMe = useDeleteMe()
 
+// Password-less (Google) users confirm with their e-mail instead.
+const hasPassword = computed(() => session.user?.hasPassword ?? true)
+const field = computed(() => (hasPassword.value ? 'password' : 'confirmEmail'))
+
 const schema = computed(() =>
-  toTypedSchema(z.object({ password: z.string().min(1, t('validation.NotBlank')) })),
+  toTypedSchema(
+    z.object({
+      password: hasPassword.value ? z.string().min(1, t('validation.NotBlank')) : z.string(),
+      confirmEmail: hasPassword.value ? z.string() : z.string().min(1, t('validation.NotBlank')),
+    }),
+  ),
 )
 const { defineField, handleSubmit, errors, setFieldError } = useForm({
   validationSchema: schema,
-  initialValues: { password: '' },
+  initialValues: { password: '', confirmEmail: '' },
 })
 const [password, passwordAttrs] = defineField('password')
+const [confirmEmail, confirmEmailAttrs] = defineField('confirmEmail')
 const formError = ref<string | null>(null)
 const confirmOpen = ref(false)
 
@@ -40,10 +50,17 @@ const askConfirmation = handleSubmit(() => {
 async function deleteAccount() {
   formError.value = null
   try {
-    await deleteMe.mutateAsync(password.value ?? '')
+    await deleteMe.mutateAsync(
+      hasPassword.value
+        ? { password: password.value ?? '' }
+        : { confirmEmail: confirmEmail.value ?? '' },
+    )
   } catch (e) {
     if (isApiError(e) && e.code === 'INVALID_CREDENTIALS')
-      setFieldError('password', t('settings.danger.wrongPassword'))
+      setFieldError(
+        field.value,
+        t(hasPassword.value ? 'settings.danger.wrongPassword' : 'settings.danger.wrongEmail'),
+      )
     else formError.value = errorMessage(e)
     return
   }
@@ -64,12 +81,22 @@ async function deleteAccount() {
         {{ formError }}
       </p>
       <TextField
+        v-if="hasPassword"
         v-model="password"
         v-bind="passwordAttrs"
         type="password"
         :label="t('settings.danger.password')"
         :error="errors.password"
         autocomplete="current-password"
+      />
+      <TextField
+        v-else
+        v-model="confirmEmail"
+        v-bind="confirmEmailAttrs"
+        type="email"
+        :label="t('settings.danger.confirmEmail')"
+        :error="errors.confirmEmail"
+        autocomplete="off"
       />
       <div>
         <Button type="submit" variant="destructive" :disabled="deleteMe.isPending.value">

@@ -720,7 +720,12 @@
       "unverified": "Não verificado",
       "resend": "Reenviar verificação",
       "resent": "Enviamos um novo link de confirmação para o seu e-mail.",
-      "saved": "Perfil atualizado."
+      "saved": "Perfil atualizado.",
+      "signInMethods": "Entra com",
+      "provider": {
+        "GOOGLE": "Google",
+        "LOCAL": "E-mail e senha"
+      }
     },
     "password": {
       "title": "Senha",
@@ -728,7 +733,9 @@
       "new": "Nova senha",
       "submit": "Alterar senha",
       "changed": "Senha alterada. Os outros dispositivos foram desconectados.",
-      "wrongCurrent": "A senha atual está incorreta."
+      "wrongCurrent": "A senha atual está incorreta.",
+      "googleOnly": "Você entra com o Google e não tem uma senha.",
+      "googleOnlyLink": "Crie uma senha pelo \"Esqueci minha senha\"."
     },
     "preferences": {
       "title": "Preferências",
@@ -780,7 +787,9 @@
       "confirmMessage": "Se você for o único membro, todos os dados da conta serão apagados. Se houver um parceiro, os lançamentos ficam com ele e aparecem como \"Ex-membro\". Esta ação não pode ser desfeita.",
       "confirm": "Excluir definitivamente",
       "deleted": "Sua conta foi excluída.",
-      "wrongPassword": "A senha está incorreta."
+      "wrongPassword": "A senha está incorreta.",
+      "confirmEmail": "Digite seu e-mail para confirmar",
+      "wrongEmail": "O e-mail não confere."
     }
   },
   "admin": {
