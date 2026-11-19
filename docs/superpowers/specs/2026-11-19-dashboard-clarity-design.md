@@ -75,8 +75,8 @@ This is round A, covering the dashboard and the navigation. A later round B will
 ### 6. Goal suggestions on the Goals page
 
 - The Goals page gets the suggestions section that today lives in `GoalsCard`: header with month and salary, and Confirmar / Ajustar / Pular per goal. Behavior, focus handling and error messages are unchanged; it is the same component logic, moved.
-- The data comes from the dashboard endpoint for the **current month**. No backend change.
-- The section sits above the goals list and appears only when there are suggestions.
+- The data comes from `GET /goals?month=<current>` (`useGoals`). The Goals page already loads it, and it already carries `suggestions`. There is no backend change and no dashboard call from the Goals page.
+- The section sits above the goals list. It appears when there are suggestions, and also right after the last one was decided on this visit. In that case it reads "Tudo decidido em <mês>." and takes focus, as the dashboard card title did.
 
 ### 7. Navigation
 
@@ -127,6 +127,8 @@ On tablet (md), the third row wraps to two plus one. On mobile, everything is on
 - **"Outras N" color:** the neutral muted chart color from `useChartColors`, never a category color.
 - **Goal reminder:** shown only when the selected month is the current month, matching the Goals page, which works on the current month. On a past month the compact card shows progress only.
 - **Days left on the last day:** "último dia do mês" replaces "faltam 1 dia".
+- **"Outras N" threshold:** with up to 6 categories, all of them are listed. With 7 or more, the first 5 are listed and the rest become "Outras N" (N ≥ 2), so "Outras 1" never appears.
+- **Salary category hint:** the compact dashboard card keeps today's "Escolha a categoria do salário…" link to `/goals`. The "no salary in <month>" message moves to the Goals page with the suggestions.
 - **Confirming on the Goals page:** invalidates the same queries the dashboard confirm invalidates today (dashboard and goals), so the reminder line disappears afterwards.
 
 ## Left to the builder
