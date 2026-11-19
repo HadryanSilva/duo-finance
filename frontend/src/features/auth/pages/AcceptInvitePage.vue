@@ -116,8 +116,12 @@ async function accept(confirmDiscard: boolean) {
         {{ t('auth.or') }}
         <span class="h-px flex-1 bg-border" />
       </div>
-      <!-- On AUTHENTICATED the session turns authenticated and this page shows the accept step. -->
-      <GoogleButton :client-id="googleClientId" :invitation-token="token" />
+      <!-- A signed-in Google account comes back here, where the accept step is shown. -->
+      <GoogleButton
+        :client-id="googleClientId"
+        :invitation-token="token"
+        :return-to="`/invite/${encodeURIComponent(token)}`"
+      />
     </div>
   </div>
   <ConfirmDialog

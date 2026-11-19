@@ -12,7 +12,8 @@ O spec do MVP (`2026-11-05-duo-finance-mvp-design.md`) deixou o login social for
 
 - **O Google vem primeiro (opção B).** Um único botão "Continuar com Google" aparece no login, no cadastro e na página de convite. Se a identidade Google já pertence a um usuário, ou se o e-mail já é de um usuário, a pessoa entra direto. Se não, ela cai numa tela curta de **Concluir cadastro**, com o nome e o e-mail vindos do Google. Ali ela informa o código de acesso (a menos que tenha vindo de um convite ou que o modo seja `OPEN`) e aceita os termos.
   - Alternativa rejeitada **A**, o código antes do Google: quem clica no botão sem conta dá com a cara na porta, que é exatamente o atrito que se quer tirar.
-- **Integração pela opção 1:** Google Identity Services (GIS) no frontend e verificação do *ID token* no backend.
+- **Integração pela opção 1:** ID token do Google obtido no frontend e verificado no backend.
+  - **Revisão de 2026-11-19:** o GIS foi trocado por um redirect de página inteira (OpenID Connect implícito, `response_type=id_token`), para que nada do Google carregue nas nossas páginas antes do clique e o Google não leia nem grave cookies ali (privacidade, GDPR/ePrivacy). O botão é nosso; o clique leva à tela de login do Google, que volta para `/auth/google/callback` com o ID token no fragmento da URL. `state` (contra login CSRF) e `nonce` (contra reuso do token) ficam no `sessionStorage` e são conferidos no callback. O backend não muda. Rejeitado o GIS carregado só no clique: exigiria dois cliques, porque o botão do GIS é um iframe que não pode ser acionado por código.
   - Rejeitada **2**, fluxo OAuth2 com redirect via `spring-security-oauth2-client`: exige client secret, estado de sessão HTTP num backend stateless e um vai-e-volta entre domínios.
   - Rejeitada **3**, Authorization Code + PKCE com troca no backend: só precisamos da identidade, não de APIs do Google, então seria complexidade sem retorno.
 
@@ -43,18 +44,12 @@ O spec do MVP (`2026-11-05-duo-finance-mvp-design.md`) deixou o login social for
 - Abrir o beta: cadastrar via Google sem código, convite ou modo `OPEN`.
 - Permitir tomar a conta de outra pessoa via vínculo por e-mail (ver "Pré-sequestro" abaixo).
 - Fazer o ticket de cadastro funcionar como access token, ou o contrário.
-- Afrouxar a CSP além do mínimo que o GIS exige.
+- Afrouxar a CSP. Com o redirect, ela fica como estava, sem nada do Google.
 
 ## Restrições
 
 - Spring Boot 4 / Java 25. JWT RS256 próprio, cookie de refresh e `AuthSessionService.start(user)` existentes.
-- **CSP** (`infra/nginx/snippets/security-headers.conf`) hoje é `script-src 'self'`, `connect-src 'self'`, sem `frame-src`. O GIS precisa de:
-  - `script-src https://accounts.google.com/gsi/client`
-  - `frame-src https://accounts.google.com/gsi/`
-  - `connect-src https://accounts.google.com/gsi/`
-  - `style-src https://accounts.google.com/gsi/style`
-
-  Só esses caminhos, nada de domínio inteiro. Os testes em `infra/tests` que conferem os headers precisam ser atualizados.
+- **CSP** (`infra/nginx/snippets/security-headers.conf`): continua `script-src 'self'`, `connect-src 'self'`, sem `frame-src`. O login com Google é uma navegação de página inteira e não precisa de exceção.
 - **Política de privacidade** (`PrivacyPage.vue`, pt-BR e en): segue GDPR e direito do consumidor da UE. Precisa citar o Google como provedor de login, os dados recebidos (nome, e-mail, identificador da conta Google) e a finalidade (autenticação).
 - O fluxo de branches é a partir de `develop`, com PR para `develop`.
 
@@ -125,7 +120,7 @@ Corpo: `{ signupTicket, displayName, locale, acceptTerms, termsVersion, accessCo
 
 ### Frontend
 
-- **Componente `GoogleButton`:** carrega `https://accounts.google.com/gsi/client` sob demanda, só nas telas que o usam, e renderiza o botão oficial com o idioma da interface. Ao receber `credential`, chama `POST /auth/google`.
+- **Componente `GoogleButton`:** botão nosso, com o logotipo do Google. O clique guarda `state`, `nonce`, o destino depois do login e o `invitationToken` no `sessionStorage` e leva o navegador ao Google. A página `/auth/google/callback` confere `state` e `nonce`, tira o token da URL e chama `POST /auth/google`. Se a pessoa cancelar no Google, volta para a página de onde saiu.
 - **Login, Cadastro e Aceitar convite** (`LoginPage`, `RegisterPage`, `AcceptInvitePage`): o botão fica acima do formulário, com um separador "ou". No convite, o `invitationToken` vai junto para a tela de conclusão.
 - **Convite com quem já tem conta** (decisão minha): se `/auth/google` responde `AUTHENTICATED` na `AcceptInvitePage`, a página segue exatamente como hoje para um usuário logado. Ou seja, mostra o aceite com `InvitationService.accept`, incluindo `confirmDiscard` e os erros `ACCOUNT_HAS_DATA`, `ALREADY_IN_COUPLE` e `INVITE_SELF`. Ela não pula para o dashboard.
 - **Convite para outro e-mail** (decisão minha): se o e-mail do Google difere do e-mail do convite (que já vem no preview do convite), a tela "Concluir cadastro" avisa logo de cara: "Este convite foi enviado para x@…". Ela não manda o `invitationToken` e mostra o campo de código. A pessoa pode voltar e escolher outra conta Google.
@@ -163,7 +158,7 @@ Não há migration de schema: `user_identities` já aceita `GOOGLE` e `password_
 
 ### Operação
 
-- Criar o OAuth Client ("Web application") no Google Cloud Console, com *Authorized JavaScript origins* = domínio de produção e `http://localhost:<porta do dev>`. Configurar a tela de consentimento com o nome do app e os links de termos e privacidade.
+- Criar o OAuth Client ("Web application") no Google Cloud Console, com *Authorized redirect URIs* = `<origem>/auth/google/callback` para o domínio de produção e as portas de dev. Configurar a tela de consentimento com o nome do app e os links de termos e privacidade.
 - Adicionar `GOOGLE_CLIENT_ID` no `.env` de produção e no `docs/runbook.md`.
 
 ## Testes

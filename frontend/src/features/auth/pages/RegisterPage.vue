@@ -66,10 +66,9 @@ function showFieldError(field: string, message: string) {
   else formError.value = message
 }
 
-// A Google account that already exists signs in; a new one is sent to /register/google by the button. An existing
-// account that came with an invitation still has to accept it, on the invite page.
-const goAfterGoogle = () =>
-  router.push(inviteToken ? `/invite/${encodeURIComponent(inviteToken)}` : '/dashboard')
+// A Google account that already exists signs in; a new one is sent to /register/google. An existing account that
+// came with an invitation still has to accept it, on the invite page.
+const googleReturnTo = inviteToken ? `/invite/${encodeURIComponent(inviteToken)}` : '/dashboard'
 
 const submit = handleSubmit(async (v) => {
   formError.value = null
@@ -108,7 +107,7 @@ const submit = handleSubmit(async (v) => {
     <GoogleButton
       :client-id="googleClientId"
       :invitation-token="inviteToken"
-      @authenticated="goAfterGoogle"
+      :return-to="googleReturnTo"
     />
     <div class="flex items-center gap-3 text-xs text-muted-foreground" aria-hidden="true">
       <span class="h-px flex-1 bg-border" />

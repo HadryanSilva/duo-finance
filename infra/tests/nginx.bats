@@ -12,7 +12,7 @@ REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
 NGINX_IMAGE="duo-nginx:test"
 STACK_FILE="infra/tests/fixtures/nginx-stack.yml"
 PROD_NAME="duofinance.test"
-CSP="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' https://accounts.google.com/gsi/style; img-src 'self' data:; font-src 'self'; connect-src 'self' https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+CSP="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 
 # Git Bash would rewrite container paths such as /etc/letsencrypt into Windows paths. Every host
 # path handed to docker is relative to REPO_ROOT, so path conversion is off for docker only

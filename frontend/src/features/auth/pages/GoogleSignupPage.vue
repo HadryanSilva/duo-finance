@@ -185,6 +185,11 @@ async function retryLogin(credential: string) {
       v-if="googleClientId"
       :client-id="googleClientId"
       :invitation-token="expiredInvitationToken"
+      :return-to="
+        expiredInvitationToken
+          ? `/invite/${encodeURIComponent(expiredInvitationToken)}`
+          : '/dashboard'
+      "
     />
   </div>
   <form v-else-if="store.signup" class="grid gap-4" novalidate @submit.prevent="submit">

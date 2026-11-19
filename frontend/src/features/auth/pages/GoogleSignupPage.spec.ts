@@ -3,11 +3,18 @@ import { http, HttpResponse } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 import type { AuthResponse } from '@/shared/api/types'
 import { useSession } from '@/shared/session/session-store'
+import { googleAnswer } from '@/test/google'
 import { renderRoute, testUser } from '@/test/render'
 import { useGoogleSignup, type GoogleSignup } from '../google/google-signup-store'
 
-const gsi = vi.hoisted(() => ({ initialize: vi.fn(), renderButton: vi.fn() }))
-vi.mock('../google/load-gsi', () => ({ loadGsi: () => Promise.resolve(gsi) }))
+const leaveApp = vi.hoisted(() => vi.fn())
+vi.mock('../google/leave-app', () => ({ leaveApp }))
+/** Clicks the Google button and comes back from Google signed in, as the browser would. */
+async function viaGoogle(r: Awaited<ReturnType<typeof renderRoute>>) {
+  leaveApp.mockClear()
+  await r.user.click(await screen.findByRole('button', { name: 'Continuar com o Google' }))
+  await r.router.push(`/auth/google/callback${googleAnswer(leaveApp.mock.calls[0]![0] as string)}`)
+}
 
 const api = `${window.location.origin}/api/v1`
 const authResponse: AuthResponse = { accessToken: 'new-token', expiresIn: 900, user: testUser }
@@ -125,7 +132,6 @@ describe('GoogleSignupPage', () => {
   })
 
   it('googleSignup_expiredTicket_showsNoticeAndGoogleButton', async () => {
-    gsi.initialize.mockClear()
     const r = await open([
       mode('OPEN'),
       http.post(`${api}/auth/google/complete`, () => problem(401, 'GOOGLE_SIGNUP_TICKET_INVALID')),
@@ -135,12 +141,10 @@ describe('GoogleSignupPage', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('expirou')
     expect(useGoogleSignup(r.pinia).signup).toBeNull()
     expect(r.router.currentRoute.value.path).toBe('/register/google')
-    await waitFor(() => expect(gsi.initialize).toHaveBeenCalled())
-    expect(screen.getByRole('group', { name: 'Continuar com o Google' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: 'Continuar com o Google' })).toBeTruthy()
   })
 
   it('googleSignup_expiredTicketWithInvite_newGoogleSignInKeepsInvitation', async () => {
-    gsi.initialize.mockClear()
     const r = await open(
       [
         mode('INVITE_ONLY'),
@@ -163,11 +167,7 @@ describe('GoogleSignupPage', () => {
     await r.user.click(screen.getByRole('checkbox'))
     await r.user.click(submit())
     expect((await screen.findByRole('alert')).textContent).toContain('expirou')
-    await waitFor(() => expect(gsi.initialize).toHaveBeenCalled())
-    const { callback } = gsi.initialize.mock.calls[0]![0] as {
-      callback: (x: { credential: string }) => void
-    }
-    callback({ credential: 'cred2' })
+    await viaGoogle(r)
     await waitFor(() => expect(useGoogleSignup(r.pinia).signup?.ticket).toBe('tk2'))
     expect(useGoogleSignup(r.pinia).signup?.invitationToken).toBe('inv-tok')
   })

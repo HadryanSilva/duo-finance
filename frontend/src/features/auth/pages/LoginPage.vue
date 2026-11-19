@@ -61,7 +61,7 @@ const submit = handleSubmit(async (values) => {
     {{ t('auth.login.resetDone') }}
   </p>
   <div v-if="googleClientId" class="mb-6 grid gap-4">
-    <GoogleButton :client-id="googleClientId" @authenticated="goAfterLogin" />
+    <GoogleButton :client-id="googleClientId" :return-to="safeRedirect(route.query.redirect)" />
     <div class="flex items-center gap-3 text-xs text-muted-foreground" aria-hidden="true">
       <span class="h-px flex-1 bg-border" />
       {{ t('auth.or') }}

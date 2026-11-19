@@ -708,16 +708,19 @@ para o papel valer.
 
 ### Login com Google
 
-O botão "Continuar com o Google" só aparece quando `GOOGLE_CLIENT_ID` está preenchido. O backend
-valida o ID token do Google contra esse Client ID.
+O botão "Continuar com o Google" só aparece quando `GOOGLE_CLIENT_ID` está preenchido. Nada do
+Google carrega nas nossas páginas: o clique leva o navegador à tela de login do Google, que devolve um
+ID token para `/auth/google/callback`. O backend valida esse token contra o Client ID.
 
 1. No [Google Cloud Console](https://console.cloud.google.com/), abra (ou crie) um projeto e vá em
    **APIs e serviços > Credenciais > Criar credenciais > ID do cliente OAuth**.
 2. Tipo de aplicativo: **Aplicativo da Web**.
-3. Em **Origens JavaScript autorizadas**, adicione o domínio de produção
-   (`https://duofinance.dev.br`) e, para desenvolvimento, `http://localhost:5173` (Vite) e
-   `http://localhost:8088` (stack local com nginx). Não há URI de redirecionamento: o fluxo usa só o
-   Google Identity Services no navegador.
+3. Em **URIs de redirecionamento autorizados**, adicione
+   `https://duofinance.dev.br/auth/google/callback` e, para desenvolvimento,
+   `http://localhost:5173/auth/google/callback` (Vite) e
+   `http://localhost:8088/auth/google/callback` (stack local com nginx). O endereço precisa bater
+   exatamente, senão o Google responde `redirect_uri_mismatch`. As **Origens JavaScript
+   autorizadas** podem ficar vazias.
 4. Na **tela de consentimento OAuth**, informe o nome do app e os links das páginas
    `https://duofinance.dev.br/terms` (termos) e `https://duofinance.dev.br/privacy` (privacidade).
    Os escopos são só os básicos (`openid`, `email`, `profile`).
@@ -734,8 +737,8 @@ valida o ID token do Google contra esse Client ID.
 6. Com `GOOGLE_CLIENT_ID` vazio, o botão some e o login com Google fica desligado. O login com e-mail e
    senha não é afetado.
 
-A CSP do nginx já libera `https://accounts.google.com/gsi/` (script, estilo, conexão e iframe). Se o
-botão não renderizar, olhe o console do navegador à procura de violações de CSP.
+A CSP do nginx não precisa liberar nada do Google: o login acontece numa navegação de página inteira,
+fora do nosso site.
 
 ## 11. Operação
 
