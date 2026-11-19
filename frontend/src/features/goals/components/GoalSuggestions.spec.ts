@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/dom'
+import { screen, waitFor } from '@testing-library/dom'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 import type { GoalResponse, GoalsOverview } from '@/shared/api/types'
