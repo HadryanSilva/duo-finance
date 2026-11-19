@@ -7,6 +7,7 @@ import br.dev.duofinance.shared.web.PageResponse;
 import br.dev.duofinance.transaction.dto.TransactionFilter;
 import br.dev.duofinance.transaction.dto.TransactionRequest;
 import br.dev.duofinance.transaction.dto.TransactionResponse;
+import br.dev.duofinance.transaction.dto.TransactionTotalsResponse;
 import br.dev.duofinance.transaction.model.TransactionKind;
 import br.dev.duofinance.transaction.service.TransactionQueryService;
 import br.dev.duofinance.transaction.service.TransactionService;
@@ -59,6 +60,21 @@ public class TransactionController {
                 new TransactionFilter(from, to, kind, categoryId, bankAccountId, createdBy, q),
                 page,
                 size);
+    }
+
+    /** Sums of the rows the list returns for the same filters; see {@link TransactionTotalsResponse}. */
+    @GetMapping("/totals")
+    public TransactionTotalsResponse totals(
+            CurrentUser current,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) TransactionKind kind,
+            @RequestParam(required = false) UUID categoryId,
+            @RequestParam(required = false) UUID bankAccountId,
+            @RequestParam(required = false) UUID createdBy,
+            @RequestParam(required = false) String q) {
+        return queries.totals(
+                current.accountId(), new TransactionFilter(from, to, kind, categoryId, bankAccountId, createdBy, q));
     }
 
     @PostMapping
