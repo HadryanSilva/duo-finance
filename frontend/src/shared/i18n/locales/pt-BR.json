@@ -299,7 +299,8 @@
       "archive": "Arquivar {name}",
       "unarchive": "Desarquivar {name}",
       "delete": "Excluir {name}"
-    }
+    },
+    "activeCount": "em {n} conta ativa | em {n} contas ativas"
   },
   "categories": {
     "subtitle": "Organize receitas e despesas.",

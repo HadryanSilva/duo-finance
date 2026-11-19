@@ -299,7 +299,8 @@
       "archive": "Archive {name}",
       "unarchive": "Unarchive {name}",
       "delete": "Delete {name}"
-    }
+    },
+    "activeCount": "across {n} active account | across {n} active accounts"
   },
   "categories": {
     "subtitle": "Organize income and expenses.",

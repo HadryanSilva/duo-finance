@@ -79,6 +79,15 @@ describe('BankAccountsPage', () => {
     expect(screen.getByText('Conta corrente')).toBeTruthy()
     expect(screen.getByText('Titular: Ana Souza')).toBeTruthy()
     expect(norm(screen.getByTestId('bank-total').textContent)).toContain('€ 1.734,56')
+    expect(norm(screen.getByTestId('bank-total').textContent)).toContain('em 2 contas ativas')
+  })
+
+  it('total_onlyArchivedAccounts_isHidden', async () => {
+    await open('/bank-accounts?archived=1', [
+      http.get(`${api}/bank-accounts`, () => HttpResponse.json([antiga])),
+    ]).render()
+    await screen.findByText('Antiga')
+    expect(screen.queryByTestId('bank-total')).toBeNull()
   })
 
   it('bankAccounts_archivedToggle_showsArchivedButExcludesFromTotal', async () => {
@@ -89,6 +98,7 @@ describe('BankAccountsPage', () => {
     expect(screen.getByText('Arquivada')).toBeTruthy()
     expect(router.currentRoute.value.query.archived).toBe('1')
     expect(norm(screen.getByTestId('bank-total').textContent)).toContain('€ 1.734,56')
+    expect(norm(screen.getByTestId('bank-total').textContent)).toContain('em 2 contas ativas')
   })
 
   it('bankAccounts_newQuery_opensCreatePanel', async () => {

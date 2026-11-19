@@ -45,11 +45,9 @@ const remove = useDeleteBankAccount()
 const holderNames = computed(
   () => new Map((account.data.value?.members ?? []).map((m) => [m.userId, m.displayName])),
 )
-const total = computed(() =>
-  (accounts.data.value ?? [])
-    .filter((a) => !a.archived)
-    .reduce((sum, a) => sum + a.balanceCents, 0),
-)
+/** Archived accounts never count, even while "show archived" lists them. */
+const active = computed(() => (accounts.data.value ?? []).filter((a) => !a.archived))
+const total = computed(() => active.value.reduce((sum, a) => sum + a.balanceCents, 0))
 
 // Side panel: null closed, 'new' creating, otherwise the account being edited.
 const panel = ref<'new' | BankAccountResponse | null>(null)
@@ -130,10 +128,12 @@ const onDelete = (a: BankAccountResponse | null) => {
   />
 
   <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
-    <p class="text-sm text-muted-foreground" data-testid="bank-total">
+    <p v-if="active.length" class="text-sm text-muted-foreground" data-testid="bank-total">
       {{ t('bankAccounts.total') }}:
       <MoneyText :cents="total" class="text-lg font-semibold text-foreground" />
+      {{ t('bankAccounts.activeCount', { n: active.length }, active.length) }}
     </p>
+    <span v-else />
     <div class="flex items-center gap-2">
       <Switch id="show-archived-accounts" v-model="showArchived" />
       <Label for="show-archived-accounts">{{ t('common.showArchived') }}</Label>
