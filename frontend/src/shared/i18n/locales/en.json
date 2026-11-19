@@ -680,7 +680,11 @@
       "emptyTitle": "No budgets this month",
       "emptyDescription": "Set monthly limits to keep spending under control.",
       "emptyCta": "Set a budget",
-      "listLabel": "Budget progress"
+      "listLabel": "Budget progress",
+      "daysLeft": "{n} day left | {n} days left",
+      "lastDay": "last day of the month",
+      "remaining": "{amount} left",
+      "over": "{amount} over"
     },
     "goals": {
       "title": "Goals",
