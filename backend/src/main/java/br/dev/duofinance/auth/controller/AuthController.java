@@ -2,6 +2,7 @@ package br.dev.duofinance.auth.controller;
 
 import br.dev.duofinance.auth.dto.AuthResponse;
 import br.dev.duofinance.auth.dto.ForgotPasswordRequest;
+import br.dev.duofinance.auth.dto.GoogleCompleteRequest;
 import br.dev.duofinance.auth.dto.GoogleLoginRequest;
 import br.dev.duofinance.auth.dto.GoogleLoginResponse;
 import br.dev.duofinance.auth.dto.LoginRequest;
@@ -12,6 +13,7 @@ import br.dev.duofinance.auth.google.GoogleAuthService;
 import br.dev.duofinance.auth.google.GoogleAuthService.Authenticated;
 import br.dev.duofinance.auth.google.GoogleAuthService.GoogleAuthResult;
 import br.dev.duofinance.auth.google.GoogleAuthService.SignupRequired;
+import br.dev.duofinance.auth.google.GoogleIdTokenVerifier;
 import br.dev.duofinance.auth.service.AuthSessionService;
 import br.dev.duofinance.auth.service.AuthSessionService.SessionTokens;
 import br.dev.duofinance.auth.service.EmailVerificationService;
@@ -42,6 +44,7 @@ public class AuthController {
     private final EmailVerificationService verification;
     private final PasswordResetService passwordReset;
     private final GoogleAuthService google;
+    private final GoogleIdTokenVerifier googleVerifier;
 
     public AuthController(
             AuthSessionService sessions,
@@ -50,7 +53,9 @@ public class AuthController {
             LoginService login,
             EmailVerificationService verification,
             PasswordResetService passwordReset,
-            GoogleAuthService google) {
+            GoogleAuthService google,
+            GoogleIdTokenVerifier googleVerifier) {
+        this.googleVerifier = googleVerifier;
         this.google = google;
         this.verification = verification;
         this.passwordReset = passwordReset;
@@ -85,6 +90,18 @@ public class AuthController {
             }
             case SignupRequired required -> GoogleLoginResponse.signupRequired(required);
         };
+    }
+
+    @PostMapping("/google/complete")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AuthResponse googleComplete(
+            @Valid @RequestBody GoogleCompleteRequest request, HttpServletResponse response) {
+        if (!googleVerifier.enabled()) {
+            throw new ApiException(ErrorCode.GOOGLE_LOGIN_DISABLED);
+        }
+        SessionTokens session = registration.registerWithGoogle(request);
+        cookies.set(response, session.rawRefreshToken());
+        return AuthResponse.of(session);
     }
 
     @PostMapping("/refresh")
