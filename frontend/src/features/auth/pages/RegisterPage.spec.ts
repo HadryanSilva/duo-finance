@@ -60,6 +60,40 @@ describe('RegisterPage', () => {
     expect(useGoogleSignup(r.pinia).signup?.invitationToken).toBe('inv-tok')
   })
 
+  it('register_googleAuthenticatesExistingAccountWithInvite_goesToInvitePage', async () => {
+    gsi.initialize.mockClear()
+    const r = await renderRoute({
+      route: '/register?invite=inv-tok',
+      handlers: [
+        http.get(`${api}/public/registration-mode`, () =>
+          HttpResponse.json({ mode: 'INVITE_ONLY', googleClientId: 'cid' }),
+        ),
+        http.post(`${api}/auth/google`, () =>
+          HttpResponse.json({
+            status: 'AUTHENTICATED',
+            accessToken: 'g-token',
+            expiresIn: 900,
+            user: testUser,
+          }),
+        ),
+        http.get(`${api}/account/invitations/inv-tok`, () =>
+          HttpResponse.json({
+            inviterName: 'Bia',
+            accountName: 'Casa',
+            email: 'ana@example.com',
+            existingUser: true,
+          }),
+        ),
+      ],
+    })
+    await waitFor(() => expect(gsi.initialize).toHaveBeenCalled())
+    const { callback } = gsi.initialize.mock.calls[0]![0] as {
+      callback: (x: { credential: string }) => void
+    }
+    callback({ credential: 'cred' })
+    await waitFor(() => expect(r.router.currentRoute.value.path).toBe('/invite/inv-tok'))
+  })
+
   afterEach(() => vi.restoreAllMocks())
 
   it('register_hidesCodeField_whenOpenMode', async () => {
