@@ -642,7 +642,8 @@
       "noSalary": "Nenhum salário em {month} na categoria {name}.",
       "allDone": "Tudo decidido em {month}.",
       "title": "Contribuições de {month}"
-    }
+    },
+    "savedTotal": "{amount} guardados em {n} objetivo | {amount} guardados em {n} objetivos"
   },
   "recurring": {
     "subtitle": "Lançamentos que se repetem sozinhos.",

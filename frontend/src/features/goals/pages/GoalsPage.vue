@@ -12,6 +12,7 @@ import { Button } from '@/shared/ui/button'
 import ConfirmDialog from '@/shared/ui/ConfirmDialog.vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 import ManageNotice from '@/shared/ui/ManageNotice.vue'
+import MoneyText from '@/shared/ui/MoneyText.vue'
 import PageHeader from '@/shared/ui/PageHeader.vue'
 import SidePanel from '@/shared/ui/SidePanel.vue'
 import { Skeleton } from '@/shared/ui/skeleton'
@@ -122,6 +123,22 @@ const deleteMessage = computed(() => {
   <ManageNotice v-if="notice" :message="notice" @dismiss="notice = null" />
 
   <SalaryCategoryPicker />
+
+  <i18n-t
+    v-if="active.length"
+    keypath="goals.savedTotal"
+    tag="p"
+    :plural="active.length"
+    class="mb-4 text-sm text-muted-foreground"
+  >
+    <template #amount>
+      <MoneyText
+        :cents="goals.data.value?.totalSavedCents ?? 0"
+        class="font-medium text-foreground"
+      />
+    </template>
+    <template #n>{{ active.length }}</template>
+  </i18n-t>
 
   <GoalSuggestions v-if="goals.data.value" :overview="goals.data.value" class="mb-6" />
 

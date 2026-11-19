@@ -177,6 +177,18 @@ const row = async (name: string) => {
 }
 
 describe('GoalsPage', () => {
+  it('savedTotal_showsAmountAndCount', async () => {
+    await setup().render()
+    await screen.findByText('Videogame novo')
+    expect(norm(document.body.textContent)).toContain('€ 400,00 guardados em 1 objetivo')
+  })
+
+  it('savedTotal_noActiveGoals_hidden', async () => {
+    await setup({ goals: [] }).render()
+    await screen.findByText('Nenhum objetivo ainda')
+    expect(norm(document.body.textContent)).not.toContain('guardados em')
+  })
+
   it('suggestions_areShownAboveTheList', async () => {
     const suggestion = {
       goalId: 'g1',

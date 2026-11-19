@@ -642,7 +642,8 @@
       "noSalary": "No salary in {month} in the {name} category.",
       "allDone": "All decided for {month}.",
       "title": "Contributions for {month}"
-    }
+    },
+    "savedTotal": "{amount} saved across {n} goal | {amount} saved across {n} goals"
   },
   "recurring": {
     "subtitle": "Transactions that repeat on their own.",
