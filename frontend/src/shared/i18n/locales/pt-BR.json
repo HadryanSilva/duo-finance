@@ -529,7 +529,17 @@
       "limit": "Limite mensal",
       "limitPositive": "Informe um limite maior que zero.",
       "noCategories": "Todas as categorias de despesa ativas já têm orçamento."
-    }
+    },
+    "summary": {
+      "title": "Total do mês",
+      "remaining": "restam {amount} no total",
+      "over": "passou {amount} no total",
+      "exceeded": "{n} estourado | {n} estourados",
+      "daysLeft": "falta {n} dia | faltam {n} dias",
+      "lastDay": "último dia do mês"
+    },
+    "remaining": "restam {amount}",
+    "over": "passou {amount}"
   },
   "goals": {
     "subtitle": "Separe dinheiro para o que vocês querem conquistar.",

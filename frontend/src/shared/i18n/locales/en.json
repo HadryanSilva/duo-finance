@@ -529,7 +529,17 @@
       "limit": "Monthly limit",
       "limitPositive": "Enter a limit greater than zero.",
       "noCategories": "Every active expense category already has a budget."
-    }
+    },
+    "summary": {
+      "title": "Month total",
+      "remaining": "{amount} left in total",
+      "over": "{amount} over in total",
+      "exceeded": "{n} over budget | {n} over budget",
+      "daysLeft": "{n} day left | {n} days left",
+      "lastDay": "last day of the month"
+    },
+    "remaining": "{amount} left",
+    "over": "{amount} over"
   },
   "goals": {
     "subtitle": "Set money aside for what you want to achieve.",
