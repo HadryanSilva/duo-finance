@@ -105,7 +105,7 @@ public class MeService {
     }
 
     /**
-     * LGPD self-deletion. Locks the account before counting members so two partners deleting at once cannot each see
+     * GDPR self-deletion. Locks the account before counting members so two partners deleting at once cannot each see
      * a partner and leave an orphaned account. A sole member takes the account with them; otherwise the account stays
      * with the partner. The database cascades remove identities and tokens and null out {@code invited_by}.
      */

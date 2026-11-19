@@ -715,8 +715,9 @@ valida o ID token do Google contra esse Client ID.
    **APIs e serviços > Credenciais > Criar credenciais > ID do cliente OAuth**.
 2. Tipo de aplicativo: **Aplicativo da Web**.
 3. Em **Origens JavaScript autorizadas**, adicione o domínio de produção
-   (`https://duofinance.dev.br`) e, para desenvolvimento, `http://localhost:5173`. Não há URI de
-   redirecionamento: o fluxo usa só o Google Identity Services no navegador.
+   (`https://duofinance.dev.br`) e, para desenvolvimento, `http://localhost:5173` (Vite) e
+   `http://localhost:8088` (stack local com nginx). Não há URI de redirecionamento: o fluxo usa só o
+   Google Identity Services no navegador.
 4. Na **tela de consentimento OAuth**, informe o nome do app e os links das páginas
    `https://duofinance.dev.br/terms` (termos) e `https://duofinance.dev.br/privacy` (privacidade).
    Os escopos são só os básicos (`openid`, `email`, `profile`).
