@@ -24,7 +24,6 @@ app:
     jwt-private-key: ${JWT_PRIVATE_KEY}
     jwt-public-key: ${JWT_PUBLIC_KEY}
     cookie-secure: true
-    google-client-id: ${GOOGLE_CLIENT_ID:}
   email:
     provider: RESEND
     resend-api-key: ${RESEND_API_KEY}

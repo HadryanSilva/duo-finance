@@ -1,5 +1,6 @@
 package br.dev.duofinance.shared.security;
 
+import br.dev.duofinance.auth.controller.GoogleLoginEnabledInterceptor;
 import br.dev.duofinance.subscription.controller.EntitlementInterceptor;
 import java.util.List;
 import org.springframework.context.annotation.Configuration;
@@ -23,11 +24,15 @@ public class WebConfig implements WebMvcConfigurer {
 
     private final CurrentUserArgumentResolver currentUserArgumentResolver;
     private final EntitlementInterceptor entitlementInterceptor;
+    private final GoogleLoginEnabledInterceptor googleLoginEnabledInterceptor;
 
     public WebConfig(
-            CurrentUserArgumentResolver currentUserArgumentResolver, EntitlementInterceptor entitlementInterceptor) {
+            CurrentUserArgumentResolver currentUserArgumentResolver,
+            EntitlementInterceptor entitlementInterceptor,
+            GoogleLoginEnabledInterceptor googleLoginEnabledInterceptor) {
         this.currentUserArgumentResolver = currentUserArgumentResolver;
         this.entitlementInterceptor = entitlementInterceptor;
+        this.googleLoginEnabledInterceptor = googleLoginEnabledInterceptor;
     }
 
     @Override
@@ -38,5 +43,6 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(entitlementInterceptor).addPathPatterns(FINANCIAL_PATHS);
+        registry.addInterceptor(googleLoginEnabledInterceptor).addPathPatterns(GoogleLoginEnabledInterceptor.PATHS);
     }
 }
