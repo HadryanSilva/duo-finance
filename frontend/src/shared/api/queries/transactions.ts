@@ -6,6 +6,7 @@ import type {
   TransactionKind,
   TransactionRequest,
   TransactionResponse,
+  TransactionTotalsResponse,
 } from '../types'
 
 const KEY = ['transactions'] as const
@@ -41,6 +42,19 @@ export function useTransactions(
       }),
     initialPageParam: 0,
     getNextPageParam: (last) => (last.page < last.totalPages - 1 ? last.page + 1 : undefined),
+  })
+}
+
+/**
+ * Income, expense, net and count of every row the filter matches, not only the loaded pages. Under the
+ * `['transactions']` prefix, so whatever invalidates the list refreshes it too.
+ */
+export function useTransactionTotals(filter: MaybeRefOrGetter<TransactionFilter>) {
+  const http = useHttp()
+  return useQuery({
+    queryKey: computed(() => [...KEY, 'totals', toValue(filter)]),
+    queryFn: () =>
+      http.get<TransactionTotalsResponse>('/transactions/totals', { ...toValue(filter) }),
   })
 }
 
