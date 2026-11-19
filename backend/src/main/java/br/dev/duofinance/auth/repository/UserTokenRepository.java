@@ -23,4 +23,9 @@ public interface UserTokenRepository extends JpaRepository<UserToken, UUID> {
     @Query("update UserToken t set t.usedAt = :now where t.tokenHash = :hash and t.type = :type"
             + " and t.usedAt is null and t.expiresAt > :now")
     int consume(@Param("hash") String hash, @Param("type") UserTokenType type, @Param("now") Instant now);
+
+    /** Drops every unused token (verification, reset) of the user. Does not clear the persistence context. */
+    @Modifying(flushAutomatically = true)
+    @Query("delete from UserToken t where t.userId = :userId and t.usedAt is null")
+    int deleteUnusedByUserId(@Param("userId") UUID userId);
 }

@@ -70,6 +70,7 @@ class ResponseNullabilityTest {
             "GoalResponse.id",
             "GoalResponse.name",
             "GoalResponse.status",
+            "GoogleLoginResponse.status",
             "GoalSuggestion.goalId",
             "GoalSuggestion.goalName",
             "GoalSuggestion.month",

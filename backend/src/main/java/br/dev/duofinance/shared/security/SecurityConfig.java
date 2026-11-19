@@ -35,7 +35,9 @@ public class SecurityConfig {
         "/api/v1/auth/logout",
         "/api/v1/auth/verify-email",
         "/api/v1/auth/forgot-password",
-        "/api/v1/auth/reset-password"
+        "/api/v1/auth/reset-password",
+        "/api/v1/auth/google",
+        "/api/v1/auth/google/complete"
     };
 
     /** OpenAPI docs and Swagger UI; open only under the {@code dev} profile (springdoc is disabled elsewhere). */
