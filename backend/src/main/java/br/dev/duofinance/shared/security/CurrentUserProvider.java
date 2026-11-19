@@ -1,12 +1,15 @@
 package br.dev.duofinance.shared.security;
 
 import br.dev.duofinance.account.repository.AccountMemberRepository;
+import br.dev.duofinance.account.repository.MemberSession;
 import br.dev.duofinance.auth.service.TokenService;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ErrorCode;
 import br.dev.duofinance.user.model.UserRole;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Instant;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -16,7 +19,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
  * Resolves {@link CurrentUser} from the JWT, treating the database as the authority for the account: a token whose
- * {@code acc} no longer matches the user's membership (or whose user is gone) is rejected with {@code SESSION_STALE}.
+ * {@code acc} no longer matches the user's membership (or whose user is gone), or that was issued before the user's
+ * sessions were revoked ({@code users.sessions_valid_after}), is rejected with {@code SESSION_STALE}.
  */
 @Component
 public class CurrentUserProvider {
@@ -64,9 +68,21 @@ public class CurrentUserProvider {
         } catch (IllegalArgumentException | NullPointerException e) {
             throw new ApiException(ErrorCode.SESSION_STALE, "Session is no longer valid");
         }
-        UUID accountId = members.findAccountIdByUserId(userId)
-                .filter(claimedAccountId::equals)
+        MemberSession session = members.findSessionByUserId(userId)
+                .filter(s -> s.accountId().equals(claimedAccountId))
+                .filter(s -> issuedWithinEpoch(jwt.getIssuedAt(), s.sessionsValidAfter()))
                 .orElseThrow(() -> new ApiException(ErrorCode.SESSION_STALE, "Session is no longer valid"));
-        return new CurrentUser(userId, accountId, role);
+        return new CurrentUser(userId, session.accountId(), role);
+    }
+
+    /**
+     * A token issued (whole seconds, as {@code iat} carries) at or after the epoch is valid; the epoch is stored
+     * truncated to seconds so the session started right after a revocation stays valid.
+     */
+    private static boolean issuedWithinEpoch(@Nullable Instant issuedAt, @Nullable Instant sessionsValidAfter) {
+        if (sessionsValidAfter == null) {
+            return true;
+        }
+        return issuedAt != null && !issuedAt.isBefore(sessionsValidAfter);
     }
 }

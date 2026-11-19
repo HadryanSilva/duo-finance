@@ -52,6 +52,16 @@ export const routes: RouteRecordRaw[] = [
     meta: pub('auth'),
   },
   {
+    path: '/register/google',
+    component: () => import('@/features/auth/pages/GoogleSignupPage.vue'),
+    meta: pub('auth'),
+  },
+  {
+    path: '/auth/google/callback',
+    component: () => import('@/features/auth/pages/GoogleCallbackPage.vue'),
+    meta: pub('auth'),
+  },
+  {
     path: '/verify-email',
     component: () => import('@/features/auth/pages/VerifyEmailPage.vue'),
     meta: pub('auth'),

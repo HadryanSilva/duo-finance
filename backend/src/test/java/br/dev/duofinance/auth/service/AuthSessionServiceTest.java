@@ -20,6 +20,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @IntegrationTest
 class AuthSessionServiceTest {
@@ -38,6 +39,9 @@ class AuthSessionServiceTest {
 
     @Autowired
     MutableClock clock;
+
+    @Autowired
+    JdbcTemplate jdbc;
 
     User user;
     UUID accountId;
@@ -122,5 +126,16 @@ class AuthSessionServiceTest {
 
         assertRefreshFails(raw1, ErrorCode.REFRESH_TOKEN_INVALID);
         assertRefreshFails(raw2, ErrorCode.REFRESH_TOKEN_INVALID);
+    }
+
+    @Test
+    void revokeAll_setsSessionEpochTruncatedToSeconds() {
+        clock.setInstant(Instant.parse("2026-11-19T10:15:30.123456Z"));
+
+        sessions.revokeAll(user.getId());
+
+        assertThat(jdbc.queryForObject(
+                        "SELECT sessions_valid_after FROM users WHERE id = ?", Instant.class, user.getId()))
+                .isEqualTo(Instant.parse("2026-11-19T10:15:30Z"));
     }
 }

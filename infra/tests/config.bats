@@ -4,6 +4,7 @@
 # - The image build context/Dockerfile pairs of deploy.yml match docker-compose.local.yml and the
 #   image tests, and every COPY source of each Dockerfile exists in its context.
 # - The api container never receives the backup credentials (`docker compose config`, CLI only).
+# - CI runs on pushes to main and develop; Deploy follows CI on main only.
 
 bats_require_minimum_version 1.5.0
 REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
@@ -109,4 +110,19 @@ copy_sources() {
   # backup.env.example: placeholders only.
   run grep -vE '^(#|$|[A-Z0-9_]+=$)' "$REPO_ROOT/infra/backup.env.example"
   [ -z "$output" ]
+}
+
+@test "workflowTriggers_ciOnMainAndDevelop_deployOnMainOnly" {
+  ci="$REPO_ROOT/.github/workflows/ci.yml"
+  # push.branches of ci.yml, as written on its line; the scan stops at the end of the `on:` block.
+  run awk '/^  push:/ { p = 1; next } p && /^[^ #]/ { exit } p && $1 == "branches:" { print; exit }' "$ci"
+  echo "ci.yml push: [$output]"
+  # Whole branch names, not substrings: [maintenance, develop] must not count as main.
+  branches="$(echo "$output" | sed -e 's/^[^[]*\[//' -e 's/\].*$//' | tr -d " '\"" | tr ',' '\n')"
+  grep -qx main <<<"$branches"
+  grep -qx develop <<<"$branches"
+  # deploy.yml workflow_run.branches must be exactly [main]: merges into develop never deploy.
+  run awk '/^  workflow_run:/ { p = 1; next } p && /^[^ #]/ { exit } p && $1 == "branches:" { print; exit }' "$DEPLOY_YML"
+  echo "deploy.yml workflow_run: [$output]"
+  [ "$(echo "$output" | tr -d ' ')" = "branches:[main]" ]
 }

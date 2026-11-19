@@ -3,6 +3,7 @@ import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { RouterLink } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { z } from 'zod'
 import { isApiError } from '@/shared/api/problem'
@@ -17,6 +18,7 @@ import SettingsSection from './SettingsSection.vue'
 const { t } = useI18n()
 const session = useSession()
 const change = useChangePassword()
+const hasPassword = computed(() => session.user?.hasPassword ?? true)
 
 const schema = computed(() =>
   toTypedSchema(
@@ -57,7 +59,13 @@ const submit = handleSubmit(async (values) => {
 
 <template>
   <SettingsSection :title="t('settings.password.title')">
-    <form class="grid gap-4" novalidate @submit.prevent="submit">
+    <p v-if="!hasPassword" class="text-sm text-muted-foreground">
+      {{ t('settings.password.googleOnly') }}
+      <RouterLink to="/forgot-password" class="font-medium text-primary underline">
+        {{ t('settings.password.googleOnlyLink') }}
+      </RouterLink>
+    </p>
+    <form v-else class="grid gap-4" novalidate @submit.prevent="submit">
       <p v-if="formError" role="alert" class="rounded-md bg-muted p-3 text-sm text-destructive">
         {{ formError }}
       </p>

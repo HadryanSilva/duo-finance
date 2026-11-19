@@ -12,6 +12,7 @@ import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
@@ -110,6 +111,23 @@ class PasswordResetTest {
         assertThat(refresh).hasStatus(401);
         assertThat(login("ana@mail.com", TestUsers.PASSWORD)).hasStatus(401);
         assertThat(login("ana@mail.com", NEW_PASSWORD)).hasStatus(200);
+    }
+
+    @Test
+    void reset_rejectsEarlierAccessToken() {
+        var session = registerAndDrainMail("ana@mail.com");
+        clock.advance(Duration.ofSeconds(2));
+        forgot("ana@mail.com");
+        String token = tokenSentTo("ana@mail.com", "/reset-password");
+
+        assertThat(reset(token, NEW_PASSWORD)).hasStatus(204);
+
+        var me = mvc.get()
+                .uri("/api/v1/me")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(session))
+                .exchange();
+        assertThat(me).hasStatus(401);
+        assertThat(me).bodyJson().extractingPath("$.code").isEqualTo("SESSION_STALE");
     }
 
     @Test

@@ -413,4 +413,43 @@ describe('SettingsPage', () => {
     expect(r.session.status).toBe('authenticated')
     expect(r.router.currentRoute.value.path).toBe('/settings')
   })
+
+  it('noPassword_hidesChangePasswordAndLinksToForgot', async () => {
+    await open({ me: { hasPassword: false, providers: ['GOOGLE'] } })
+    const section = within(await region('Senha'))
+    expect(section.queryByLabelText('Senha atual')).toBeNull()
+    expect(section.queryByRole('button', { name: 'Alterar senha' })).toBeNull()
+    expect(section.getByText(/não tem uma senha/)).toBeTruthy()
+    expect(section.getByRole('link', { name: /Esqueci minha senha/ }).getAttribute('href')).toBe(
+      '/forgot-password',
+    )
+  })
+
+  it('noPassword_deleteAccount_sendsConfirmEmail', async () => {
+    let body: unknown
+    const r = await open({
+      me: { hasPassword: false, providers: ['GOOGLE'] },
+      extra: [
+        http.delete(`${api}/me`, async ({ request }) => {
+          body = await request.json()
+          return new HttpResponse(null, { status: 204 })
+        }),
+      ],
+    })
+    const danger = within(await region('Zona de perigo'))
+    expect(danger.queryByLabelText('Confirme sua senha')).toBeNull()
+    await r.user.type(danger.getByLabelText('Digite seu e-mail para confirmar'), 'ana@example.com')
+    await r.user.click(danger.getByRole('button', { name: 'Excluir minha conta' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    await r.user.click(dialog.getByRole('button', { name: 'Excluir definitivamente' }))
+    await vi.waitFor(() => expect(r.router.currentRoute.value.path).toBe('/'))
+    expect(body).toEqual({ confirmEmail: 'ana@example.com' })
+  })
+
+  it('profile_listsTheSignInMethods', async () => {
+    await open({ me: { providers: ['GOOGLE', 'LOCAL'] } })
+    const profile = within(await region('Perfil'))
+    expect(profile.getByText('Entra com')).toBeTruthy()
+    expect(profile.getByText('Google, E-mail e senha')).toBeTruthy()
+  })
 })

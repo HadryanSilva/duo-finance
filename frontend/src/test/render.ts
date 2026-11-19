@@ -38,6 +38,8 @@ export const testUser: MeResponse = {
   onboarded: true,
   role: 'USER',
   accountId: '00000000-0000-4000-8000-0000000000a1',
+  hasPassword: true,
+  providers: [],
 }
 
 export interface RenderOptions {

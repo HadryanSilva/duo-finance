@@ -70,3 +70,7 @@ export type ContributeRequest = Schemas['ContributeRequest']
 export type SkipRequest = Schemas['SkipRequest']
 export type GoalAmountRequest = Schemas['GoalAmountRequest']
 export type UpdateGoalSettingsRequest = Schemas['UpdateGoalSettingsRequest']
+
+export type GoogleLoginRequest = Schemas['GoogleLoginRequest']
+export type GoogleLoginResponse = Schemas['GoogleLoginResponse']
+export type GoogleCompleteRequest = Schemas['GoogleCompleteRequest']

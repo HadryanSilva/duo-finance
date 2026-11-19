@@ -2,7 +2,18 @@ import { screen, waitFor } from '@testing-library/dom'
 import { http, HttpResponse } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AuthResponse } from '@/shared/api/types'
+import { useGoogleSignup } from '../google/google-signup-store'
+import { googleAnswer } from '@/test/google'
 import { renderRoute, testUser } from '@/test/render'
+
+const leaveApp = vi.hoisted(() => vi.fn())
+vi.mock('../google/leave-app', () => ({ leaveApp }))
+/** Clicks the Google button and comes back from Google signed in, as the browser would. */
+async function viaGoogle(r: Awaited<ReturnType<typeof renderRoute>>) {
+  leaveApp.mockClear()
+  await r.user.click(await screen.findByRole('button', { name: 'Continuar com o Google' }))
+  await r.router.push(`/auth/google/callback${googleAnswer(leaveApp.mock.calls[0]![0] as string)}`)
+}
 
 const api = `${window.location.origin}/api/v1`
 const authResponse: AuthResponse = { accessToken: 'new-token', expiresIn: 900, user: testUser }
@@ -29,6 +40,57 @@ async function fill(r: R, opts: { terms?: boolean; code?: string } = {}) {
 }
 
 describe('RegisterPage', () => {
+  it('register_googleSignupWithInvite_keepsInvitationToken', async () => {
+    const r = await renderRoute({
+      route: '/register?invite=inv-tok',
+      handlers: [
+        http.get(`${api}/public/registration-mode`, () =>
+          HttpResponse.json({ mode: 'INVITE_ONLY', googleClientId: 'cid' }),
+        ),
+        http.post(`${api}/auth/google`, () =>
+          HttpResponse.json({
+            status: 'SIGNUP_REQUIRED',
+            signupTicket: 't1',
+            email: 'ana@example.com',
+            displayName: 'Ana',
+          }),
+        ),
+      ],
+    })
+    await viaGoogle(r)
+    await waitFor(() => expect(useGoogleSignup(r.pinia).signup).not.toBeNull())
+    expect(useGoogleSignup(r.pinia).signup?.invitationToken).toBe('inv-tok')
+  })
+
+  it('register_googleAuthenticatesExistingAccountWithInvite_goesToInvitePage', async () => {
+    const r = await renderRoute({
+      route: '/register?invite=inv-tok',
+      handlers: [
+        http.get(`${api}/public/registration-mode`, () =>
+          HttpResponse.json({ mode: 'INVITE_ONLY', googleClientId: 'cid' }),
+        ),
+        http.post(`${api}/auth/google`, () =>
+          HttpResponse.json({
+            status: 'AUTHENTICATED',
+            accessToken: 'g-token',
+            expiresIn: 900,
+            user: testUser,
+          }),
+        ),
+        http.get(`${api}/account/invitations/inv-tok`, () =>
+          HttpResponse.json({
+            inviterName: 'Bia',
+            accountName: 'Casa',
+            email: 'ana@example.com',
+            existingUser: true,
+          }),
+        ),
+      ],
+    })
+    await viaGoogle(r)
+    await waitFor(() => expect(r.router.currentRoute.value.path).toBe('/invite/inv-tok'))
+  })
+
   afterEach(() => vi.restoreAllMocks())
 
   it('register_hidesCodeField_whenOpenMode', async () => {

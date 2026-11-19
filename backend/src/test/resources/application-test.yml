@@ -1,4 +1,6 @@
 app:
+  auth:
+    google-client-id: test-client-id
   email:
     provider: LOG
   public-base-url: http://localhost:5173

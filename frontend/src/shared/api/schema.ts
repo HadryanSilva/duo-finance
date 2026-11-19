@@ -612,6 +612,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["google"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/google/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["googleComplete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/forgot-password": {
         parameters: {
             query?: never;
@@ -1031,6 +1063,8 @@ export interface components {
             role: "USER" | "ADMIN";
             /** Format: uuid */
             accountId: string;
+            hasPassword: boolean;
+            providers: string[];
         };
         UpdateGoalRequest: {
             name: string;
@@ -1264,6 +1298,27 @@ export interface components {
             email: string;
             password: string;
         };
+        GoogleLoginRequest: {
+            credential: string;
+        };
+        GoogleLoginResponse: {
+            status: string;
+            accessToken: string | null;
+            expiresIn: number | null;
+            user: components["schemas"]["MeResponse"] | null;
+            signupTicket: string | null;
+            email: string | null;
+            displayName: string | null;
+        };
+        GoogleCompleteRequest: {
+            signupTicket: string;
+            displayName: string;
+            locale: string;
+            acceptTerms?: boolean;
+            termsVersion: string;
+            accessCode?: string;
+            invitationToken?: string;
+        };
         ForgotPasswordRequest: {
             /** Format: email */
             email: string;
@@ -1357,6 +1412,7 @@ export interface components {
         RegistrationModeResponse: {
             /** @enum {string} */
             mode: "INVITE_ONLY" | "OPEN";
+            googleClientId: string | null;
         };
         ImportBatchResponse: {
             /** Format: uuid */
@@ -1491,7 +1547,8 @@ export interface components {
             existingUser: boolean;
         };
         DeleteMeRequest: {
-            password: string;
+            password?: string;
+            confirmEmail?: string;
         };
     };
     responses: never;
@@ -2781,6 +2838,54 @@ export interface operations {
         responses: {
             /** @description OK */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AuthResponse"];
+                };
+            };
+        };
+    };
+    google: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["GoogleLoginResponse"];
+                };
+            };
+        };
+    };
+    googleComplete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleCompleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

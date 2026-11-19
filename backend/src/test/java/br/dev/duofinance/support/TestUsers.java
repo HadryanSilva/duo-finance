@@ -28,6 +28,7 @@ public class TestUsers {
     private final UserRepository users;
     private final AuthSessionService sessions;
     private final RecordingEmailSender emails;
+    private final TestGoogleTokens googleTokens;
     private final Clock clock;
     private final JsonMapper json = JsonMapper.builder().build();
 
@@ -38,6 +39,7 @@ public class TestUsers {
             UserRepository users,
             AuthSessionService sessions,
             RecordingEmailSender emails,
+            TestGoogleTokens googleTokens,
             Clock clock) {
         this.mvc = mvc;
         this.accessCodes = accessCodes;
@@ -45,6 +47,7 @@ public class TestUsers {
         this.users = users;
         this.sessions = sessions;
         this.emails = emails;
+        this.googleTokens = googleTokens;
         this.clock = clock;
     }
 
@@ -64,6 +67,38 @@ public class TestUsers {
         if (result.getResponse().getStatus() != 201) {
             throw new IllegalStateException(
                     "Registration failed: " + result.getResponse().getStatus());
+        }
+        return sessionOf(result.getResponse());
+    }
+
+    /** Signs up through the Google flow: a verified, password-less user with only a GOOGLE identity. */
+    public TestSession google(String email) {
+        String credential = googleTokens.idToken("g-" + email, email, true);
+        var login = mvc.post()
+                .uri("/api/v1/auth/google")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"credential\":\"%s\"}".formatted(credential))
+                .exchange();
+        String ticket;
+        try {
+            ticket = json.readTree(login.getResponse().getContentAsString())
+                    .path("signupTicket")
+                    .asString();
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+        String code = accessCodes.generate(null, 1, null, "test", null).plainCode();
+        var result = mvc.post()
+                .uri("/api/v1/auth/google/complete")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"signupTicket":"%s","displayName":"Test User","locale":"pt-BR","acceptTerms":true,
+                         "termsVersion":"2026-11","accessCode":"%s"}
+                        """.formatted(ticket, code))
+                .exchange();
+        if (result.getResponse().getStatus() != 201) {
+            throw new IllegalStateException(
+                    "Google sign-up failed: " + result.getResponse().getStatus());
         }
         return sessionOf(result.getResponse());
     }

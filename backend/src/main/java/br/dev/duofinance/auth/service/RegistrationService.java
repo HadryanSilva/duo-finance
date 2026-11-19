@@ -12,7 +12,10 @@ import br.dev.duofinance.account.repository.AccountMemberRepository;
 import br.dev.duofinance.account.repository.AccountRepository;
 import br.dev.duofinance.account.repository.InvitationRepository;
 import br.dev.duofinance.account.service.AccountProvisioningService;
+import br.dev.duofinance.auth.dto.GoogleCompleteRequest;
 import br.dev.duofinance.auth.dto.RegisterRequest;
+import br.dev.duofinance.auth.google.GoogleIdentity;
+import br.dev.duofinance.auth.google.SignupTicketService;
 import br.dev.duofinance.auth.service.AuthSessionService.SessionTokens;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ErrorCode;
@@ -24,6 +27,7 @@ import br.dev.duofinance.user.repository.UserIdentityRepository;
 import br.dev.duofinance.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.function.BiConsumer;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -36,6 +40,9 @@ public class RegistrationService {
     /** Unique constraint on {@code users.email} (V1__identity.sql). */
     private static final String USERS_EMAIL_CONSTRAINT = "users_email_key";
 
+    /** Unique constraint on {@code user_identities (provider, provider_subject)} (V1__identity.sql). */
+    private static final String IDENTITY_SUBJECT_CONSTRAINT = "user_identities_provider_subject_key";
+
     private final RegistrationGate gate;
     private final AccessCodeService accessCodes;
     private final UserRepository users;
@@ -47,6 +54,7 @@ public class RegistrationService {
     private final AccountProvisioningService provisioning;
     private final EmailVerificationService emailVerification;
     private final AuthSessionService sessions;
+    private final SignupTicketService tickets;
     private final Clock clock;
 
     public RegistrationService(
@@ -61,6 +69,7 @@ public class RegistrationService {
             AccountProvisioningService provisioning,
             EmailVerificationService emailVerification,
             AuthSessionService sessions,
+            SignupTicketService tickets,
             Clock clock) {
         this.gate = gate;
         this.accessCodes = accessCodes;
@@ -73,6 +82,7 @@ public class RegistrationService {
         this.provisioning = provisioning;
         this.emailVerification = emailVerification;
         this.sessions = sessions;
+        this.tickets = tickets;
         this.clock = clock;
     }
 
@@ -83,7 +93,35 @@ public class RegistrationService {
     @Transactional
     public SessionTokens register(RegisterRequest req) {
         String email = SecureTokens.normalizeEmail(req.email());
-        RegistrationGrant grant = gate.authorize(req, email);
+        RegistrationGrant grant = gate.authorize(req.accessCode(), req.invitationToken(), email);
+        return signUp(grant, email, req.displayName(), req.locale(), req.termsVersion(), false, (user, now) -> {
+            identities.save(new UserIdentity(
+                    user.getId(), IdentityProvider.LOCAL, email, passwordEncoder.encode(req.password()), now));
+        });
+    }
+
+    /**
+     * Same gate as {@link #register}, but the e-mail comes from a verified Google identity in the signup ticket: the
+     * user is created verified, linked to that Google subject, and gets no verification e-mail.
+     */
+    @Transactional
+    public SessionTokens registerWithGoogle(GoogleCompleteRequest req) {
+        GoogleIdentity google = tickets.read(req.signupTicket());
+        String email = SecureTokens.normalizeEmail(google.email());
+        RegistrationGrant grant = gate.authorize(req.accessCode(), req.invitationToken(), email);
+        return signUp(grant, email, req.displayName(), req.locale(), req.termsVersion(), true, (user, now) -> {
+            saveGoogleIdentity(new UserIdentity(user.getId(), IdentityProvider.GOOGLE, google.subject(), null, now));
+        });
+    }
+
+    private SessionTokens signUp(
+            RegistrationGrant grant,
+            String email,
+            String displayName,
+            String locale,
+            String termsVersion,
+            boolean emailVerified,
+            BiConsumer<User, Instant> saveIdentity) {
         if (users.findByEmail(email).isPresent()) {
             throw new ApiException(ErrorCode.EMAIL_ALREADY_REGISTERED);
         }
@@ -92,17 +130,34 @@ public class RegistrationService {
         }
 
         Instant now = Instant.now(clock);
-        User user = saveUser(new User(email, req.displayName().trim(), req.locale(), req.termsVersion(), now));
-        identities.save(new UserIdentity(
-                user.getId(), IdentityProvider.LOCAL, email, passwordEncoder.encode(req.password()), now));
+        User newUser = new User(email, displayName.trim(), locale, termsVersion, now);
+        if (emailVerified) {
+            newUser.setEmailVerifiedAt(now);
+        }
+        User user = saveUser(newUser);
+        saveIdentity.accept(user, now);
 
         if (grant instanceof InvitationGrant invitationGrant) {
             joinInvitedAccount(user, invitationGrant.invitation(), now);
         } else {
             provisioning.createSoloAccount(user);
-            emailVerification.sendVerification(user);
+            if (!emailVerified) {
+                emailVerification.sendVerification(user);
+            }
         }
         return sessions.start(user);
+    }
+
+    /** A Google subject already tied to another user means a concurrent sign-up with the same ticket won. */
+    private void saveGoogleIdentity(UserIdentity identity) {
+        try {
+            identities.saveAndFlush(identity);
+        } catch (DataIntegrityViolationException e) {
+            if (violates(e, IDENTITY_SUBJECT_CONSTRAINT)) {
+                throw new ApiException(ErrorCode.EMAIL_ALREADY_REGISTERED);
+            }
+            throw e;
+        }
     }
 
     /** Only the e-mail unique constraint means a concurrent sign-up won; any other violation is a real error. */

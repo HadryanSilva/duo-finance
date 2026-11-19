@@ -223,6 +223,7 @@ finais de linha LF, `chmod 600` e dono `deploy`:
    | `RESEND_API_KEY` | a API key do Resend |
    | `EMAIL_FROM` | `Duo Finance <no-reply@duofinance.dev.br>` (remetente do domínio verificado) |
    | `PUBLIC_BASE_URL` | `https://duofinance.dev.br` |
+   | `GOOGLE_CLIENT_ID` | o Client ID do login com Google (seção 10, "Login com Google"); vazio esconde o botão |
 
    As chaves do backup (`BACKUP_S3_*`, `AWS_*`) não existem no `.env`: ficam no `backup.env`
    (seção 9). Nunca as acrescente ao `.env`, pois tudo o que está nele chega ao contêiner `api`.
@@ -483,17 +484,22 @@ Compare a impressão digital (`SHA256:...`) com a do servidor (na instância:
 Depois apague `duo-deploy-key`, `duo-deploy-key.pub` e `duo-known-hosts` da sua máquina. O
 `GITHUB_TOKEN` usado para publicar no GHCR é automático; não há secret a criar para isso.
 
-### 8.4 Proteção da `main`
+### 8.4 Proteção da `main` e da `develop`
 
-Settings > Branches > Add branch protection rule para `main`: **Require a pull request before merging**
-e **Require status checks to pass before merging**, com os checks `backend`, `frontend`, `api-types`,
-`e2e` e `infra` (jobs de `.github/workflows/ci.yml`). Deixe **Do not allow bypassing the above
-settings** marcado (administradores não furam a regra). Os checks só aparecem na lista depois de
-rodarem ao menos uma vez em um pull request.
+Settings > Rules > Rulesets, ruleset `default` (ativo), com alvos `main` e `develop`. Regras:
+
+- **Restrict deletions** e **Block force pushes**.
+- **Require a pull request before merging**, com qualquer método de merge permitido. A regra do merge
+  commit na versão (seção 8.6) é de processo e não é imposta aqui.
+- **Require status checks to pass**, com os checks `backend`, `frontend`, `api-types`, `e2e` e
+  `infra` (jobs de `.github/workflows/ci.yml`). A opção de exigir branch atualizada fica desmarcada.
+
+Os checks só aparecem na lista depois de rodarem ao menos uma vez em um pull request.
 
 ### 8.5 Primeiro deploy
 
-O primeiro deploy sempre passa pelo pipeline: faça merge de um pull request na `main`. Quando o
+O primeiro deploy sempre passa pelo pipeline: faça merge de um pull request da `develop` na `main`
+(seção 8.6). Quando o
 workflow `CI` termina com sucesso, o workflow `Deploy` constrói e publica as imagens (job `images`),
 copia o compose e os scripts para `$DEPLOY_PATH/.incoming/` e roda `.incoming/deploy.sh sha-<12>`
 (job `deploy`). Na instância:
@@ -520,6 +526,22 @@ cd /opt/duo-finance
 grep '^IMAGE_TAG=' .env
 echo 'sha-<12_DA_TAG_BOA>' > .last-good-tag
 ```
+
+### 8.6 Fluxo de branches
+
+A `develop` reúne as mudanças, e a `main` só recebe versões. Cada merge na `main` é um deploy.
+
+- Toda branch nova (feature, fix, chore) sai da `develop`:
+  `git fetch && git switch -c feature/<nome> origin/develop`.
+- O pull request vai para a `develop`, com qualquer método de merge. O CI roda no PR e de novo no
+  push da `develop`. Não há deploy.
+- **Versão:** abra um pull request da `develop` para a `main` e faça o merge com **Create a merge
+  commit**. Nunca use squash ou rebase nesse PR: eles criam na `main` commits que a `develop` não
+  tem, e as duas branches divergem. O merge dispara o CI na `main` e, com o CI verde, o `Deploy`.
+- Correção urgente segue o mesmo caminho: branch a partir da `develop`, PR para a `develop` e
+  depois PR da `develop` para a `main`.
+- Se a `main` divergir por engano (por exemplo, depois de um squash), abra um PR da `main` para a
+  `develop` e faça o merge com merge commit.
 
 ## 9. Backup
 
@@ -683,6 +705,40 @@ docker compose exec postgres psql -U duofinance -d duofinance \
 
 Resultado esperado: `UPDATE 1`. Se for `UPDATE 0`, o e-mail está errado. Faça logout e login de novo
 para o papel valer.
+
+### Login com Google
+
+O botão "Continuar com o Google" só aparece quando `GOOGLE_CLIENT_ID` está preenchido. Nada do
+Google carrega nas nossas páginas: o clique leva o navegador à tela de login do Google, que devolve um
+ID token para `/auth/google/callback`. O backend valida esse token contra o Client ID.
+
+1. No [Google Cloud Console](https://console.cloud.google.com/), abra (ou crie) um projeto e vá em
+   **APIs e serviços > Credenciais > Criar credenciais > ID do cliente OAuth**.
+2. Tipo de aplicativo: **Aplicativo da Web**.
+3. Em **URIs de redirecionamento autorizados**, adicione
+   `https://duofinance.dev.br/auth/google/callback` e, para desenvolvimento,
+   `http://localhost:5173/auth/google/callback` (Vite) e
+   `http://localhost:8088/auth/google/callback` (stack local com nginx). O endereço precisa bater
+   exatamente, senão o Google responde `redirect_uri_mismatch`. As **Origens JavaScript
+   autorizadas** podem ficar vazias.
+4. Na **tela de consentimento OAuth**, informe o nome do app e os links das páginas
+   `https://duofinance.dev.br/terms` (termos) e `https://duofinance.dev.br/privacy` (privacidade).
+   Os escopos são só os básicos (`openid`, `email`, `profile`).
+5. Copie o Client ID (termina em `.apps.googleusercontent.com`) para `GOOGLE_CLIENT_ID` no `.env` e
+   reinicie o backend:
+
+   ```bash
+   cd /opt/duo-finance
+   nano .env
+   docker compose up -d api
+   ```
+
+   Resultado esperado: o contêiner `api` é recriado e a tela de login mostra o botão do Google.
+6. Com `GOOGLE_CLIENT_ID` vazio, o botão some e o login com Google fica desligado. O login com e-mail e
+   senha não é afetado.
+
+A CSP do nginx não precisa liberar nada do Google: o login acontece numa navegação de página inteira,
+fora do nosso site.
 
 ## 11. Operação
 

@@ -43,6 +43,8 @@ app:
     provider: RESEND
   auth:
     cookie-secure: true
+    # Empty: Google sign-in is off (endpoints 404, no client id published). Set GOOGLE_CLIENT_ID to enable it.
+    google-client-id: ${GOOGLE_CLIENT_ID:}
   recurring:
     scheduler-enabled: true
 

@@ -52,7 +52,7 @@ public class MeController {
     @DeleteMapping
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(CurrentUser current, @Valid @RequestBody DeleteMeRequest request, HttpServletResponse response) {
-        me.delete(current, request.password());
+        me.delete(current, request);
         cookies.clear(response);
     }
 

@@ -8,10 +8,14 @@ import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ErrorCode;
 import br.dev.duofinance.shared.token.SecureTokens;
 import br.dev.duofinance.user.model.User;
+import br.dev.duofinance.user.model.UserIdentity;
+import br.dev.duofinance.user.repository.UserIdentityRepository;
 import br.dev.duofinance.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +30,7 @@ public class AuthSessionService {
     private final RefreshTokenRepository refreshTokens;
     private final UserRepository users;
     private final AccountMemberRepository members;
+    private final UserIdentityRepository identities;
     private final TokenService tokenService;
     private final Clock clock;
 
@@ -33,11 +38,13 @@ public class AuthSessionService {
             RefreshTokenRepository refreshTokens,
             UserRepository users,
             AccountMemberRepository members,
+            UserIdentityRepository identities,
             TokenService tokenService,
             Clock clock) {
         this.refreshTokens = refreshTokens;
         this.users = users;
         this.members = members;
+        this.identities = identities;
         this.tokenService = tokenService;
         this.clock = clock;
     }
@@ -93,17 +100,30 @@ public class AuthSessionService {
                 .ifPresent(t -> refreshTokens.revokeFamily(t.getFamilyId(), Instant.now(clock)));
     }
 
+    /**
+     * Revokes every refresh token and moves the user's session epoch to now, so access tokens issued before it are
+     * rejected too. The epoch is truncated to whole seconds because {@code iat} is: a session started right after this
+     * call stays valid (a token minted earlier within the same second also survives; that window is accepted). Both
+     * are bulk updates that flush pending entity changes first; the second one also clears the persistence context.
+     */
     @Transactional
     public void revokeAll(UUID userId) {
-        refreshTokens.revokeAllForUser(userId, Instant.now(clock));
+        Instant now = Instant.now(clock);
+        users.invalidateSessionsBefore(userId, now.truncatedTo(ChronoUnit.SECONDS));
+        refreshTokens.revokeAllForUser(userId, now);
     }
 
     private SessionTokens sessionFor(User user, String raw) {
         UUID accountId = members.findAccountIdByUserId(user.getId())
                 .orElseThrow(() -> new IllegalStateException("User " + user.getId() + " has no account membership"));
         IssuedAccessToken access = tokenService.issueAccessToken(user, accountId);
-        return new SessionTokens(user, accountId, access, raw);
+        return new SessionTokens(user, accountId, access, raw, identities.findByUserId(user.getId()));
     }
 
-    public record SessionTokens(User user, UUID accountId, IssuedAccessToken access, String rawRefreshToken) {}
+    public record SessionTokens(
+            User user,
+            UUID accountId,
+            IssuedAccessToken access,
+            String rawRefreshToken,
+            List<UserIdentity> identities) {}
 }

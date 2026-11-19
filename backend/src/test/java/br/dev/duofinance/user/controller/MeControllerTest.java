@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import tools.jackson.databind.json.JsonMapper;
 
 @IntegrationTest
 class MeControllerTest {
@@ -205,6 +206,29 @@ class MeControllerTest {
         // login uses the new password only
         assertThat(login("ana@mail.com", "brand-new-pass")).hasStatus(HttpStatus.OK);
         assertThat(login("ana@mail.com", TestUsers.PASSWORD)).hasStatus(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void changePassword_rejectsEarlierAccessTokenAndKeepsTheNewOne() throws Exception {
+        TestSession s = testUsers.registered("ana@mail.com");
+        clock.advance(Duration.ofSeconds(2));
+
+        var result = changePassword(s, TestUsers.PASSWORD, "brand-new-pass");
+
+        assertThat(result).hasStatus(HttpStatus.OK);
+        var old = mvc.get()
+                .uri("/api/v1/me")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                .exchange();
+        assertThat(old).hasStatus(HttpStatus.UNAUTHORIZED);
+        assertThat(old).bodyJson().extractingPath("$.code").isEqualTo("SESSION_STALE");
+        String newToken = JsonMapper.builder()
+                .build()
+                .readTree(result.getResponse().getContentAsString())
+                .path("accessToken")
+                .asString();
+        assertThat(mvc.get().uri("/api/v1/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + newToken))
+                .hasStatus(HttpStatus.OK);
     }
 
     private org.springframework.test.web.servlet.assertj.MvcTestResult login(String email, String password) {

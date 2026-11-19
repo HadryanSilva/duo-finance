@@ -1,9 +1,19 @@
 import { screen, waitFor } from '@testing-library/dom'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { AuthResponse, InvitationPreviewResponse } from '@/shared/api/types'
 import { useSession } from '@/shared/session/session-store'
+import { googleAnswer } from '@/test/google'
 import { renderRoute, testUser } from '@/test/render'
+
+const leaveApp = vi.hoisted(() => vi.fn())
+vi.mock('../google/leave-app', () => ({ leaveApp }))
+/** Clicks the Google button and comes back from Google signed in, as the browser would. */
+async function viaGoogle(r: Awaited<ReturnType<typeof renderRoute>>) {
+  leaveApp.mockClear()
+  await r.user.click(await screen.findByRole('button', { name: 'Continuar com o Google' }))
+  await r.router.push(`/auth/google/callback${googleAnswer(leaveApp.mock.calls[0]![0] as string)}`)
+}
 
 const api = `${window.location.origin}/api/v1`
 const preview = (over: Partial<InvitationPreviewResponse> = {}) =>
@@ -61,6 +71,31 @@ describe('AcceptInvitePage', () => {
     expect(url.searchParams.get('invite')).toBe('tok')
     expect(url.searchParams.get('email')).toBe('ana@example.com')
     expect(screen.queryByRole('link', { name: 'Entrar' })).toBeNull()
+  })
+
+  it('acceptInvite_googleAuthenticated_showsAcceptStep', async () => {
+    const r = await renderRoute({
+      route: '/invite/tok',
+      handlers: [
+        preview(),
+        http.get(`${api}/public/registration-mode`, () =>
+          HttpResponse.json({ mode: 'INVITE_ONLY', googleClientId: 'cid' }),
+        ),
+        http.post(`${api}/auth/google`, () =>
+          HttpResponse.json({
+            status: 'AUTHENTICATED',
+            accessToken: 'google-token',
+            expiresIn: 900,
+            user: testUser,
+          }),
+        ),
+      ],
+    })
+    expect(screen.queryByRole('button', { name: 'Aceitar convite' })).toBeNull()
+    await viaGoogle(r)
+    expect(await screen.findByRole('button', { name: 'Aceitar convite' })).toBeTruthy()
+    expect(r.router.currentRoute.value.path).toBe('/invite/tok')
+    expect(useSession(r.pinia).accessToken).toBe('google-token')
   })
 
   it('acceptInvite_authenticated_acceptsAndSwitchesAccount', async () => {
