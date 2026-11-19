@@ -50,7 +50,7 @@ const dashboard = useDashboard(month)
       <MonthSummaryCard class="lg:col-span-2" :data="dashboard.data.value" />
       <SpendingDonut :data="dashboard.data.value" :month="month" />
       <BudgetsCard :data="dashboard.data.value" :month="month" />
-      <GoalsCard :data="dashboard.data.value" />
+      <GoalsCard :data="dashboard.data.value" :month="month" />
       <UpcomingCard :data="dashboard.data.value" />
     </template>
     <RecentTransactionsCard class="lg:col-span-3" />

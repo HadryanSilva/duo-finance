@@ -707,20 +707,10 @@
       "emptyTitle": "Crie um objetivo",
       "emptyDescription": "Separe dinheiro para o que vocês querem conquistar.",
       "emptyCta": "Crie um objetivo",
-      "suggestionsHeader": "Sugestões de {month} · Salário {salary}",
-      "suggestionsLabel": "Sugestões do mês",
-      "confirm": "Confirmar",
-      "adjust": "Ajustar",
-      "confirmLabel": "Confirmar {name}",
-      "failureFor": "{name}: {message}",
-      "adjustLabel": "Ajustar {name}",
-      "skipLabel": "Pular {name}",
-      "amountFor": "Valor para {name}",
       "viewAllLabel": "Ver todos os objetivos",
-      "amountTooHigh": "O valor passa do que falta: {amount}.",
       "salaryHint": "Escolha a categoria do salário para receber sugestões",
-      "noSalary": "Nenhum salário em {month} na categoria {name}.",
-      "listLabel": "Andamento dos objetivos"
+      "listLabel": "Andamento dos objetivos",
+      "pending": "{n} contribuição para confirmar em {month} | {n} contribuições para confirmar em {month}"
     },
     "upcoming": {
       "title": "Próximos",

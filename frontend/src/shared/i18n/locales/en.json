@@ -707,20 +707,10 @@
       "emptyTitle": "Create a goal",
       "emptyDescription": "Set money aside for what you want to achieve together.",
       "emptyCta": "Create a goal",
-      "suggestionsHeader": "Suggestions for {month} · Salary {salary}",
-      "suggestionsLabel": "Monthly suggestions",
-      "confirm": "Confirm",
-      "adjust": "Adjust",
-      "confirmLabel": "Confirm {name}",
-      "failureFor": "{name}: {message}",
-      "adjustLabel": "Adjust {name}",
-      "skipLabel": "Skip {name}",
-      "amountFor": "Amount for {name}",
       "viewAllLabel": "View all goals",
-      "amountTooHigh": "The amount is more than what is left: {amount}.",
       "salaryHint": "Choose the salary category to get suggestions",
-      "noSalary": "No salary in {month} in the {name} category.",
-      "listLabel": "Goal progress"
+      "listLabel": "Goal progress",
+      "pending": "{n} contribution to confirm for {month} | {n} contributions to confirm for {month}"
     },
     "upcoming": {
       "title": "Upcoming",
