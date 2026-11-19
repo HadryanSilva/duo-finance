@@ -12,12 +12,14 @@ import br.dev.duofinance.support.TestUsers;
 import br.dev.duofinance.support.TestUsers.TestSession;
 import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import tools.jackson.databind.json.JsonMapper;
@@ -201,5 +203,18 @@ class GoogleSignupTest {
 
         assertThat(result).hasStatus(HttpStatus.OK);
         assertThat(result).bodyJson().extractingPath("$.status").isEqualTo("AUTHENTICATED");
+    }
+
+    @Nested
+    @TestPropertySource(properties = "app.registration.mode=OPEN")
+    class OpenMode {
+
+        @Test
+        void complete_openMode_needsNoCode() throws Exception {
+            var result = complete(ticketFor("g-1", "novo@mail.com"), null, null);
+
+            assertThat(result).hasStatus(HttpStatus.CREATED);
+            assertThat(me(accessTokenOf(result))).hasStatus(HttpStatus.OK);
+        }
     }
 }
