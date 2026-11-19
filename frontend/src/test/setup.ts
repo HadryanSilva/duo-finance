@@ -7,8 +7,8 @@ import { installMatchMediaStub, resetViewport } from './viewport'
 // `option` prop of the stubbed VChart instead.
 vi.mock('vue-echarts', () => import('./echarts-stub'))
 vi.mock('echarts/core', () => ({ use: () => {} }))
-vi.mock('echarts/charts', () => ({ BarChart: {}, PieChart: {} }))
-vi.mock('echarts/components', () => ({ GridComponent: {}, TooltipComponent: {} }))
+vi.mock('echarts/charts', () => ({ PieChart: {} }))
+vi.mock('echarts/components', () => ({ TooltipComponent: {} }))
 vi.mock('echarts/renderers', () => ({ CanvasRenderer: {} }))
 
 // The router's scrollBehavior scrolls on every navigation; jsdom does not implement scrolling.

@@ -1,4 +1,5 @@
 import { http as rest, HttpResponse } from 'msw'
+import { within } from '@testing-library/dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from '@/app/App.vue'
 import { cleanup, render } from '@/test/render'
@@ -15,16 +16,23 @@ describe('AppLayout', () => {
       'Duo Finance',
       'Dashboard',
       'Lançamentos',
-      'Contas',
-      'Categorias',
       'Orçamentos',
       'Objetivos',
+      'Contas',
+      'Categorias',
       'Recorrências',
       'Configurações',
     ])
     const admin = await render(AppLayout, { route: '/dashboard', session: { role: 'ADMIN' } })
     const adminLink = admin.wrapper.get('[data-testid="sidebar"] a[href="/admin"]')
     expect(adminLink.text()).toBe('Admin')
+  })
+
+  it('sidebar_groupsSetupItems', async () => {
+    const { wrapper } = await render(AppLayout, { route: '/dashboard', session: {} })
+    const sidebar = wrapper.get('[data-testid="sidebar"]').element as HTMLElement
+    const setup = within(sidebar).getByRole('list', { name: 'Cadastros' })
+    expect(linkNames(setup)).toEqual(['Contas', 'Categorias', 'Recorrências'])
   })
 
   it('renders bottom nav on mobile and sidebar on desktop', async () => {
@@ -127,21 +135,26 @@ describe('AppLayout', () => {
 
     it('lists Admin only for ADMIN', async () => {
       await openMenu('USER')
-      expect(menuItems()).toEqual(['Contas', 'Categorias', 'Recorrências', 'Objetivos', 'Sair'])
+      expect(menuItems()).toEqual(['Objetivos', 'Contas', 'Categorias', 'Recorrências', 'Sair'])
+      expect(document.body.textContent).toContain('Cadastros')
       cleanup()
 
       const r = await openMenu('ADMIN')
       expect(menuItems()).toEqual([
+        'Objetivos',
         'Contas',
         'Categorias',
         'Recorrências',
-        'Objetivos',
         'Admin',
         'Sair',
       ])
       const admin = [...document.querySelectorAll('[role="menuitem"]')].find(
         (el) => el.textContent?.trim() === 'Admin',
       )
+      const setupGroup = [...document.querySelectorAll('[role="group"]')].find((g) =>
+        g.textContent?.includes('Cadastros'),
+      )
+      expect(setupGroup?.textContent).not.toContain('Admin')
       await r.user.click(admin!)
       await vi.waitFor(() => expect(r.router.currentRoute.value.path).toBe('/admin'))
     })
@@ -155,7 +168,7 @@ describe('AppLayout', () => {
       })
       await r.user.click(r.wrapper.get('button[aria-haspopup="menu"]').element)
       await vi.waitFor(() =>
-        expect(menuItems()).toEqual(['Accounts', 'Categories', 'Recurring', 'Goals', 'Sign out']),
+        expect(menuItems()).toEqual(['Goals', 'Accounts', 'Categories', 'Recurring', 'Sign out']),
       )
       expect(document.body.textContent).toContain('More')
     })

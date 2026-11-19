@@ -18,6 +18,7 @@ import { Skeleton } from '@/shared/ui/skeleton'
 import GoalAmountForm from '../components/GoalAmountForm.vue'
 import GoalForm from '../components/GoalForm.vue'
 import GoalMovements from '../components/GoalMovements.vue'
+import GoalSuggestions from '../components/GoalSuggestions.vue'
 import GoalRow from '../components/GoalRow.vue'
 import SalaryCategoryPicker from '../components/SalaryCategoryPicker.vue'
 import { moneyLabel } from '../lib/goal-copy'
@@ -121,6 +122,8 @@ const deleteMessage = computed(() => {
   <ManageNotice v-if="notice" :message="notice" @dismiss="notice = null" />
 
   <SalaryCategoryPicker />
+
+  <GoalSuggestions v-if="goals.data.value" :overview="goals.data.value" class="mb-6" />
 
   <div v-if="goals.isPending.value" class="grid gap-3">
     <Skeleton class="h-28 w-full" />

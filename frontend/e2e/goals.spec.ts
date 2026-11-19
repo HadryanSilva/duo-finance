@@ -62,14 +62,21 @@ test('goals: suggest, confirm, withdraw, conclude', async ({ page, request }) =>
     page.getByRole('list', { name: 'Objetivos', exact: true }).getByText('Reserva'),
   ).toBeVisible()
 
-  // Dashboard suggests 10% of the salary.
+  // The dashboard reminds that this month's contribution is pending.
   await page.goto('/dashboard')
+  await page.getByRole('link', { name: /^1 contribuição para confirmar em/ }).click()
+  await expect(page).toHaveURL(/\/goals$/)
+
+  // The Goals page suggests 10% of the salary.
   const suggestions = page.getByRole('list', { name: 'Sugestões do mês', exact: true })
   await expect(suggestions.getByText(euro('200,00'))).toBeVisible()
   await page.getByRole('button', { name: 'Confirmar Reserva' }).click()
   // Confirmed: the month's suggestion is gone.
   await expect(page.getByRole('button', { name: 'Confirmar Reserva' })).toHaveCount(0)
+  await expect(page.getByText(/^Tudo decidido em/)).toBeVisible()
 
+  await page.goto('/dashboard')
+  await expect(page.getByRole('link', { name: /contribuição para confirmar/ })).toHaveCount(0)
   const goalsList = page.getByRole('list', { name: 'Andamento dos objetivos', exact: true })
   await expect(goalsList).toContainText(/€\s200,00\s*\/\s*€\s5\.000,00/)
   await expect(page.getByText('Saldo livre', { exact: true })).toBeVisible()

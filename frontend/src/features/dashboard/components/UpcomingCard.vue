@@ -1,15 +1,29 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { RouterLink } from 'vue-router'
 import type { DashboardResponse } from '@/shared/api/types'
 import { formatBusinessDate } from '@/shared/lib/dates'
 import type { Locale } from '@/shared/lib/money'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/shared/ui/card'
 import MoneyText from '@/shared/ui/MoneyText.vue'
 import { Skeleton } from '@/shared/ui/skeleton'
 import CardEmpty from './CardEmpty.vue'
 
 /** `undefined` while the dashboard loads. Upcoming occurrences do not depend on the month. */
-defineProps<{ data?: DashboardResponse }>()
+const props = defineProps<{ data?: DashboardResponse }>()
+
+/** The card shows the nearest few; the full list lives on the Recurring page. */
+const SHOWN = 5
+const shown = computed(() => props.data?.upcoming.slice(0, SHOWN) ?? [])
+const hasMore = computed(() => (props.data?.upcoming.length ?? 0) > SHOWN)
 
 const { t, locale } = useI18n()
 </script>
@@ -19,6 +33,15 @@ const { t, locale } = useI18n()
     <CardHeader>
       <CardTitle>{{ t('dashboard.upcoming.title') }}</CardTitle>
       <CardDescription>{{ t('dashboard.upcoming.subtitle') }}</CardDescription>
+      <CardAction v-if="hasMore">
+        <RouterLink
+          to="/recurring"
+          :aria-label="t('dashboard.upcoming.viewAllLabel')"
+          class="text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
+          {{ t('dashboard.upcoming.viewAll') }}
+        </RouterLink>
+      </CardAction>
     </CardHeader>
     <CardContent>
       <div v-if="!data" class="grid gap-3">
@@ -35,7 +58,7 @@ const { t, locale } = useI18n()
       />
       <ul v-else class="grid gap-3" :aria-label="t('dashboard.upcoming.listLabel')">
         <li
-          v-for="(u, i) in data.upcoming"
+          v-for="(u, i) in shown"
           :key="`${u.ruleId}-${u.date}-${i}`"
           class="flex items-center justify-between gap-3 text-sm"
         >

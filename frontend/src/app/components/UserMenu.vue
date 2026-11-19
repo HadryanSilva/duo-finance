@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu'
-import { ADMIN, MORE_ITEMS } from './nav'
+import { ADMIN, MORE_ITEMS, SETUP_ITEMS } from './nav'
 
 const { t } = useI18n()
 const session = useSession()
@@ -28,7 +28,6 @@ const initials = computed(() =>
     .join(''),
 )
 // Below md the sidebar is hidden and the bottom nav has no room for these pages.
-const more = computed(() => (session.isAdmin ? [...MORE_ITEMS, ADMIN] : MORE_ITEMS))
 </script>
 
 <template>
@@ -48,13 +47,34 @@ const more = computed(() => (session.isAdmin ? [...MORE_ITEMS, ADMIN] : MORE_ITE
         <DropdownMenuLabel class="text-xs text-muted-foreground">{{
           t('nav.more')
         }}</DropdownMenuLabel>
-        <DropdownMenuItem v-for="item in more" :key="item.to" as-child>
+        <DropdownMenuItem v-for="item in MORE_ITEMS" :key="item.to" as-child>
           <RouterLink :to="item.to">
             <component :is="item.icon" aria-hidden="true" />
             {{ t(item.label) }}
           </RouterLink>
         </DropdownMenuItem>
       </DropdownMenuGroup>
+      <DropdownMenuSeparator />
+      <DropdownMenuGroup>
+        <DropdownMenuLabel class="text-xs text-muted-foreground">{{
+          t('nav.setup')
+        }}</DropdownMenuLabel>
+        <DropdownMenuItem v-for="item in SETUP_ITEMS" :key="item.to" as-child>
+          <RouterLink :to="item.to">
+            <component :is="item.icon" aria-hidden="true" />
+            {{ t(item.label) }}
+          </RouterLink>
+        </DropdownMenuItem>
+      </DropdownMenuGroup>
+      <template v-if="session.isAdmin">
+        <DropdownMenuSeparator />
+        <DropdownMenuItem as-child>
+          <RouterLink :to="ADMIN.to">
+            <component :is="ADMIN.icon" aria-hidden="true" />
+            {{ t(ADMIN.label) }}
+          </RouterLink>
+        </DropdownMenuItem>
+      </template>
       <DropdownMenuSeparator />
       <DropdownMenuItem @select="session.logout()">
         <LogOut aria-hidden="true" />

@@ -95,7 +95,8 @@
     "settings": "Settings",
     "admin": "Admin",
     "newTransaction": "New transaction",
-    "more": "More"
+    "more": "More",
+    "setup": "Setup"
   },
   "theme": {
     "toggle": "Change theme (current: {theme})",
@@ -607,7 +608,22 @@
     "completeMessage": "{amount} will no longer be set aside.",
     "deleteTitle": "Delete {name}?",
     "deleteMessage": "The history will be erased and {amount} will no longer be set aside.",
-    "deleteCompletedMessage": "The history will be erased."
+    "deleteCompletedMessage": "The history will be erased.",
+    "suggestions": {
+      "header": "Suggestions for {month} · Salary {salary}",
+      "listLabel": "Monthly suggestions",
+      "confirm": "Confirm",
+      "adjust": "Adjust",
+      "confirmLabel": "Confirm {name}",
+      "failureFor": "{name}: {message}",
+      "adjustLabel": "Adjust {name}",
+      "skipLabel": "Skip {name}",
+      "amountFor": "Amount for {name}",
+      "amountTooHigh": "The amount is more than what is left: {amount}.",
+      "noSalary": "No salary in {month} in the {name} category.",
+      "allDone": "All decided for {month}.",
+      "title": "Contributions for {month}"
+    }
   },
   "recurring": {
     "subtitle": "Transactions that repeat on their own.",
@@ -657,26 +673,34 @@
       "emptyDescription": "Add a bank account to see your balances.",
       "emptyCta": "Create first account"
     },
-    "incomeExpense": {
-      "title": "Income and expenses",
-      "income": "Income",
-      "expense": "Expenses",
-      "chartLabel": "Bar chart comparing the month's income and expenses"
+    "summary": {
+      "label": "Month summary",
+      "in": "In",
+      "out": "Out",
+      "left": "Left over",
+      "short": "Short by",
+      "leftShare": "{percent}% of what came in"
     },
     "spending": {
-      "title": "Spending by category",
+      "title": "Where the money went",
       "empty": "No expenses in this month.",
       "emptyDescription": "Record an expense to see where the money goes.",
       "emptyCta": "Record an expense",
       "chartLabel": "Doughnut chart of the month's spending by category",
-      "legendLabel": "Spending by category"
+      "legendLabel": "Spending by category",
+      "others": "{n} others",
+      "linkLabel": "See {name} transactions: {amount} ({share})"
     },
     "budgets": {
       "title": "Budgets",
       "emptyTitle": "No budgets this month",
       "emptyDescription": "Set monthly limits to keep spending under control.",
       "emptyCta": "Set a budget",
-      "listLabel": "Budget progress"
+      "listLabel": "Budget progress",
+      "daysLeft": "{n} day left | {n} days left",
+      "lastDay": "last day of the month",
+      "remaining": "{amount} left",
+      "over": "{amount} over"
     },
     "goals": {
       "title": "Goals",
@@ -684,20 +708,10 @@
       "emptyTitle": "Create a goal",
       "emptyDescription": "Set money aside for what you want to achieve together.",
       "emptyCta": "Create a goal",
-      "suggestionsHeader": "Suggestions for {month} · Salary {salary}",
-      "suggestionsLabel": "Monthly suggestions",
-      "confirm": "Confirm",
-      "adjust": "Adjust",
-      "confirmLabel": "Confirm {name}",
-      "failureFor": "{name}: {message}",
-      "adjustLabel": "Adjust {name}",
-      "skipLabel": "Skip {name}",
-      "amountFor": "Amount for {name}",
       "viewAllLabel": "View all goals",
-      "amountTooHigh": "The amount is more than what is left: {amount}.",
       "salaryHint": "Choose the salary category to get suggestions",
-      "noSalary": "No salary in {month} in the {name} category.",
-      "listLabel": "Goal progress"
+      "listLabel": "Goal progress",
+      "pending": "{n} contribution to confirm for {month} | {n} contributions to confirm for {month}"
     },
     "upcoming": {
       "title": "Upcoming",
@@ -705,7 +719,9 @@
       "emptyTitle": "Nothing scheduled",
       "emptyDescription": "Recurring transactions show up here before they are posted.",
       "emptyCta": "Create a recurring transaction",
-      "listLabel": "Upcoming transactions"
+      "listLabel": "Upcoming transactions",
+      "viewAll": "See all",
+      "viewAllLabel": "See all recurring rules"
     },
     "recent": {
       "title": "Recent transactions",
