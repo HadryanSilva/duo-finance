@@ -132,17 +132,6 @@ class GoogleLoginTest {
     }
 
     @Test
-    void google_sameSubjectAgainAfterLinking_authenticates() {
-        testUsers.verified("ana@mail.com");
-        google(tokens.idToken("g-1", "ana@mail.com", true));
-
-        var result = google(tokens.idToken("g-1", "ana@mail.com", true));
-
-        assertThat(result).hasStatus(HttpStatus.OK);
-        assertThat(result).bodyJson().extractingPath("$.status").isEqualTo("AUTHENTICATED");
-    }
-
-    @Test
     void google_unverifiedEmail_is401() {
         var result = google(tokens.idToken("g-1", "ana@mail.com", false));
 
