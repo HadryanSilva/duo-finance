@@ -44,6 +44,11 @@
     "IMPORT_ROW_INVALID": "O arquivo tem uma linha com data ou valor ilegível.",
     "IMPORT_TOO_MANY_ROWS": "O arquivo tem linhas demais (máximo de 5.000).",
     "IMPORT_ALREADY_UNDONE": "Esta importação já foi desfeita.",
+    "GOOGLE_TOKEN_INVALID": "Não foi possível verificar seu login do Google. Tente novamente.",
+    "GOOGLE_EMAIL_UNVERIFIED": "O e-mail da sua conta Google não está verificado.",
+    "GOOGLE_SIGNUP_TICKET_INVALID": "Seu cadastro pelo Google expirou. Comece novamente.",
+    "GOOGLE_ACCOUNT_CONFLICT": "Este e-mail já está vinculado a outra conta Google.",
+    "GOOGLE_LOGIN_DISABLED": "O login com Google não está disponível.",
     "INTERNAL_ERROR": "Algo deu errado do nosso lado. Tente novamente em instantes.",
     "NETWORK_ERROR": "Sem conexão com o servidor. Verifique sua internet e tente de novo.",
     "UNKNOWN": "Algo deu errado. Tente novamente."
@@ -124,6 +129,8 @@
     "name": "Duo Finance"
   },
   "auth": {
+    "or": "ou",
+    "continueWithGoogle": "Continuar com o Google",
     "email": "E-mail",
     "password": "Senha",
     "newPassword": "Nova senha",

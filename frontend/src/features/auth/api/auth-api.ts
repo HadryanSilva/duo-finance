@@ -3,6 +3,9 @@ import type {
   AcceptInvitationRequest,
   AuthResponse,
   ForgotPasswordRequest,
+  GoogleCompleteRequest,
+  GoogleLoginRequest,
+  GoogleLoginResponse,
   InvitationPreviewResponse,
   LoginRequest,
   RegisterRequest,
@@ -33,3 +36,9 @@ export const acceptInvitation = (http: Http, token: string, confirmDiscard: bool
     `/account/invitations/${encodeURIComponent(token)}/accept`,
     { confirmDiscard },
   )
+
+export const googleLogin = (http: Http, credential: string) =>
+  http.post<GoogleLoginResponse, GoogleLoginRequest>('/auth/google', { credential })
+
+export const googleComplete = (http: Http, body: GoogleCompleteRequest) =>
+  http.post<AuthResponse, GoogleCompleteRequest>('/auth/google/complete', body)

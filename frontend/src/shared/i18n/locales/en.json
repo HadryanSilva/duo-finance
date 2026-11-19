@@ -44,6 +44,11 @@
     "IMPORT_ROW_INVALID": "The file has a row with an unreadable date or amount.",
     "IMPORT_TOO_MANY_ROWS": "The file has too many rows (at most 5,000).",
     "IMPORT_ALREADY_UNDONE": "This import was already undone.",
+    "GOOGLE_TOKEN_INVALID": "We could not verify your Google sign-in. Please try again.",
+    "GOOGLE_EMAIL_UNVERIFIED": "Your Google email is not verified.",
+    "GOOGLE_SIGNUP_TICKET_INVALID": "Your Google sign-up expired. Please start again.",
+    "GOOGLE_ACCOUNT_CONFLICT": "This email is already linked to a different Google account.",
+    "GOOGLE_LOGIN_DISABLED": "Google sign-in is not available.",
     "INTERNAL_ERROR": "Something went wrong on our side. Please try again shortly.",
     "NETWORK_ERROR": "Can't reach the server. Check your connection and try again.",
     "UNKNOWN": "Something went wrong. Please try again."
@@ -124,6 +129,8 @@
     "name": "Duo Finance"
   },
   "auth": {
+    "or": "or",
+    "continueWithGoogle": "Continue with Google",
     "email": "Email",
     "password": "Password",
     "newPassword": "New password",

@@ -5,6 +5,7 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useHttp } from '@/app/providers'
+import { useAuthConfig } from '@/shared/api/queries/public'
 import { isApiError } from '@/shared/api/problem'
 import { errorMessage } from '@/shared/i18n/error-codes'
 import { safeRedirect } from '@/shared/session/safe-redirect'
@@ -15,6 +16,7 @@ import { login } from '../api/auth-api'
 import PasswordField from '../components/PasswordField.vue'
 import TextField from '@/shared/ui/TextField.vue'
 import { loginSchema } from '../schemas'
+import GoogleButton from '../google/GoogleButton.vue'
 
 const { t } = useI18n()
 const http = useHttp()
@@ -28,7 +30,12 @@ const { defineField, handleSubmit, errors, isSubmitting } = useForm({
 const [email, emailAttrs] = defineField('email')
 const [password, passwordAttrs] = defineField('password')
 
+const authConfig = useAuthConfig()
+const googleClientId = computed(() => authConfig.data.value?.googleClientId ?? null)
+
 const formError = ref<string | null>(null)
+
+const goAfterLogin = () => router.push(safeRedirect(route.query.redirect))
 
 const submit = handleSubmit(async (values) => {
   formError.value = null
@@ -40,7 +47,7 @@ const submit = handleSubmit(async (values) => {
       isApiError(e) && e.status === 401 ? t('errors.INVALID_CREDENTIALS') : errorMessage(e)
     return
   }
-  await router.push(safeRedirect(route.query.redirect))
+  await goAfterLogin()
 })
 </script>
 
@@ -53,6 +60,14 @@ const submit = handleSubmit(async (values) => {
   >
     {{ t('auth.login.resetDone') }}
   </p>
+  <div v-if="googleClientId" class="mb-6 grid gap-4">
+    <GoogleButton :client-id="googleClientId" @authenticated="goAfterLogin" />
+    <div class="flex items-center gap-3 text-xs text-muted-foreground" aria-hidden="true">
+      <span class="h-px flex-1 bg-border" />
+      {{ t('auth.or') }}
+      <span class="h-px flex-1 bg-border" />
+    </div>
+  </div>
   <form class="grid gap-4" novalidate @submit.prevent="submit">
     <p v-if="formError" role="alert" class="rounded-md bg-muted p-3 text-sm text-destructive">
       {{ formError }}
