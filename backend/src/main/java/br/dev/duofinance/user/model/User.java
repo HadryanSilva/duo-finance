@@ -50,6 +50,13 @@ public class User {
     @Column(name = "onboarded_at")
     private Instant onboardedAt;
 
+    /**
+     * Access tokens issued before this instant are stale (checked by {@code CurrentUserProvider}). Written only by the
+     * bulk update {@code UserRepository.invalidateSessionsBefore}, so it has no setter.
+     */
+    @Column(name = "sessions_valid_after")
+    private Instant sessionsValidAfter;
+
     @Column(name = "terms_version", nullable = false)
     private String termsVersion;
 

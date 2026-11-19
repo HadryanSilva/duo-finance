@@ -14,6 +14,7 @@ import br.dev.duofinance.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -99,9 +100,17 @@ public class AuthSessionService {
                 .ifPresent(t -> refreshTokens.revokeFamily(t.getFamilyId(), Instant.now(clock)));
     }
 
+    /**
+     * Revokes every refresh token and moves the user's session epoch to now, so access tokens issued before it are
+     * rejected too. The epoch is truncated to whole seconds because {@code iat} is: a session started right after this
+     * call stays valid (a token minted earlier within the same second also survives; that window is accepted). Both
+     * are bulk updates that flush pending entity changes first; the second one also clears the persistence context.
+     */
     @Transactional
     public void revokeAll(UUID userId) {
-        refreshTokens.revokeAllForUser(userId, Instant.now(clock));
+        Instant now = Instant.now(clock);
+        users.invalidateSessionsBefore(userId, now.truncatedTo(ChronoUnit.SECONDS));
+        refreshTokens.revokeAllForUser(userId, now);
     }
 
     private SessionTokens sessionFor(User user, String raw) {

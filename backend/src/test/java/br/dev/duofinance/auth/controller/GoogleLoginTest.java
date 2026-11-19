@@ -3,10 +3,12 @@ package br.dev.duofinance.auth.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import br.dev.duofinance.IntegrationTest;
+import br.dev.duofinance.support.MutableClock;
 import br.dev.duofinance.support.TestGoogleTokens;
 import br.dev.duofinance.support.TestUsers;
 import br.dev.duofinance.user.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
+import java.time.Duration;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,9 +18,15 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
+import tools.jackson.databind.json.JsonMapper;
 
 @IntegrationTest
 class GoogleLoginTest {
+
+    private final JsonMapper json = JsonMapper.builder().build();
+
+    @Autowired
+    MutableClock clock;
 
     @Autowired
     MockMvcTester mvc;
@@ -108,6 +116,35 @@ class GoogleLoginTest {
                         Integer.class,
                         session.userId()))
                 .isZero();
+    }
+
+    @Test
+    void google_unverifiedLocalUser_invalidatesEarlierAccessTokens() throws Exception {
+        var attacker = testUsers.registered("ana@mail.com");
+        clock.advance(Duration.ofSeconds(2));
+
+        var result = google(tokens.idToken("g-1", "ana@mail.com", true));
+
+        assertThat(result).hasStatus(HttpStatus.OK);
+        var me = mvc.get()
+                .uri("/api/v1/me")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(attacker))
+                .exchange();
+        assertThat(me).hasStatus(HttpStatus.UNAUTHORIZED);
+        assertThat(me).bodyJson().extractingPath("$.code").isEqualTo("SESSION_STALE");
+        var invite = mvc.post()
+                .uri("/api/v1/account/invitations")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(attacker))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"attacker@mail.com\"}")
+                .exchange();
+        assertThat(invite).hasStatus(HttpStatus.UNAUTHORIZED);
+        assertThat(invite).bodyJson().extractingPath("$.code").isEqualTo("SESSION_STALE");
+        String googleToken = json.readTree(result.getResponse().getContentAsString())
+                .path("accessToken")
+                .asString();
+        assertThat(mvc.get().uri("/api/v1/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + googleToken))
+                .hasStatus(HttpStatus.OK);
     }
 
     @Test
