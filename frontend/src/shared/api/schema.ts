@@ -804,6 +804,22 @@ export interface paths {
         patch: operations["rename"];
         trace?: never;
     };
+    "/api/v1/transactions/totals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["totals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/registration-mode": {
         parameters: {
             query?: never;
@@ -1408,6 +1424,16 @@ export interface components {
             totalElements: number;
             /** Format: int32 */
             totalPages: number;
+        };
+        TransactionTotalsResponse: {
+            /** Format: int64 */
+            incomeCents: number;
+            /** Format: int64 */
+            expenseCents: number;
+            /** Format: int64 */
+            netCents: number;
+            /** Format: int64 */
+            count: number;
         };
         RegistrationModeResponse: {
             /** @enum {string} */
@@ -3201,6 +3227,34 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["AccountResponse"];
+                };
+            };
+        };
+    };
+    totals: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+                kind?: "INCOME" | "EXPENSE" | "TRANSFER";
+                categoryId?: string;
+                bankAccountId?: string;
+                createdBy?: string;
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TransactionTotalsResponse"];
                 };
             };
         };

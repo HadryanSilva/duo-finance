@@ -18,6 +18,7 @@ import {
 } from '../api/recurring-api'
 import RecurringRuleForm from '../components/RecurringRuleForm.vue'
 import RecurringRuleRow from '../components/RecurringRuleRow.vue'
+import RecurringSummary from '../components/RecurringSummary.vue'
 
 const { t } = useI18n()
 
@@ -91,6 +92,7 @@ const onDelete = () => {
     <Button @click="panel = 'new'">{{ t('recurring.new') }}</Button>
   </EmptyState>
   <div v-else class="grid gap-6">
+    <RecurringSummary :rules="activeRules" />
     <section v-if="activeRules.length" aria-labelledby="recurring-active">
       <h2 id="recurring-active" class="mb-2 text-sm font-medium text-muted-foreground">
         {{ t('recurring.active') }}

@@ -1,7 +1,7 @@
 import type { LocationQuery, LocationQueryRaw } from 'vue-router'
 import type { TransactionFilter } from '@/shared/api/queries/transactions'
 import type { TransactionKind } from '@/shared/api/types'
-import { currentMonth } from '@/shared/lib/dates'
+import { currentMonth, monthRange } from '@/shared/lib/dates'
 
 export type { TransactionFilter }
 
@@ -10,13 +10,6 @@ export const SEARCH_DEBOUNCE_MS = 300
 
 const KINDS: readonly TransactionKind[] = ['EXPENSE', 'INCOME', 'TRANSFER']
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
-
-/** First and last day (YYYY-MM-DD) of a YYYY-MM month, built from its parts. */
-export function monthRange(month: string): { from: string; to: string } {
-  const [y = 0, m = 1] = month.split('-').map(Number)
-  const last = new Date(y, m, 0).getDate()
-  return { from: `${month}-01`, to: `${month}-${String(last).padStart(2, '0')}` }
-}
 
 /** Trimmed search text, at most SEARCH_MAX characters. */
 export function normalizeSearch(q: string): string {

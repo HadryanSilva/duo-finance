@@ -121,6 +121,9 @@ function setup(extra: RequestHandler[] = []) {
       const archived = new URL(request.url).searchParams.get('includeArchived') === 'true'
       return HttpResponse.json(banks.filter((b) => archived || !b.archived))
     }),
+    http.get(`${api}/transactions/totals`, () =>
+      HttpResponse.json({ incomeCents: 100000, expenseCents: 3550, netCents: 96450, count: 4 }),
+    ),
     http.get(`${api}/transactions/:id`, ({ params }) => {
       const found = all.find((t) => t.id === params.id)
       return found ? HttpResponse.json(found) : problem(404, 'NOT_FOUND')
@@ -160,6 +163,36 @@ afterEach(() => {
 })
 
 describe('TransactionsPage', () => {
+  it('totals_errorKeepsListUsable', async () => {
+    await setup([http.get(`${api}/transactions/totals`, () => problem(500, 'INTERNAL'))]).render(
+      '/transactions',
+    )
+    await findList()
+    expect(screen.getByText('Feira')).toBeTruthy()
+    expect(await screen.findByRole('alert')).toBeTruthy()
+  })
+
+  it('totals_showAboveTheList', async () => {
+    await setup().render('/transactions')
+    const list = await findList()
+    const strip = await screen.findByRole('group', { name: 'Totais do período' })
+    expect(norm(strip.textContent)).toContain('4 lançamentos')
+    expect(strip.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('dayNet_accountFilter_countsTransfers', async () => {
+    await setup().render('/transactions?bankAccountId=b2')
+    await findList()
+    // into Cofre: + 5000 on top of income 100000 − expense 2550
+    expect(norm(screen.getByTestId('day-net-2026-11-09').textContent)).toBe('+€ 1.024,50')
+  })
+
+  it('dayNet_originAccountFilter_countsTransferOut', async () => {
+    await setup().render('/transactions?bankAccountId=b1')
+    await findList()
+    expect(norm(screen.getByTestId('day-net-2026-11-09').textContent)).toBe('+€ 924,50')
+  })
+
   it('list_groupsByDayWithDailyNet', async () => {
     await setup().render('/transactions')
     const day9 = await screen.findByRole('list', { name: '9 de novembro de 2026' })

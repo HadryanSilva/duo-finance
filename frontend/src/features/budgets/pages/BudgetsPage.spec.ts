@@ -84,6 +84,7 @@ function setup(extra: RequestHandler[] = []) {
 const optionTexts = (select: HTMLElement) =>
   Array.from((select as HTMLSelectElement).options).map((o) => o.text.trim())
 
+const norm = (s: string | null | undefined) => (s ?? '').replace(/\s/g, ' ')
 const findList = () => screen.findByRole('list', { name: 'Orçamentos do mês' })
 
 describe('BudgetsPage', () => {
@@ -95,6 +96,20 @@ describe('BudgetsPage', () => {
     expect(bar.getAttribute('aria-valuenow')).toBe('100')
     expect(items[0]!.textContent).toContain('150%')
     expect(items[0]!.textContent?.replace(/\s/g, ' ')).toContain('€ 150,00 de € 100,00')
+  })
+
+  it('row_showsRemainingOrOver', async () => {
+    await setup().render('/budgets')
+    const items = within(await findList()).getAllByRole('listitem')
+    expect(norm(items[0]!.textContent)).toContain('passou € 50,00')
+    expect(norm(items[1]!.textContent)).toContain('restam € 150,00')
+  })
+
+  it('summary_isShownAboveTheList', async () => {
+    await setup().render('/budgets')
+    const list = await findList()
+    const total = screen.getByRole('progressbar', { name: 'Total do mês' })
+    expect(total.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('budgets_monthSelectorRefetches', async () => {

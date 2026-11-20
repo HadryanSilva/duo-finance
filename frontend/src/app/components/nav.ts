@@ -30,16 +30,11 @@ const CATEGORIES = item('/categories', 'nav.categories', Tags)
 export const GOALS = item('/goals', 'nav.goals', Target)
 const RECURRING = item('/recurring', 'nav.recurring', Repeat)
 
-export const SIDEBAR_ITEMS: readonly NavItem[] = [
-  DASHBOARD,
-  TRANSACTIONS,
-  BANK_ACCOUNTS,
-  CATEGORIES,
-  BUDGETS,
-  GOALS,
-  RECURRING,
-  SETTINGS,
-]
+/** Pages used week to week, first in the sidebar. */
+export const DAILY_ITEMS: readonly NavItem[] = [DASHBOARD, TRANSACTIONS, BUDGETS, GOALS]
 
-/** The pages the bottom nav has no room for, offered in the user menu (Admin added for ADMIN). */
-export const MORE_ITEMS: readonly NavItem[] = [BANK_ACCOUNTS, CATEGORIES, RECURRING, GOALS]
+/** Pages configured once ("Cadastros"), grouped under their own heading. */
+export const SETUP_ITEMS: readonly NavItem[] = [BANK_ACCOUNTS, CATEGORIES, RECURRING]
+
+/** The daily pages the bottom nav has no room for, offered in the user menu with SETUP_ITEMS. */
+export const MORE_ITEMS: readonly NavItem[] = [GOALS]

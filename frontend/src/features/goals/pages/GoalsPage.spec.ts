@@ -73,11 +73,18 @@ const movements = [
 interface Opts {
   goals?: object[]
   completed?: object[]
+  suggestions?: object[]
   settingsCategory?: ReturnType<typeof ref> | null
   extra?: RequestHandler[]
 }
 
-function setup({ goals = [goal], completed = [], settingsCategory = null, extra = [] }: Opts = {}) {
+function setup({
+  goals = [goal],
+  completed = [],
+  suggestions = [],
+  settingsCategory = null,
+  extra = [],
+}: Opts = {}) {
   const calls: Record<string, unknown> = {}
   let isDone = false
   const handlers = [
@@ -105,7 +112,7 @@ function setup({ goals = [goal], completed = [], settingsCategory = null, extra 
         totalSavedCents: 40000,
         goals: isDone ? [] : goals,
         completed: isDone ? [{ ...goal, status: 'COMPLETED' }] : completed,
-        suggestions: [],
+        suggestions,
       })
     }),
     http.post(`${api}/goals`, async ({ request }) => {
@@ -170,6 +177,32 @@ const row = async (name: string) => {
 }
 
 describe('GoalsPage', () => {
+  it('savedTotal_showsAmountAndCount', async () => {
+    await setup().render()
+    await screen.findByText('Videogame novo')
+    expect(norm(document.body.textContent)).toContain('€ 400,00 guardados em 1 objetivo')
+  })
+
+  it('savedTotal_noActiveGoals_hidden', async () => {
+    await setup({ goals: [] }).render()
+    await screen.findByText('Nenhum objetivo ainda')
+    expect(norm(document.body.textContent)).not.toContain('guardados em')
+  })
+
+  it('suggestions_areShownAboveTheList', async () => {
+    const suggestion = {
+      goalId: 'g1',
+      goalName: 'Videogame novo',
+      month: currentMonth(),
+      monthlyPercent: 5,
+      suggestedCents: 15000,
+    }
+    await setup({ suggestions: [suggestion] }).render()
+    const confirm = await screen.findByRole('button', { name: 'Confirmar Videogame novo' })
+    const list = screen.getByRole('list', { name: 'Objetivos' })
+    expect(confirm.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('goals_listShowsProgressAndProjection', async () => {
     await setup().render()
     const r = await row('Videogame novo')

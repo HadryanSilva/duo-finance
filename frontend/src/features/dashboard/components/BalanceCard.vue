@@ -38,19 +38,20 @@ const asOf = computed(() =>
       />
       <template v-else>
         <p class="text-sm text-muted-foreground">{{ t('dashboard.balance.total') }}</p>
-        <p class="text-3xl font-semibold text-foreground">
+        <p class="text-2xl font-semibold text-foreground">
           <MoneyText :cents="data.totalBalanceCents" />
         </p>
         <p class="text-sm text-muted-foreground">
           {{ t('dashboard.balance.asOf', { date: asOf }) }}
         </p>
         <div v-if="data.freeBalanceCents !== null && data.goals.totalSavedCents > 0" class="mt-3">
-          <p class="text-sm text-muted-foreground">{{ t('dashboard.balance.free') }}</p>
-          <p
-            class="text-xl font-semibold"
-            :class="data.freeBalanceCents < 0 ? 'text-expense' : 'text-foreground'"
-          >
-            <MoneyText :cents="data.freeBalanceCents" />
+          <p class="flex flex-wrap items-baseline gap-x-2 text-sm">
+            <span class="text-muted-foreground">{{ t('dashboard.balance.free') }}</span>
+            <MoneyText
+              :cents="data.freeBalanceCents"
+              class="font-semibold"
+              :class="data.freeBalanceCents < 0 ? 'text-expense' : 'text-foreground'"
+            />
           </p>
           <p v-if="data.freeBalanceCents < 0" class="text-sm text-expense">
             {{ t('dashboard.balance.freeNegative') }}

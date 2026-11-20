@@ -7,6 +7,8 @@ import type { BudgetResponse } from '@/shared/api/types'
 import { currentMonth } from '@/shared/lib/dates'
 import { errorMessage } from '@/shared/i18n/error-codes'
 import { swatchInkClass } from '@/shared/lib/contrast'
+import { budgetRemainder } from '@/shared/lib/figures'
+import MoneyText from '@/shared/ui/MoneyText.vue'
 import ArchivedBadge from '@/shared/ui/ArchivedBadge.vue'
 import BudgetProgressBar from '@/shared/ui/BudgetProgressBar.vue'
 import { Button } from '@/shared/ui/button'
@@ -20,6 +22,7 @@ import SidePanel from '@/shared/ui/SidePanel.vue'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { useBudgets, useDeleteBudget } from '../api/budgets-api'
 import BudgetForm from '../components/BudgetForm.vue'
+import BudgetsSummary from '../components/BudgetsSummary.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -56,6 +59,18 @@ const deleteOpen = computed({
     if (!open) pendingDelete.value = null
   },
 })
+/** What is left of a budget, or by how much it went over, colored like the dashboard's. */
+function remainder(b: BudgetResponse) {
+  const r = budgetRemainder(b.spentCents, b.monthlyLimitCents)
+  const color =
+    r.over || b.status === 'EXCEEDED'
+      ? 'text-expense'
+      : b.status === 'WARNING'
+        ? 'text-warning'
+        : 'text-foreground'
+  return { ...r, color }
+}
+
 const notice = ref<string | null>(null)
 async function onDelete() {
   const target = pendingDelete.value
@@ -99,53 +114,64 @@ async function onDelete() {
   >
     <Button @click="panel = 'new'">{{ t('budgets.new') }}</Button>
   </EmptyState>
-  <ul v-else class="grid gap-3" :aria-label="t('budgets.listLabel')">
-    <li
-      v-for="b in rows"
-      :key="b.id"
-      class="grid gap-3 rounded-lg border border-border bg-card p-4"
-    >
-      <div class="flex items-center gap-3">
-        <span
-          class="flex size-9 shrink-0 items-center justify-center rounded-full"
-          :class="swatchInkClass(b.category.color)"
-          :style="{ backgroundColor: b.category.color }"
-        >
-          <!-- the color comes from the API as data, not from the design tokens -->
-          <CategoryIcon :name="b.category.icon" />
-        </span>
-        <span class="flex min-w-0 flex-1 items-center gap-2">
-          <span class="truncate font-medium text-foreground">{{ b.category.name }}</span>
-          <ArchivedBadge v-if="b.category.archived" />
-        </span>
-        <div class="flex items-center">
-          <Button
-            variant="ghost"
-            size="icon"
-            :aria-label="t('budgets.edit', { name: b.category.name })"
-            @click="panel = b"
+  <template v-else>
+    <BudgetsSummary :budgets="rows" :month="month" />
+    <ul class="grid gap-3" :aria-label="t('budgets.listLabel')">
+      <li
+        v-for="b in rows"
+        :key="b.id"
+        class="grid gap-3 rounded-lg border border-border bg-card p-4"
+      >
+        <div class="flex items-center gap-3">
+          <span
+            class="flex size-9 shrink-0 items-center justify-center rounded-full"
+            :class="swatchInkClass(b.category.color)"
+            :style="{ backgroundColor: b.category.color }"
           >
-            <Pencil class="size-4" aria-hidden="true" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            :aria-label="t('budgets.remove', { name: b.category.name })"
-            @click="pendingDelete = b"
+            <!-- the color comes from the API as data, not from the design tokens -->
+            <CategoryIcon :name="b.category.icon" />
+          </span>
+          <span class="flex min-w-0 flex-1 items-center gap-2">
+            <span class="truncate font-medium text-foreground">{{ b.category.name }}</span>
+            <ArchivedBadge v-if="b.category.archived" />
+          </span>
+          <i18n-t
+            :keypath="remainder(b).over ? 'budgets.over' : 'budgets.remaining'"
+            tag="span"
+            class="shrink-0 text-sm font-medium"
+            :class="remainder(b).color"
           >
-            <Trash class="size-4" aria-hidden="true" />
-          </Button>
+            <template #amount><MoneyText :cents="remainder(b).amountCents" /></template>
+          </i18n-t>
+          <div class="flex items-center">
+            <Button
+              variant="ghost"
+              size="icon"
+              :aria-label="t('budgets.edit', { name: b.category.name })"
+              @click="panel = b"
+            >
+              <Pencil class="size-4" aria-hidden="true" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              :aria-label="t('budgets.remove', { name: b.category.name })"
+              @click="pendingDelete = b"
+            >
+              <Trash class="size-4" aria-hidden="true" />
+            </Button>
+          </div>
         </div>
-      </div>
-      <BudgetProgressBar
-        :spent-cents="b.spentCents"
-        :limit-cents="b.monthlyLimitCents"
-        :percent="b.percent"
-        :status="b.status"
-        :label="b.category.name"
-      />
-    </li>
-  </ul>
+        <BudgetProgressBar
+          :spent-cents="b.spentCents"
+          :limit-cents="b.monthlyLimitCents"
+          :percent="b.percent"
+          :status="b.status"
+          :label="b.category.name"
+        />
+      </li>
+    </ul>
+  </template>
 
   <SidePanel
     v-model:open="panelOpen"

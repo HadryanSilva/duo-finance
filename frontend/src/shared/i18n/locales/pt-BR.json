@@ -95,7 +95,8 @@
     "settings": "Configurações",
     "admin": "Admin",
     "newTransaction": "Novo lançamento",
-    "more": "Mais"
+    "more": "Mais",
+    "setup": "Cadastros"
   },
   "theme": {
     "toggle": "Mudar tema (atual: {theme})",
@@ -298,7 +299,8 @@
       "archive": "Arquivar {name}",
       "unarchive": "Desarquivar {name}",
       "delete": "Excluir {name}"
-    }
+    },
+    "activeCount": "em {n} conta ativa | em {n} contas ativas"
   },
   "categories": {
     "subtitle": "Organize receitas e despesas.",
@@ -409,7 +411,15 @@
     },
     "deleteTitle": "Excluir lançamento?",
     "deleteMessage": "Isso remove o lançamento definitivamente e atualiza os saldos.",
-    "importStatement": "Importar extrato"
+    "importStatement": "Importar extrato",
+    "totals": {
+      "label": "Totais do período",
+      "in": "Entrou",
+      "out": "Saiu",
+      "net": "Saldo do período",
+      "count": "{n} lançamento | {n} lançamentos",
+      "transfers": "{n} transferência | {n} transferências"
+    }
   },
   "imports": {
     "title": "Importar extrato da Revolut",
@@ -520,7 +530,17 @@
       "limit": "Limite mensal",
       "limitPositive": "Informe um limite maior que zero.",
       "noCategories": "Todas as categorias de despesa ativas já têm orçamento."
-    }
+    },
+    "summary": {
+      "title": "Total do mês",
+      "remaining": "restam {amount} no total",
+      "over": "passou {amount} no total",
+      "exceeded": "{n} estourado | {n} estourados",
+      "daysLeft": "falta {n} dia | faltam {n} dias",
+      "lastDay": "último dia do mês"
+    },
+    "remaining": "restam {amount}",
+    "over": "passou {amount}"
   },
   "goals": {
     "subtitle": "Separe dinheiro para o que vocês querem conquistar.",
@@ -607,7 +627,23 @@
     "completeMessage": "{amount} deixam de ficar separados.",
     "deleteTitle": "Excluir {name}?",
     "deleteMessage": "O histórico será apagado e {amount} deixam de ficar separados.",
-    "deleteCompletedMessage": "O histórico será apagado."
+    "deleteCompletedMessage": "O histórico será apagado.",
+    "suggestions": {
+      "header": "Sugestões de {month} · Salário {salary}",
+      "listLabel": "Sugestões do mês",
+      "confirm": "Confirmar",
+      "adjust": "Ajustar",
+      "confirmLabel": "Confirmar {name}",
+      "failureFor": "{name}: {message}",
+      "adjustLabel": "Ajustar {name}",
+      "skipLabel": "Pular {name}",
+      "amountFor": "Valor para {name}",
+      "amountTooHigh": "O valor passa do que falta: {amount}.",
+      "noSalary": "Nenhum salário em {month} na categoria {name}.",
+      "allDone": "Tudo decidido em {month}.",
+      "title": "Contribuições de {month}"
+    },
+    "savedTotal": "{amount} guardados em {n} objetivo | {amount} guardados em {n} objetivos"
   },
   "recurring": {
     "subtitle": "Lançamentos que se repetem sozinhos.",
@@ -641,7 +677,15 @@
       "immediateNotice": "Como o início é hoje ou no passado, as ocorrências até hoje serão geradas agora.",
       "lockedNote": "Tipo, frequência e início não podem ser alterados. Para mudá-los, crie outra recorrência.",
       "futureOnlyNote": "As alterações valem só para as próximas ocorrências; lançamentos já gerados não mudam."
-    }
+    },
+    "summary": {
+      "label": "Compromisso fixo por mês",
+      "in": "Entradas fixas",
+      "out": "Saídas fixas",
+      "left": "Sobra fixa por mês",
+      "short": "Falta fixa por mês"
+    },
+    "perMonth": "≈ {amount}/mês"
   },
   "dashboard": {
     "subtitle": "O mês de vocês em um relance.",
@@ -657,26 +701,34 @@
       "emptyDescription": "Adicione uma conta bancária para ver os saldos.",
       "emptyCta": "Criar primeira conta"
     },
-    "incomeExpense": {
-      "title": "Receitas e despesas",
-      "income": "Receitas",
-      "expense": "Despesas",
-      "chartLabel": "Gráfico de barras comparando receitas e despesas do mês"
+    "summary": {
+      "label": "Resumo do mês",
+      "in": "Entrou",
+      "out": "Saiu",
+      "left": "Sobrou",
+      "short": "Faltou",
+      "leftShare": "{percent}% do que entrou"
     },
     "spending": {
-      "title": "Gastos por categoria",
+      "title": "Para onde foi o dinheiro",
       "empty": "Nenhuma despesa neste mês.",
       "emptyDescription": "Registre uma despesa para ver para onde o dinheiro vai.",
       "emptyCta": "Registrar despesa",
       "chartLabel": "Gráfico de rosca dos gastos do mês por categoria",
-      "legendLabel": "Gastos por categoria"
+      "legendLabel": "Gastos por categoria",
+      "others": "Outras {n}",
+      "linkLabel": "Ver lançamentos de {name}: {amount} ({share})"
     },
     "budgets": {
       "title": "Orçamentos",
       "emptyTitle": "Nenhum orçamento neste mês",
       "emptyDescription": "Defina limites mensais para manter os gastos sob controle.",
       "emptyCta": "Definir orçamento",
-      "listLabel": "Andamento dos orçamentos"
+      "listLabel": "Andamento dos orçamentos",
+      "daysLeft": "falta {n} dia | faltam {n} dias",
+      "lastDay": "último dia do mês",
+      "remaining": "restam {amount}",
+      "over": "passou {amount}"
     },
     "goals": {
       "title": "Objetivos",
@@ -684,20 +736,10 @@
       "emptyTitle": "Crie um objetivo",
       "emptyDescription": "Separe dinheiro para o que vocês querem conquistar.",
       "emptyCta": "Crie um objetivo",
-      "suggestionsHeader": "Sugestões de {month} · Salário {salary}",
-      "suggestionsLabel": "Sugestões do mês",
-      "confirm": "Confirmar",
-      "adjust": "Ajustar",
-      "confirmLabel": "Confirmar {name}",
-      "failureFor": "{name}: {message}",
-      "adjustLabel": "Ajustar {name}",
-      "skipLabel": "Pular {name}",
-      "amountFor": "Valor para {name}",
       "viewAllLabel": "Ver todos os objetivos",
-      "amountTooHigh": "O valor passa do que falta: {amount}.",
       "salaryHint": "Escolha a categoria do salário para receber sugestões",
-      "noSalary": "Nenhum salário em {month} na categoria {name}.",
-      "listLabel": "Andamento dos objetivos"
+      "listLabel": "Andamento dos objetivos",
+      "pending": "{n} contribuição para confirmar em {month} | {n} contribuições para confirmar em {month}"
     },
     "upcoming": {
       "title": "Próximos",
@@ -705,7 +747,9 @@
       "emptyTitle": "Nada agendado",
       "emptyDescription": "As recorrências aparecem aqui antes de serem lançadas.",
       "emptyCta": "Criar recorrência",
-      "listLabel": "Próximos lançamentos"
+      "listLabel": "Próximos lançamentos",
+      "viewAll": "Ver todos",
+      "viewAllLabel": "Ver todas as recorrências"
     },
     "recent": {
       "title": "Últimos lançamentos",
