@@ -522,6 +522,95 @@ class DashboardControllerTest {
         assertThat(d.path("upcoming").size()).isZero();
     }
 
+    /** Inserts a REVOLUT batch and attaches the given bank account's transactions dated {@code dates} to it. */
+    private void markImported(TestSession s, UUID bank, String... dates) {
+        UUID batch = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO import_batches (id, account_id, source, bank_account_id, created_by, row_count, created_at)"
+                        + " VALUES (?, ?, 'REVOLUT', ?, NULL, ?, now())",
+                batch,
+                s.accountId(),
+                bank,
+                dates.length);
+        for (String date : dates) {
+            jdbc.update(
+                    "UPDATE transactions SET import_batch_id = ?"
+                            + " WHERE account_id = ? AND bank_account_id = ? AND date = ?::date",
+                    batch,
+                    s.accountId(),
+                    bank,
+                    date);
+        }
+    }
+
+    private static JsonNode account(JsonNode d, String name) {
+        return d.path("accounts")
+                .valueStream()
+                .filter(a -> a.path("name").asString().equals(name))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    @Test
+    void dashboard_lastImportedDate_isLatestImportedPerAccount() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID food = seeded(s, "EXPENSE");
+        UUID checking = fixtures.bankAccount(s, "Checking", 0);
+        UUID manual = fixtures.bankAccount(s, "Manual", 0);
+        fixtures.bankAccount(s, "Untouched", 0);
+        tx(s, "EXPENSE", 100, "2027-03-01", food, checking);
+        tx(s, "EXPENSE", 100, "2027-03-05", food, checking);
+        tx(s, "EXPENSE", 100, "2027-03-10", food, manual);
+        markImported(s, checking, "2027-03-01", "2027-03-05");
+
+        JsonNode d = dashboard(s, "");
+
+        assertThat(account(d, "Checking").path("lastImportedDate").asString()).isEqualTo("2027-03-05");
+        assertThat(account(d, "Manual").path("lastImportedDate").isNull()).isTrue();
+        assertThat(account(d, "Untouched").path("lastImportedDate").isNull()).isTrue();
+    }
+
+    @Test
+    void dashboard_lastImportedDate_ignoresManualTransactions() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID food = seeded(s, "EXPENSE");
+        UUID checking = fixtures.bankAccount(s, "Checking", 0);
+        tx(s, "EXPENSE", 100, "2027-02-20", food, checking);
+        markImported(s, checking, "2027-02-20");
+        tx(s, "EXPENSE", 100, "2027-03-15", food, checking);
+
+        JsonNode d = dashboard(s, "");
+
+        assertThat(account(d, "Checking").path("lastImportedDate").asString()).isEqualTo("2027-02-20");
+    }
+
+    @Test
+    void dashboard_lastImportedDate_ignoresSelectedMonth() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID food = seeded(s, "EXPENSE");
+        UUID checking = fixtures.bankAccount(s, "Checking", 0);
+        tx(s, "EXPENSE", 100, "2027-03-10", food, checking);
+        markImported(s, checking, "2027-03-10");
+
+        JsonNode d = dashboard(s, "?month=2027-01");
+
+        assertThat(account(d, "Checking").path("lastImportedDate").asString()).isEqualTo("2027-03-10");
+    }
+
+    @Test
+    void dashboard_lastImportedDate_transferCountsForOriginOnly() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID checking = fixtures.bankAccount(s, "Checking", 0);
+        UUID savings = fixtures.bankAccount(s, "Savings", 0);
+        transfer(s, 100, "2027-03-12", checking, savings);
+        markImported(s, checking, "2027-03-12");
+
+        JsonNode d = dashboard(s, "");
+
+        assertThat(account(d, "Checking").path("lastImportedDate").asString()).isEqualTo("2027-03-12");
+        assertThat(account(d, "Savings").path("lastImportedDate").isNull()).isTrue();
+    }
+
     @Test
     void dashboard_queryCountIsFixedAndIndependentOfData() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
@@ -533,10 +622,10 @@ class DashboardControllerTest {
         dashboard(s, ""); // warm-up
         long large = statementsFor(s);
 
-        // 2 auth/entitlement + 8 for the dashboard (the brief's bound): totals with currency, bank accounts, balances,
+        // 2 auth/entitlement + 9 for the dashboard: totals with currency, bank accounts, balances, last imported dates,
         // spending, budgets, budget categories, spending categories, active rules; plus 7 for the goals overview
         // (decided this month, saved, last contributions, goals, salary setting, salary category, salary total).
-        assertThat(small).isEqualTo(AUTH_STATEMENTS + 8 + GOALS_STATEMENTS);
+        assertThat(small).isEqualTo(AUTH_STATEMENTS + 9 + GOALS_STATEMENTS);
         assertThat(large).isEqualTo(small);
     }
 
@@ -557,6 +646,7 @@ class DashboardControllerTest {
             UUID bank = fixtures.bankAccount(s, "B" + i + "-" + suffix, 100);
             tx(s, "EXPENSE", 10 + i, "2027-03-%02d".formatted(i + 1), category, bank);
             tx(s, "INCOME", 20 + i, "2027-03-%02d".formatted(i + 1), pay, bank);
+            markImported(s, bank, "2027-03-%02d".formatted(i + 1));
             budget(s, category, 1_000);
             weeklyRule(s, "2027-03-16", null);
             UUID goal = goal(s, "G" + i + "-" + suffix, 1_000_000, 1);

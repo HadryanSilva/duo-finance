@@ -33,7 +33,7 @@ O link leva a `/transactions/import`. A pré-seleção da conta é decisão do b
 
 ## Forma de construir
 
-- **Backend:** um novo campo `importFreshness: List<{bankAccountId, name, lastImportedDate}>` em `DashboardResponse`, calculado numa consulta agregada (`max(date)` agrupado por `bank_account_id`, onde `import_batch_id IS NOT NULL`). O painel já é a consulta que a tela faz, então não é preciso um endpoint novo. Os tipos da API são regenerados.
+- **Backend:** um novo campo `lastImportedDate` (nulo quando nunca houve importação) em cada conta de `DashboardResponse.accounts`, lista que já traz só as contas não arquivadas. Ele vem de uma consulta agregada (`max(date)` agrupado por `bank_account_id`, onde `import_batch_id IS NOT NULL`), independente do mês exibido. O painel já é a consulta que a tela faz, então não é preciso um endpoint novo. Os tipos da API são regenerados.
 - **Frontend:** o painel calcula quais contas passaram do limite e mostra o aviso com o componente de alerta existente. Textos em pt-BR e en; datas no formato curto já usado no app.
 
 ## Não-objetivos

@@ -10,6 +10,7 @@ import br.dev.duofinance.dashboard.dto.DashboardResponse;
 import br.dev.duofinance.dashboard.dto.DashboardResponse.AccountBalance;
 import br.dev.duofinance.dashboard.dto.DashboardResponse.CategorySpend;
 import br.dev.duofinance.dashboard.dto.DashboardResponse.UpcomingOccurrence;
+import br.dev.duofinance.dashboard.repository.LastImportedDateQuery;
 import br.dev.duofinance.dashboard.repository.MonthlyTotalsQuery;
 import br.dev.duofinance.dashboard.repository.MonthlyTotalsQuery.Totals;
 import br.dev.duofinance.goal.dto.GoalsOverview;
@@ -31,8 +32,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Whole dashboard in a fixed number of statements (totals with currency, bank accounts, balances, spending, budgets,
- * their categories, spending categories, active rules), whatever the data volume.
+ * Whole dashboard in a fixed number of statements (totals with currency, bank accounts, balances, last imported dates,
+ * spending, budgets, their categories, spending categories, active rules), whatever the data volume.
  */
 @Service
 public class DashboardService {
@@ -43,6 +44,7 @@ public class DashboardService {
     private final MonthlyTotalsQuery totalsQuery;
     private final BankAccountRepository bankAccounts;
     private final BankAccountBalanceQuery balanceQuery;
+    private final LastImportedDateQuery lastImportedQuery;
     private final BudgetProgressQuery progress;
     private final BudgetService budgetService;
     private final CategoryRepository categories;
@@ -54,6 +56,7 @@ public class DashboardService {
             MonthlyTotalsQuery totalsQuery,
             BankAccountRepository bankAccounts,
             BankAccountBalanceQuery balanceQuery,
+            LastImportedDateQuery lastImportedQuery,
             BudgetProgressQuery progress,
             BudgetService budgetService,
             CategoryRepository categories,
@@ -63,6 +66,7 @@ public class DashboardService {
         this.totalsQuery = totalsQuery;
         this.bankAccounts = bankAccounts;
         this.balanceQuery = balanceQuery;
+        this.lastImportedQuery = lastImportedQuery;
         this.progress = progress;
         this.budgetService = budgetService;
         this.categories = categories;
@@ -83,12 +87,14 @@ public class DashboardService {
         Totals totals = totalsQuery.totals(accountId, month);
 
         Map<UUID, Long> balances = balanceQuery.balances(accountId, balancesAsOf);
+        Map<UUID, LocalDate> lastImported = lastImportedQuery.lastImportedDates(accountId);
         List<AccountBalance> accounts = bankAccounts.list(accountId, false).stream()
                 .map(b -> new AccountBalance(
                         b.getId(),
                         b.getName(),
                         b.getType(),
-                        balances.getOrDefault(b.getId(), b.getInitialBalanceCents())))
+                        balances.getOrDefault(b.getId(), b.getInitialBalanceCents()),
+                        lastImported.get(b.getId())))
                 .toList();
         long totalBalance =
                 accounts.stream().mapToLong(AccountBalance::balanceCents).sum();

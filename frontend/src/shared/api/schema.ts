@@ -1507,6 +1507,7 @@ export interface components {
             type: "CHECKING" | "SAVINGS" | "CASH" | "OTHER";
             /** Format: int64 */
             balanceCents: number;
+            lastImportedDate: string | null;
         };
         CategorySpend: {
             /** Format: uuid */
