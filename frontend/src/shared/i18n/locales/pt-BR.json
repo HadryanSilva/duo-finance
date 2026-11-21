@@ -691,7 +691,8 @@
     "subtitle": "O mês de vocês em um relance.",
     "staleImports": {
       "line": "{account}: lançamentos até {date} (há {days} dias).",
-      "action": "Importar extrato"
+      "action": "Importar extrato",
+      "actionFor": "Importar extrato da conta {account}"
     },
     "balance": {
       "title": "Saldo",

@@ -19,11 +19,12 @@ describe('StaleImportsNotice', () => {
     expect(norm(rows[0]!.textContent)).toContain(
       `Revolut: lançamentos até ${formatBusinessDate('2026-11-03', 'pt-BR')} (há 18 dias).`,
     )
-    const links = screen.getAllByRole('link', { name: 'Importar extrato' })
-    expect(links.map((l) => l.getAttribute('href'))).toEqual([
-      '/transactions/import?bankAccountId=a1',
-      '/transactions/import?bankAccountId=a2',
-    ])
+    // each link names its account for screen readers, while the visible text stays short
+    const revolut = screen.getByRole('link', { name: 'Importar extrato da conta Revolut' })
+    const wise = screen.getByRole('link', { name: 'Importar extrato da conta Wise' })
+    expect(revolut.textContent?.trim()).toBe('Importar extrato')
+    expect(revolut.getAttribute('href')).toBe('/transactions/import?bankAccountId=a1')
+    expect(wise.getAttribute('href')).toBe('/transactions/import?bankAccountId=a2')
   })
 
   it('empty_rendersNothing', async () => {
