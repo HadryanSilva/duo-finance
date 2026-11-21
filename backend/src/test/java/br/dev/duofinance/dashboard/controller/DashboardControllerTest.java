@@ -12,6 +12,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -522,16 +523,22 @@ class DashboardControllerTest {
         assertThat(d.path("upcoming").size()).isZero();
     }
 
-    /** Inserts a REVOLUT batch and attaches the given bank account's transactions dated {@code dates} to it. */
-    private void markImported(TestSession s, UUID bank, String... dates) {
+    /** Inserts a REVOLUT batch made now and attaches the given bank account's transactions dated {@code dates} to it. */
+    private UUID markImported(TestSession s, UUID bank, String... dates) {
+        return markImportedAt(s, clock.instant(), bank, dates);
+    }
+
+    /** Same as {@link #markImported}, with the batch made at {@code createdAt}. */
+    private UUID markImportedAt(TestSession s, Instant createdAt, UUID bank, String... dates) {
         UUID batch = UUID.randomUUID();
         jdbc.update(
                 "INSERT INTO import_batches (id, account_id, source, bank_account_id, created_by, row_count, created_at)"
-                        + " VALUES (?, ?, 'REVOLUT', ?, NULL, ?, now())",
+                        + " VALUES (?, ?, 'REVOLUT', ?, NULL, ?, ?)",
                 batch,
                 s.accountId(),
                 bank,
-                dates.length);
+                dates.length,
+                Timestamp.from(createdAt));
         for (String date : dates) {
             jdbc.update(
                     "UPDATE transactions SET import_batch_id = ?"
@@ -541,6 +548,7 @@ class DashboardControllerTest {
                     bank,
                     date);
         }
+        return batch;
     }
 
     private static JsonNode account(JsonNode d, String name) {
@@ -609,6 +617,45 @@ class DashboardControllerTest {
 
         assertThat(account(d, "Checking").path("lastImportedDate").asString()).isEqualTo("2027-03-12");
         assertThat(account(d, "Savings").path("lastImportedDate").isNull()).isTrue();
+    }
+
+    /** An imported row edited onto another account stays out of both: it no longer says when either was imported. */
+    @Test
+    void dashboard_lastImportedDate_ignoresRowMovedToAnotherAccount() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID food = seeded(s, "EXPENSE");
+        UUID checking = fixtures.bankAccount(s, "Checking", 0);
+        UUID cash = fixtures.bankAccount(s, "Cash", 0);
+        tx(s, "EXPENSE", 100, "2027-03-01", food, checking);
+        tx(s, "EXPENSE", 100, "2027-03-05", food, checking);
+        markImported(s, checking, "2027-03-01", "2027-03-05");
+        jdbc.update(
+                "UPDATE transactions SET bank_account_id = ? WHERE account_id = ? AND date = '2027-03-05'",
+                cash,
+                s.accountId());
+
+        JsonNode d = dashboard(s, "");
+
+        assertThat(account(d, "Checking").path("lastImportedDate").asString()).isEqualTo("2027-03-01");
+        assertThat(account(d, "Cash").path("lastImportedDate").isNull()).isTrue();
+    }
+
+    /** A row edited to a later date cannot make an import look newer than the day it was made. */
+    @Test
+    void dashboard_lastImportedDate_isCappedAtTheImportDay() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID food = seeded(s, "EXPENSE");
+        UUID checking = fixtures.bankAccount(s, "Checking", 0);
+        tx(s, "EXPENSE", 100, "2027-03-02", food, checking);
+        markImportedAt(s, Instant.parse("2027-03-04T09:00:00Z"), checking, "2027-03-02");
+        jdbc.update(
+                "UPDATE transactions SET date = '2027-03-14' WHERE account_id = ? AND bank_account_id = ?",
+                s.accountId(),
+                checking);
+
+        JsonNode d = dashboard(s, "");
+
+        assertThat(account(d, "Checking").path("lastImportedDate").asString()).isEqualTo("2027-03-04");
     }
 
     @Test
