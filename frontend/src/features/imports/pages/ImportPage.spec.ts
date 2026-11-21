@@ -199,7 +199,7 @@ function setup(
     previews,
     commits,
     undone,
-    render: () => renderRoute({ route: '/transactions/import', session: {}, handlers }),
+    render: (route = '/transactions/import') => renderRoute({ route, session: {}, handlers }),
   }
 }
 
@@ -790,4 +790,24 @@ describe('ImportPage', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Desfazer' }))
     await waitFor(() => expect(s.undone).toEqual(['bA']))
   })
+})
+
+describe('ImportPage preselected account', () => {
+  const destination = () => screen.getByLabelText('Conta de destino') as HTMLSelectElement
+
+  it('upload_queryBankAccount_preselectsIt', async () => {
+    await setup().render('/transactions/import?bankAccountId=b2')
+    await waitFor(() => expect(destination().value).toBe('b2'))
+  })
+
+  it.each(['nope', 'b3'])(
+    'upload_queryBankAccountUnknown_leavesSelectionEmpty (%s)',
+    async (id) => {
+      const s = setup()
+      await s.render(`/transactions/import?bankAccountId=${id}`)
+      await waitFor(() => expect(optionTexts(destination())).toContain('Revolut'))
+      expect(destination().value).toBe('')
+      expect(s.previews).toHaveLength(0)
+    },
+  )
 })
