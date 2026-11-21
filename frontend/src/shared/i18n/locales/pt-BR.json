@@ -689,6 +689,10 @@
   },
   "dashboard": {
     "subtitle": "O mês de vocês em um relance.",
+    "staleImports": {
+      "line": "{account}: lançamentos até {date} (há {days} dias).",
+      "action": "Importar extrato"
+    },
     "balance": {
       "title": "Saldo",
       "total": "Saldo total",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { moneyLabel, monthSummary, shareLabel, spendingSlices } from './figures'
+import { moneyLabel, monthSummary, shareLabel, spendingSlices, staleImports } from './figures'
 
 describe('monthSummary', () => {
   it('left_withShare', () =>
@@ -61,4 +61,30 @@ describe('shareLabel', () => {
 describe('moneyLabel', () => {
   it('formatsForTheLocale', () =>
     expect(moneyLabel(45000, 'pt-BR').replace(/\s/g, ' ')).toBe('€ 450,00'))
+})
+
+describe('staleImports', () => {
+  const acc = (id: string, lastImportedDate: string | null) => ({
+    id,
+    name: id,
+    type: 'CHECKING' as const,
+    balanceCents: 0,
+    lastImportedDate,
+  })
+  it('moreThan7Days_isStale', () =>
+    expect(staleImports([acc('a', '2026-11-13')], '2026-11-21')).toEqual([
+      { id: 'a', name: 'a', lastImportedDate: '2026-11-13', days: 8 },
+    ]))
+  it('exactly7Days_isNotStale', () =>
+    expect(staleImports([acc('a', '2026-11-14')], '2026-11-21')).toEqual([]))
+  it('neverImported_isIgnored', () =>
+    expect(staleImports([acc('a', null)], '2026-11-21')).toEqual([]))
+  it('futureDate_isNotStale', () =>
+    expect(staleImports([acc('a', '2026-11-30')], '2026-11-21')).toEqual([]))
+  it('acrossMonthAndDst_countsCalendarDays', () =>
+    expect(staleImports([acc('a', '2026-10-20')], '2026-11-21')[0]?.days).toBe(32))
+  it('keepsAccountOrder', () =>
+    expect(
+      staleImports([acc('b', '2026-11-01'), acc('a', '2026-11-02')], '2026-11-21').map((s) => s.id),
+    ).toEqual(['b', 'a']))
 })

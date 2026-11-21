@@ -2,6 +2,7 @@
 import { useQueryClient } from '@tanstack/vue-query'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { useBankAccounts } from '@/shared/api/queries/bank-accounts'
 import { isApiError } from '@/shared/api/problem'
 import type { CommitResponse, PreviewResponse } from '@/shared/api/types'
@@ -23,6 +24,7 @@ import { initReview, rowErrorsFrom, toDecisions, type ReviewRow } from '../lib/r
 const DEFAULT_PRODUCT = 'Current'
 
 const { t } = useI18n()
+const route = useRoute()
 
 // upload -> review -> result. The File stays here, in memory, for the commit.
 const step = ref<'upload' | 'review' | 'result'>('upload')
@@ -53,6 +55,23 @@ const accountOptions = computed(() =>
   (allAccounts.data.value ?? [])
     .filter((a) => !a.archived)
     .map((a) => ({ id: a.id, label: a.name })),
+)
+/** A link such as the dashboard's stale-import notice may name the account; only an active one is taken, once. */
+let preselected = false
+watch(
+  accountOptions,
+  (options) => {
+    if (preselected || options.length === 0) return
+    preselected = true
+    const wanted = route.query.bankAccountId
+    if (
+      bankAccountId.value === '' &&
+      typeof wanted === 'string' &&
+      options.some((o) => o.id === wanted)
+    )
+      bankAccountId.value = wanted
+  },
+  { immediate: true },
 )
 const accountName = (id: string | null) =>
   allAccounts.data.value?.find((a) => a.id === id)?.name ?? ''

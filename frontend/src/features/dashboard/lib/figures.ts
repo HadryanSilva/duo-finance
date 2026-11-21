@@ -79,3 +79,36 @@ export function shareLabel(share: number, totalCents: number): string {
 export function moneyLabel(cents: number, locale: Locale): string {
   return formatMoney(cents, locale)
 }
+
+/** Days without imported transactions after which an account's data counts as stale. */
+export const STALE_IMPORT_DAYS = 7
+
+export interface StaleImport {
+  id: string
+  name: string
+  lastImportedDate: string
+  days: number
+}
+
+/** Calendar days from `from` to `to` (both YYYY-MM-DD), from their parts so no time zone or DST shifts it. */
+function daysBetween(from: string, to: string): number {
+  const utc = (iso: string) => {
+    const [y = 0, m = 1, d = 1] = iso.split('-').map(Number)
+    return Date.UTC(y, m - 1, d)
+  }
+  return Math.round((utc(to) - utc(from)) / 86_400_000)
+}
+
+/** Accounts whose latest imported transaction is more than STALE_IMPORT_DAYS before `today`, in their order. */
+export function staleImports(
+  accounts: DashboardResponse['accounts'],
+  today: string,
+): StaleImport[] {
+  return accounts.flatMap((a) => {
+    if (a.lastImportedDate === null) return []
+    const days = daysBetween(a.lastImportedDate, today)
+    return days > STALE_IMPORT_DAYS
+      ? [{ id: a.id, name: a.name, lastImportedDate: a.lastImportedDate, days }]
+      : []
+  })
+}

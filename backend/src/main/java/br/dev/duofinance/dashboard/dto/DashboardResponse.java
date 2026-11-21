@@ -24,7 +24,9 @@ public record DashboardResponse(
         @Nullable Long freeBalanceCents,
         GoalsOverview goals) {
 
-    public record AccountBalance(UUID id, String name, BankAccountType type, long balanceCents) {}
+    /** {@code lastImportedDate} is the latest date of an imported transaction; null when none was imported. */
+    public record AccountBalance(
+            UUID id, String name, BankAccountType type, long balanceCents, @Nullable LocalDate lastImportedDate) {}
 
     public record CategorySpend(UUID categoryId, String name, String color, String icon, long totalCents) {}
 
