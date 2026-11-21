@@ -47,7 +47,7 @@
   --color-ring: var(--color-brand);
 
   /* Typography */
-  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Onest Variable', ui-sans-serif, system-ui, sans-serif;
   --text-xs: 0.75rem;
   --text-xs--line-height: 1rem;
   --text-sm: 0.875rem;

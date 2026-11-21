@@ -239,7 +239,7 @@ Recursos de outra `Account` respondem `404` (nunca `403`) para não revelar exis
 
 - "Fintech sóbria e confiável", no estilo Stripe/Mercury.
 - Cor de marca indigo `#4F46E5`. Verde e vermelho reservados exclusivamente para receita e despesa; amarelo para alerta de orçamento.
-- Fonte única Inter, com escala tipográfica em tokens; valores com `tabular-nums`.
+- Fonte única Onest (trocada da Inter em 2026-11-21), com escala tipográfica em tokens; valores com `tabular-nums`.
 - Superfícies claras com bordas finas; modo escuro equivalente.
 - Logo SVG com dois círculos sobrepostos.
 - Layout com sidebar no desktop e navegação inferior no mobile.
