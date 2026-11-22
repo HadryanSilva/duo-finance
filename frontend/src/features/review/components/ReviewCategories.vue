@@ -15,7 +15,7 @@ import DifferenceText from './DifferenceText.vue'
 const props = defineProps<{ data: MonthReviewResponse }>()
 
 const { t } = useI18n()
-const rows = computed(() => reviewRows(props.data.categories))
+const rows = computed(() => reviewRows(props.data.categories, props.data.expense.cents, 'change'))
 const compared = computed(() => props.data.comparedMonths > 0)
 
 /** The month's transactions of one category: the Transactions page reads these query keys. */

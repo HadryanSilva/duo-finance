@@ -70,11 +70,6 @@ export function spendingSlices(spending: DashboardResponse['spendingByCategory']
   return slices
 }
 
-/** "<1%" for a real but tiny share, so it never reads as nothing. */
-export function shareLabel(share: number, totalCents: number): string {
-  return totalCents > 0 && share < 1 ? '<1%' : `${share}%`
-}
-
 /** Money inside an aria-label, which is a plain string (it cannot hold a MoneyText). */
 export function moneyLabel(cents: number, locale: Locale): string {
   return formatMoney(cents, locale)

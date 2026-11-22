@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MonthReviewResponse } from '@/shared/api/types'
-import { clampMonth, differenceTone, reviewRows } from './review'
+import { clampMonth, differenceTone, reviewRows, shareText, suggestedLimit } from './review'
 
 type Line = MonthReviewResponse['categories'][number]
 
@@ -40,12 +40,16 @@ describe('differenceTone', () => {
 
 describe('reviewRows', () => {
   it('ordersByLargestChange_thenByMonthAmount', () => {
-    const rows = reviewRows([
-      line('D', 8000, 14000),
-      line('C', 90000, 90000),
-      line('B', 21000, 12000),
-      line('A', 52000, 43000),
-    ])
+    const rows = reviewRows(
+      [
+        line('D', 8000, 14000),
+        line('C', 90000, 90000),
+        line('B', 21000, 12000),
+        line('A', 52000, 43000),
+      ],
+      171000,
+      'change',
+    )
     expect(rows.map((r) => r.name)).toEqual(['A', 'B', 'D', 'C'])
     expect(rows[0]).toMatchObject({ differenceCents: 9000, tone: 'worse' })
     expect(rows[2]).toMatchObject({ differenceCents: -6000, tone: 'better' })
@@ -53,14 +57,79 @@ describe('reviewRows', () => {
   })
 
   it('withoutComparison_ordersByAmountThenName', () => {
-    const rows = reviewRows([line('b', 100, null), line('C', 300, null), line('a', 100, null)])
+    const rows = reviewRows(
+      [line('b', 100, null), line('C', 300, null), line('a', 100, null)],
+      500,
+      'change',
+    )
     expect(rows.map((r) => r.name)).toEqual(['C', 'a', 'b'])
     expect(rows[0]).toMatchObject({ differenceCents: null, tone: null })
   })
 
   it('equalChangeAndAmount_ordersByNameIgnoringCase', () => {
-    const rows = reviewRows([line('beta', 20000, 10000), line('Alpha', 20000, 10000)])
+    const rows = reviewRows(
+      [line('beta', 20000, 10000), line('Alpha', 20000, 10000)],
+      40000,
+      'change',
+    )
     expect(rows.map((r) => r.name)).toEqual(['Alpha', 'beta'])
+  })
+
+  /** The approved sketch's October. */
+  const sketch = [
+    line('Transporte', 8000, 14000),
+    line('Mercado', 52000, 43000),
+    line('Casa', 90000, 90000),
+    line('Restaurantes', 21000, 12000),
+  ]
+
+  it('sizeOrder_byAmountThenName', () => {
+    const rows = reviewRows(sketch, 245000, 'size')
+    expect(rows.map((r) => r.name)).toEqual(['Casa', 'Mercado', 'Restaurantes', 'Transporte'])
+    const tie = reviewRows([line('Bravo', 1000, 0), line('alfa', 1000, 9000)], 2000, 'size')
+    expect(tie.map((r) => r.name)).toEqual(['alfa', 'Bravo'])
+  })
+
+  it('share_isWholePercentOfMonthExpense', () => {
+    const rows = reviewRows(sketch, 245000, 'size')
+    expect(rows.map((r) => r.share)).toEqual([37, 21, 9, 3])
+  })
+
+  it('share_zeroWhenNoExpense', () => {
+    const rows = reviewRows([line('Casa', 0, 5000)], 0, 'size')
+    expect(rows[0]!.share).toBe(0)
+  })
+})
+
+describe('shareText', () => {
+  it('tinyAndZero', () => {
+    expect(shareText({ cents: 100, share: 0 })).toBe('<1%')
+    expect(shareText({ cents: 0, share: 0 })).toBe('—')
+    expect(shareText({ cents: 52000, share: 21 })).toBe('21%')
+  })
+})
+
+describe('suggestedLimit', () => {
+  it('average_roundedUpToEuro', () => {
+    expect(suggestedLimit({ cents: 52000, averageCents: 43001 })).toEqual({
+      cents: 43100,
+      source: 'average',
+    })
+    expect(suggestedLimit({ cents: 52000, averageCents: 43000 })).toEqual({
+      cents: 43000,
+      source: 'average',
+    })
+  })
+
+  it('month_whenNoUsefulAverage', () => {
+    expect(suggestedLimit({ cents: 21050, averageCents: null })).toEqual({
+      cents: 21100,
+      source: 'month',
+    })
+    expect(suggestedLimit({ cents: 21000, averageCents: 0 })).toEqual({
+      cents: 21000,
+      source: 'month',
+    })
   })
 })
 
