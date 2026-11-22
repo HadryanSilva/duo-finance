@@ -148,6 +148,22 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      # setup-java's maven cache holds ~/.m2/repository only, so mvnw downloaded the Maven
+      # distribution on every run, quietly: on runner image 20261116.88.1 that wget failed and
+      # Playwright showed just "wget: Failed to fetch". Cache the distribution and fetch it in its
+      # own verbose step, so a failed download shows wget's own error before Playwright starts.
+      - name: Cache Maven wrapper distribution
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/wrapper
+          key: maven-wrapper-${{ hashFiles('backend/.mvn/wrapper/maven-wrapper.properties') }}
+      - name: Fetch Maven wrapper distribution
+        working-directory: backend
+        env:
+          MVNW_VERBOSE: 'true'
+        run: |
+          wget --version | head -n 1 || true
+          ./mvnw -B -v
       # With CI set, Playwright starts the backend and Vite itself. The html reporter is added on
       # top of the config's `github` reporter so playwright-report/ exists for the artifact.
       - name: Run e2e
