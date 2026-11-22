@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, vi } from 'vitest'
 import { server } from './msw'
-import { cleanup } from './render'
+import { cleanup, settle } from './render'
 import { installMatchMediaStub, resetViewport } from './viewport'
 
 // ECharts draws on a canvas, which jsdom lacks, and loading it cold is slow. Specs read the
@@ -17,7 +17,8 @@ window.scrollTo = () => {}
 installMatchMediaStub()
 
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
-afterEach(() => {
+afterEach(async () => {
+  await settle()
   cleanup()
   resetViewport()
   server.resetHandlers()
