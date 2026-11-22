@@ -1,8 +1,8 @@
 import { screen, waitFor, within } from '@testing-library/dom'
 import { http, HttpResponse, type RequestHandler } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { DashboardResponse, TransactionResponse } from '@/shared/api/types'
-import { addMonths, currentMonth } from '@/shared/lib/dates'
+import { addMonths, currentMonth, todayIso } from '@/shared/lib/dates'
 import { renderRoute } from '@/test/render'
 
 const api = `${window.location.origin}/api/v1`
@@ -22,8 +22,14 @@ const full: DashboardResponse = {
   balancesAsOf: '2026-03-31',
   totalBalanceCents: 350000,
   accounts: [
-    { id: 'a1', name: 'Conta Corrente', type: 'CHECKING', balanceCents: 300000 },
-    { id: 'a2', name: 'Poupança', type: 'SAVINGS', balanceCents: 50000 },
+    {
+      id: 'a1',
+      name: 'Conta Corrente',
+      type: 'CHECKING',
+      balanceCents: 300000,
+      lastImportedDate: null,
+    },
+    { id: 'a2', name: 'Poupança', type: 'SAVINGS', balanceCents: 50000, lastImportedDate: null },
   ],
   incomeCents: 500000,
   expenseCents: 123456,
@@ -292,5 +298,61 @@ describe('DashboardPage', () => {
     expect(
       screen.getByText('Há mais dinheiro separado em objetivos do que saldo nas contas.'),
     ).toBeTruthy()
+  })
+})
+
+/** Local calendar date `n` days from today, built from parts like todayIso. */
+function daysFromToday(n: number): string {
+  const [y = 0, m = 1, d = 1] = todayIso().split('-').map(Number)
+  const date = new Date(y, m - 1, d + n)
+  const pad = (v: number) => String(v).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+const staleFull: DashboardResponse = {
+  ...full,
+  accounts: [
+    { ...full.accounts[0]!, lastImportedDate: daysFromToday(-10) },
+    { ...full.accounts[1]!, lastImportedDate: null },
+  ],
+}
+
+describe('DashboardPage stale imports', () => {
+  it('staleImport_showsNoticeAboveSummary', async () => {
+    await setup(staleFull).render('/dashboard')
+    const notice = await screen.findByRole('status')
+    expect(norm(notice.textContent)).toContain('Conta Corrente: lançamentos até')
+    expect(norm(notice.textContent)).toContain('(há 10 dias)')
+    expect(notice.textContent).not.toContain('Poupança')
+    const text = norm(document.body.textContent)
+    expect(text.indexOf('Conta Corrente: lançamentos até')).toBeLessThan(text.indexOf('Entrou'))
+  })
+
+  it('staleImport_showsInPastMonth', async () => {
+    await setup(staleFull).render(`/dashboard?month=${addMonths(currentMonth(), -2)}`)
+    expect(await screen.findByRole('status')).toBeTruthy()
+  })
+
+  afterEach(() => vi.useRealTimers())
+
+  it('staleImport_appearsWhenTheDayTurns', async () => {
+    const sevenDaysAgo: DashboardResponse = {
+      ...full,
+      accounts: [{ ...full.accounts[0]!, lastImportedDate: daysFromToday(-7) }],
+    }
+    await setup(sevenDaysAgo).render('/dashboard')
+    await screen.findByText('Saldo total')
+    expect(screen.queryByRole('status')).toBeNull()
+
+    vi.setSystemTime(Date.now() + 24 * 60 * 60 * 1000)
+    document.dispatchEvent(new Event('visibilitychange'))
+
+    expect(norm((await screen.findByRole('status')).textContent)).toContain('(há 8 dias)')
+  })
+
+  it('freshImports_showNoNotice', async () => {
+    await setup(full).render('/dashboard')
+    await screen.findByText('Saldo total')
+    expect(screen.queryByRole('status')).toBeNull()
   })
 })

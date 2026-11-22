@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { errorMessage } from '@/shared/i18n/error-codes'
 import { currentMonth } from '@/shared/lib/dates'
+import { useToday } from '@/shared/lib/use-today'
 import MonthSelector from '@/shared/ui/MonthSelector.vue'
 import PageHeader from '@/shared/ui/PageHeader.vue'
 import { useDashboard } from '../api/dashboard-api'
@@ -13,7 +14,9 @@ import GoalsCard from '../components/GoalsCard.vue'
 import MonthSummaryCard from '../components/MonthSummaryCard.vue'
 import RecentTransactionsCard from '../components/RecentTransactionsCard.vue'
 import SpendingDonut from '../components/SpendingDonut.vue'
+import StaleImportsNotice from '../components/StaleImportsNotice.vue'
 import UpcomingCard from '../components/UpcomingCard.vue'
+import { staleImports } from '../lib/figures'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -30,6 +33,9 @@ const month = computed({
 })
 
 const dashboard = useDashboard(month)
+/** Measured against the browser's today, whatever month is shown: it is about the data, not the month. */
+const today = useToday()
+const stale = computed(() => staleImports(dashboard.data.value?.accounts ?? [], today.value))
 </script>
 
 <template>
@@ -47,6 +53,7 @@ const dashboard = useDashboard(month)
   <div class="grid gap-4">
     <!-- A failed dashboard request hides its cards instead of leaving them on skeletons. -->
     <template v-if="!dashboard.isError.value">
+      <StaleImportsNotice :items="stale" />
       <MonthSummaryCard :data="dashboard.data.value" />
       <div class="grid gap-4 lg:grid-cols-5">
         <SpendingDonut class="lg:col-span-3" :data="dashboard.data.value" :month="month" />

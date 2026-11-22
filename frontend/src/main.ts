@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import '@fontsource-variable/inter'
+import '@fontsource-variable/onest'
 import 'vue-sonner/style.css'
 import './app/styles.css'
 import App from './app/App.vue'

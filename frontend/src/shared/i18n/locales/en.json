@@ -689,6 +689,11 @@
   },
   "dashboard": {
     "subtitle": "Your month at a glance.",
+    "staleImports": {
+      "line": "{account}: transactions up to {date} ({days} days ago).",
+      "action": "Import statement",
+      "actionFor": "Import statement for account {account}"
+    },
     "balance": {
       "title": "Balance",
       "total": "Total balance",

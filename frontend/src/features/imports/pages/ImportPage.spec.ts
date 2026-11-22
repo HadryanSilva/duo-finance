@@ -199,7 +199,7 @@ function setup(
     previews,
     commits,
     undone,
-    render: () => renderRoute({ route: '/transactions/import', session: {}, handlers }),
+    render: (route = '/transactions/import') => renderRoute({ route, session: {}, handlers }),
   }
 }
 
@@ -790,4 +790,62 @@ describe('ImportPage', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Desfazer' }))
     await waitFor(() => expect(s.undone).toEqual(['bA']))
   })
+})
+
+describe('ImportPage preselected account', () => {
+  const destination = () => screen.getByLabelText('Conta de destino') as HTMLSelectElement
+
+  it('upload_queryBankAccount_preselectsIt', async () => {
+    await setup().render('/transactions/import?bankAccountId=b2')
+    await waitFor(() => expect(destination().value).toBe('b2'))
+  })
+
+  /** Leaves the import page after its accounts loaded, then comes back through a link. */
+  async function returnWithLink(
+    r: Awaited<ReturnType<ReturnType<typeof setup>['render']>>,
+    whileAway: () => void = () => {},
+  ) {
+    await waitFor(() => expect(optionTexts(destination())).toContain('Cofre'))
+    await r.router.push('/privacy')
+    whileAway()
+    await r.router.push('/transactions/import?bankAccountId=b2')
+    await screen.findByLabelText('Conta de destino')
+  }
+
+  it('upload_queryBankAccount_accountsAlreadyCached_preselectsIt', async () => {
+    const r = await setup().render()
+    await returnWithLink(r)
+    await waitFor(() => expect(destination().value).toBe('b2'))
+  })
+
+  it('upload_preselectedAccountArchivedSinceCached_clearsSelection', async () => {
+    // the first visit caches Cofre as active; it is archived while the user is away
+    let cofreArchived = false
+    const archivedLater = http.get(`${api}/bank-accounts`, () =>
+      HttpResponse.json(banks.map((b) => (b.id === 'b2' ? { ...b, archived: cofreArchived } : b))),
+    )
+    const s = setup({ extra: [archivedLater] })
+    const r = await s.render()
+    await returnWithLink(r, () => (cofreArchived = true))
+    await waitFor(() => expect(optionTexts(destination())).not.toContain('Cofre'))
+    // a native select shows '' for an unlisted value, so check what would reach the server
+    await r.user.upload(screen.getByLabelText('Arquivo CSV'), csv())
+    await r.user.click(screen.getByRole('button', { name: 'Revisar' }))
+    expect(s.previews).toHaveLength(0)
+    await r.user.selectOptions(destination(), 'b1')
+    await r.user.click(screen.getByRole('button', { name: 'Revisar' }))
+    await waitFor(() => expect(s.previews).toHaveLength(1))
+    expect(s.previews[0]).toMatchObject({ bankAccountId: 'b1' })
+  })
+
+  it.each(['nope', 'b3'])(
+    'upload_queryBankAccountUnknown_leavesSelectionEmpty (%s)',
+    async (id) => {
+      const s = setup()
+      await s.render(`/transactions/import?bankAccountId=${id}`)
+      await waitFor(() => expect(optionTexts(destination())).toContain('Revolut'))
+      expect(destination().value).toBe('')
+      expect(s.previews).toHaveLength(0)
+    },
+  )
 })
