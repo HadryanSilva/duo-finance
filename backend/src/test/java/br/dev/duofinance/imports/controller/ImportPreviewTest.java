@@ -157,6 +157,32 @@ class ImportPreviewTest {
     }
 
     @Test
+    void preview_manualOnPurchaseDay_flaggedWhenCompletedNextDay() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID category = fixtures.category(s, "Compras", CategoryKind.EXPENSE);
+        fixtures.transaction(
+                s,
+                Map.of(
+                        "kind",
+                        "EXPENSE",
+                        "amountCents",
+                        6197,
+                        "date",
+                        "2026-11-15",
+                        "categoryId",
+                        category,
+                        "bankAccountId",
+                        bank));
+        String csv = "Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance\n"
+                + "CARD_PAYMENT,Current,2026-11-15 17:52:08,2026-11-16 09:59:43,Lefties,-61.97,0.00,EUR,COMPLETED,1\n";
+
+        JsonNode root = body(preview(s, csv.getBytes(), bank.toString(), null));
+
+        assertThat(row(root, "Lefties").path("status").asString()).isEqualTo("POSSIBLE_DUPLICATE");
+    }
+
+    @Test
     void preview_memorySuggestion_usedOnlyWhenCategoryActive() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         UUID bank = fixtures.bankAccount(s, "Revolut", 0);
