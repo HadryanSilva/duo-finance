@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { budgetRemainder, daysLeftInMonth, fixedMonthly, monthlyEquivalentCents } from './figures'
+import {
+  budgetRemainder,
+  daysLeftInMonth,
+  fixedMonthly,
+  monthlyEquivalentCents,
+  shareLabel,
+} from './figures'
 
 describe('daysLeftInMonth', () => {
   it('countsToday', () => expect(daysLeftInMonth('2026-11', '2026-11-20')).toBe(11))
@@ -52,4 +58,9 @@ describe('fixedMonthly', () => {
         })),
       ).outCents,
     ).toBe(13))
+})
+
+describe('shareLabel', () => {
+  it('underOnePercent', () => expect(shareLabel(0, 10)).toBe('<1%'))
+  it('normal', () => expect(shareLabel(40, 98000)).toBe('40%'))
 })

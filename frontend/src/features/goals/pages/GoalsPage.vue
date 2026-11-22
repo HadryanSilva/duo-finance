@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { Plus } from '@lucide/vue'
-import { computed, ref, shallowRef, watch, type Ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useCompleteGoal, useDeleteGoal, useGoals, useReopenGoal } from '@/shared/api/queries/goals'
 import type { GoalResponse } from '@/shared/api/types'
 import { errorMessage } from '@/shared/i18n/error-codes'
 import { currentMonth } from '@/shared/lib/dates'
+import { lastOpened } from '@/shared/lib/last-opened'
 import type { Locale } from '@/shared/lib/money'
 import { Button } from '@/shared/ui/button'
 import ConfirmDialog from '@/shared/ui/ConfirmDialog.vue'
@@ -48,15 +49,7 @@ function panelModel<T>(source: { value: T | null }) {
     },
   })
 }
-// Titles and messages read the last opened value: clearing it on close would change them while
-// the panel or dialog is still animating out.
-function lastOpened<T>(source: Ref<T | null>) {
-  const last = shallowRef<T | null>(source.value)
-  watch(source, (value) => {
-    if (value !== null) last.value = value
-  })
-  return last
-}
+// Titles and messages read the last opened value, so they hold while the panel animates out.
 const formShown = lastOpened(form)
 const amountShown = lastOpened(amount)
 

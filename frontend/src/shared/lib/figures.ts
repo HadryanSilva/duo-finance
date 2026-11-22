@@ -48,3 +48,8 @@ export function fixedMonthly(
   // Derived from the rounded totals, so the three figures on screen always add up.
   return { inCents, outCents, netCents: inCents - outCents }
 }
+
+/** "<1%" for a real but tiny share, so it never reads as nothing. */
+export function shareLabel(share: number, totalCents: number): string {
+  return totalCents > 0 && share < 1 ? '<1%' : `${share}%`
+}

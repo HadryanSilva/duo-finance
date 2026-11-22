@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { moneyLabel, monthSummary, shareLabel, spendingSlices, staleImports } from './figures'
+import { moneyLabel, monthSummary, spendingSlices, staleImports } from './figures'
 
 describe('monthSummary', () => {
   it('left_withShare', () =>
@@ -51,11 +51,6 @@ describe('spendingSlices', () => {
     expect(spendingSlices([cat(1, 45000), cat(2, 12050)]).map((x) => x.share)).toEqual([79, 21]))
   it('keepsInputOrder', () =>
     expect(spendingSlices([cat(1, 10), cat(2, 9000)]).map((x) => x.key)).toEqual(['c1', 'c2']))
-})
-
-describe('shareLabel', () => {
-  it('underOnePercent', () => expect(shareLabel(0, 10)).toBe('<1%'))
-  it('normal', () => expect(shareLabel(40, 98000)).toBe('40%'))
 })
 
 describe('moneyLabel', () => {
