@@ -88,6 +88,34 @@ describe('BudgetForm', () => {
     await expect.poll(() => bodies).toEqual([{ id: 'b-mercado', monthlyLimitCents: 43000 }])
   })
 
+  it('budgetForm_fixedCategoryShowsCategoryErrors', async () => {
+    // The partner created this budget meanwhile: with no category select, the error must still show.
+    const r = await render(
+      BudgetForm,
+      {
+        session: {},
+        handlers: [
+          http.get(`${api}/categories`, () => HttpResponse.json([])),
+          http.post(`${api}/budgets`, () =>
+            HttpResponse.json({ code: 'BUDGET_EXISTS', status: 409 }, { status: 409 }),
+          ),
+        ],
+      },
+      {
+        props: {
+          category: { id: 'c-rest', name: 'Restaurantes' },
+          suggestion: { cents: 12000, label: 'média dos últimos 3 meses' },
+        },
+      },
+    )
+
+    await r.user.click(screen.getByRole('button', { name: 'Salvar' }))
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'Já existe um orçamento para esta categoria.',
+    )
+    expect(r.wrapper.emitted('done')).toBeUndefined()
+  })
+
   it('budgetForm_withoutNewPropsUnchanged', async () => {
     await render(BudgetForm, { session: {}, handlers: handlers([]) })
     expect(screen.getByRole('combobox')).toBeTruthy()

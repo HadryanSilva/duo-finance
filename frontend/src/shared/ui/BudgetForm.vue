@@ -87,12 +87,15 @@ const submit = handleSubmit(async (values) => {
       })
     }
   } catch (e) {
+    // With the category fixed there is no select to show its error on, so it goes to the form's alert.
+    const categoryShown = !fixedName.value
     const shown = applyFieldErrors(e, (field, message) => {
-      if (field === 'categoryId' || field === 'monthlyLimitCents') setFieldError(field, message)
+      if (field === 'monthlyLimitCents' || (field === 'categoryId' && categoryShown))
+        setFieldError(field, message)
       else formError.value = message
     })
     if (shown) return
-    if (isApiError(e) && CATEGORY_CODES.includes(e.code)) {
+    if (categoryShown && isApiError(e) && CATEGORY_CODES.includes(e.code)) {
       setFieldError('categoryId', errorMessage(e))
     } else {
       formError.value = errorMessage(e)
