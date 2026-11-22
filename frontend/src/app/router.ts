@@ -98,6 +98,11 @@ export const routes: RouteRecordRaw[] = [
     meta: app,
   },
   {
+    path: '/review',
+    component: () => import('@/features/review/pages/ReviewPage.vue'),
+    meta: app,
+  },
+  {
     path: '/transactions/import',
     component: () => import('@/features/imports/pages/ImportPage.vue'),
     meta: app,
