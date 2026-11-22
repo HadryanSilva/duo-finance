@@ -3,6 +3,7 @@
 #   npx --yes bats@latest infra/tests/config.bats
 # - The image build context/Dockerfile pairs of deploy.yml match docker-compose.local.yml and the
 #   image tests, and every COPY source of each Dockerfile exists in its context.
+# - The api build image ships the same Maven version as the wrapper.
 # - The api container never receives the backup credentials (`docker compose config`, CLI only).
 # - CI runs on pushes to main and develop; Deploy follows CI on main only.
 
@@ -79,6 +80,16 @@ copy_sources() {
     done < <(copy_sources "$REPO_ROOT/$file")
   done
   [ "$missing" -eq 0 ]
+}
+
+@test "apiBuildImage_mavenVersionMatchesWrapper" {
+  # The api image builds with the maven image's Maven, CI and dev with mvnw's: keep them equal.
+  wrapper="$(sed -n 's|^distributionUrl=.*/apache-maven-\(.*\)-bin\.zip$|\1|p' \
+    "$REPO_ROOT/backend/.mvn/wrapper/maven-wrapper.properties")"
+  image="$(sed -n 's|^FROM maven:\([^-]*\)-.* AS build$|\1|p' "$REPO_ROOT/backend/Dockerfile")"
+  echo "wrapper=[$wrapper] image=[$image]"
+  [ -n "$wrapper" ]
+  [ "$image" = "$wrapper" ]
 }
 
 @test "compose_apiGetsNoBackupCredentials" {
