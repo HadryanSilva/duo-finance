@@ -1,0 +1,35 @@
+# Makes backend/mvnw's Maven distribution available before a job runs mvnw.
+# setup-java's `cache: maven` holds ~/.m2/repository only, so without this every job downloaded the
+# distribution from Maven Central, which answers some runners (image ubuntu-26.04 20261116.88.1)
+# with HTTP 429. The distribution is cached by the wrapper properties; on a miss it is downloaded
+# verbosely (wget's own error in the log) with up to 4 tries and growing waits.
+name: Maven wrapper distribution
+description: Cache and fetch the Maven distribution of backend/mvnw, retrying on failure.
+runs:
+  using: composite
+  steps:
+    - name: Cache Maven wrapper distribution
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2/wrapper
+        key: maven-wrapper-${{ hashFiles('backend/.mvn/wrapper/maven-wrapper.properties') }}
+    - name: Fetch Maven wrapper distribution
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: backend
+      env:
+        MVNW_VERBOSE: 'true'
+      run: |
+        for wait in 15 30 60 0; do
+          if ./mvnw -B -v; then
+            exit 0
+          fi
+          if [ "$wait" -eq 0 ]; then
+            break
+          fi
+          echo "::warning::Maven distribution download failed; retrying in ${wait}s"
+          sleep "$wait"
+        done
+        echo "::error::Maven distribution download failed 4 times"
+        exit 1
