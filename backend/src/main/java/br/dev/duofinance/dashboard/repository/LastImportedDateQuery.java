@@ -9,18 +9,21 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * Latest date of an imported transaction per bank account, whatever month the dashboard shows. A transfer counts for
- * its origin account only.
+ * Latest date of an imported transaction per bank account, whatever month the dashboard shows. Only rows still in the
+ * account their batch was imported into count, so a row a member moved elsewhere (to cash, say) says nothing about
+ * either account. A row's date is capped at the day its batch was made (UTC): an edit to a later date cannot make an
+ * import look newer than it is. A transfer counts for its origin account only.
  */
 @Repository
 public class LastImportedDateQuery {
 
     private static final String SQL = """
-            SELECT t.bank_account_id AS id, MAX(t.date) AS last_date
+            SELECT t.bank_account_id AS id,
+                   MAX(LEAST(t.date, (ib.created_at AT TIME ZONE 'UTC')::date)) AS last_date
             FROM transactions t
+            JOIN import_batches ib ON ib.id = t.import_batch_id
             WHERE t.account_id = :accountId
-              AND t.import_batch_id IS NOT NULL
-              AND t.bank_account_id IS NOT NULL
+              AND t.bank_account_id = ib.bank_account_id
             GROUP BY t.bank_account_id
             """;
 

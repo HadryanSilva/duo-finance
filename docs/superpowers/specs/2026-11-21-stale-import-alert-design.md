@@ -16,8 +16,8 @@ Quase todos os lançamentos do casal entram pela importação do CSV da Revolut.
 
 ## Comportamento
 
-- Entram só as contas bancárias **não arquivadas** que têm pelo menos um lançamento importado, ou seja, com `import_batch_id` não nulo. Lançamentos de lotes desfeitos já foram apagados pelo undo. Contas que nunca receberam importação, como a de dinheiro, ficam de fora.
-- Para cada conta, `lastImportedDate` é a maior `date` entre os lançamentos importados daquela conta. Nas transferências importadas, vale a conta de origem (`bank_account_id`).
+- Entram só as contas bancárias **não arquivadas** escolhidas como conta de destino de alguma importação (`import_batches.bank_account_id`) e que ainda têm lançamentos daquela importação. Lançamentos de lotes desfeitos já foram apagados pelo undo. Contas que nunca receberam importação, como a de dinheiro, ficam de fora. Também ficam de fora as contas que só recebem linhas pelo mapeamento de produtos, como um cofre, onde quase não há movimento e o aviso seria um alarme falso.
+- Para cada conta, `lastImportedDate` é a maior `date` entre os lançamentos importados que continuam na conta da importação. Um lançamento que alguém moveu para outra conta deixa de contar para as duas. A data de cada lançamento é limitada ao dia em que a importação foi feita (UTC), para que editar a data de um lançamento para frente não faça a importação parecer mais nova. Nas transferências importadas, vale a conta de origem (`bank_account_id`).
 - O aviso aparece quando `hoje − lastImportedDate > 7 dias`. "Hoje" é a data local do navegador, porque o servidor roda em UTC e não tem fuso por conta.
 - O aviso fica **no topo do painel**, acima do resumo do mês, e aparece em qualquer mês selecionado, porque fala do estado atual dos dados e não do mês exibido. Não tem botão de fechar: ele some quando uma importação nova traz lançamentos recentes.
 - Um aviso por conta desatualizada; se houver mais de uma, uma linha para cada.

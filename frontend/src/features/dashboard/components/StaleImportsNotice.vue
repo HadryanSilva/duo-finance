@@ -32,6 +32,7 @@ const { t, locale } = useI18n()
         </p>
         <RouterLink
           :to="{ path: '/transactions/import', query: { bankAccountId: item.id } }"
+          :aria-label="t('dashboard.staleImports.actionFor', { account: item.name })"
           class="font-medium text-primary underline underline-offset-4"
         >
           {{ t('dashboard.staleImports.action') }}

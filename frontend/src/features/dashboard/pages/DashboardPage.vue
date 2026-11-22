@@ -3,7 +3,8 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { errorMessage } from '@/shared/i18n/error-codes'
-import { currentMonth, todayIso } from '@/shared/lib/dates'
+import { currentMonth } from '@/shared/lib/dates'
+import { useToday } from '@/shared/lib/use-today'
 import MonthSelector from '@/shared/ui/MonthSelector.vue'
 import PageHeader from '@/shared/ui/PageHeader.vue'
 import { useDashboard } from '../api/dashboard-api'
@@ -33,7 +34,8 @@ const month = computed({
 
 const dashboard = useDashboard(month)
 /** Measured against the browser's today, whatever month is shown: it is about the data, not the month. */
-const stale = computed(() => staleImports(dashboard.data.value?.accounts ?? [], todayIso()))
+const today = useToday()
+const stale = computed(() => staleImports(dashboard.data.value?.accounts ?? [], today.value))
 </script>
 
 <template>

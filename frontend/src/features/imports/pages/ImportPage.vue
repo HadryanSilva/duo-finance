@@ -73,6 +73,14 @@ watch(
   },
   { immediate: true },
 )
+/**
+ * A refetch may drop the chosen account (archived meanwhile, in another tab or by the partner): a native select
+ * would show the placeholder while still holding the id, so the choice is cleared before an upload can use it.
+ */
+watch(accountOptions, (options) => {
+  if (step.value !== 'upload' || bankAccountId.value === '' || !allAccounts.data.value) return
+  if (!options.some((o) => o.id === bankAccountId.value)) bankAccountId.value = ''
+})
 const accountName = (id: string | null) =>
   allAccounts.data.value?.find((a) => a.id === id)?.name ?? ''
 

@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/dom'
 import { http, HttpResponse, type RequestHandler } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { DashboardResponse, TransactionResponse } from '@/shared/api/types'
 import { addMonths, currentMonth, todayIso } from '@/shared/lib/dates'
 import { renderRoute } from '@/test/render'
@@ -331,6 +331,23 @@ describe('DashboardPage stale imports', () => {
   it('staleImport_showsInPastMonth', async () => {
     await setup(staleFull).render(`/dashboard?month=${addMonths(currentMonth(), -2)}`)
     expect(await screen.findByRole('status')).toBeTruthy()
+  })
+
+  afterEach(() => vi.useRealTimers())
+
+  it('staleImport_appearsWhenTheDayTurns', async () => {
+    const sevenDaysAgo: DashboardResponse = {
+      ...full,
+      accounts: [{ ...full.accounts[0]!, lastImportedDate: daysFromToday(-7) }],
+    }
+    await setup(sevenDaysAgo).render('/dashboard')
+    await screen.findByText('Saldo total')
+    expect(screen.queryByRole('status')).toBeNull()
+
+    vi.setSystemTime(Date.now() + 24 * 60 * 60 * 1000)
+    document.dispatchEvent(new Event('visibilitychange'))
+
+    expect(norm((await screen.findByRole('status')).textContent)).toContain('(há 8 dias)')
   })
 
   it('freshImports_showNoNotice', async () => {
