@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { useHttp } from '@/app/providers'
 import type { MonthReviewResponse } from '@/shared/api/types'
@@ -12,6 +12,8 @@ export function useMonthReview(month: MaybeRefOrGetter<string | undefined>) {
   const queryClient = useQueryClient()
   return useQuery({
     queryKey: computed(() => ['month-review', toValue(month) ?? 'latest']),
+    // the month being left stays on screen while the next one loads
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const wanted = toValue(month)
       const data = await http.get<MonthReviewResponse>(

@@ -47,6 +47,7 @@ function setup(respond: (month: string | null) => MonthReviewResponse) {
   ]
   return {
     asked,
+    handlers,
     render: (route: string) => renderRoute({ route, session: {}, handlers }),
   }
 }
@@ -164,6 +165,70 @@ describe('ReviewPage', () => {
     expect(screen.getByRole('link', { name: 'Importar extrato' }).getAttribute('href')).toBe(
       '/transactions/import',
     )
+  })
+
+  /** A couple in its first month has transactions, but no month is over yet. */
+  it('reviewPage_onlyRunningMonthHasData_showsEmptyWithoutError', async () => {
+    const s = setup((m) => ({
+      ...october,
+      month: m ?? '2026-10',
+      firstMonth: '2026-11',
+      lastClosedMonth: '2026-10',
+      comparedMonths: 0,
+      categories: [],
+    }))
+    await s.render('/review')
+
+    expect(await screen.findByText('Ainda não há lançamentos para revisar.')).toBeTruthy()
+    await new Promise((r) => setTimeout(r, 50))
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(s.asked).not.toContain('2026-11')
+    expect(screen.queryByRole('group', { name: 'Mês' })).toBeNull()
+  })
+
+  it('reviewPage_changingMonth_keepsSelectorAndFocus', async () => {
+    let release: () => void = () => {}
+    const s = setup((m) => ({ ...october, month: m ?? '2026-10' }))
+    const slow = http.get(`${api}/month-review`, async ({ request }) => {
+      if (new URL(request.url).searchParams.get('month') !== '2026-09') return undefined
+      await new Promise<void>((r) => (release = r))
+      return HttpResponse.json({ ...october, month: '2026-09' })
+    })
+    const { user } = await renderRoute({
+      route: '/review',
+      session: {},
+      handlers: [slow, ...s.handlers],
+    })
+    await screen.findByRole('table')
+
+    const previous = screen.getByRole('button', { name: 'Mês anterior' })
+    await user.click(previous)
+    // while September loads, the selector stays and keeps the focus
+    await waitFor(() => expect(screen.getByText('Setembro de 2026')).toBeTruthy())
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Mês anterior' }))
+    release()
+    await waitFor(() => expect(screen.getByRole('table')).toBeTruthy())
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Mês anterior' }))
+  })
+
+  it('reviewPage_failedMonth_keepsSelector', async () => {
+    const s = setup((m) => ({ ...october, month: m ?? '2026-10' }))
+    const failing = http.get(`${api}/month-review`, ({ request }) =>
+      new URL(request.url).searchParams.get('month') === '2026-09'
+        ? HttpResponse.json({ code: 'INTERNAL_ERROR', status: 500 }, { status: 500 })
+        : undefined,
+    )
+    const { user } = await renderRoute({
+      route: '/review',
+      session: {},
+      handlers: [failing, ...s.handlers],
+    })
+    await screen.findByRole('table')
+
+    await user.click(screen.getByRole('button', { name: 'Mês anterior' }))
+    expect(await screen.findByRole('alert')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Próximo mês' }))
+    expect(await screen.findByRole('table')).toBeTruthy()
   })
 })
 

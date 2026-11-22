@@ -11,7 +11,7 @@ import { Skeleton } from '@/shared/ui/skeleton'
 import { useMonthReview } from '../api/review-api'
 import ReviewCategories from '../components/ReviewCategories.vue'
 import ReviewSummary from '../components/ReviewSummary.vue'
-import { clampMonth } from '../lib/review'
+import { clampMonth, hasClosedMonth } from '../lib/review'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -48,15 +48,17 @@ const selected = computed({
 <template>
   <PageHeader :title="t('review.title')" :subtitle="t('review.subtitle')" />
 
-  <p v-if="review.isError.value" role="alert" class="mb-4 text-sm text-destructive">
-    {{ errorMessage(review.error.value) }}
-  </p>
-  <div v-else-if="!review.data.value || !bounds" class="grid gap-4">
-    <Skeleton class="h-24 w-full" />
-    <Skeleton class="h-64 w-full" />
-  </div>
+  <template v-if="!bounds">
+    <p v-if="review.isError.value" role="alert" class="mb-4 text-sm text-destructive">
+      {{ errorMessage(review.error.value) }}
+    </p>
+    <div v-else class="grid gap-4">
+      <Skeleton class="h-24 w-full" />
+      <Skeleton class="h-64 w-full" />
+    </div>
+  </template>
   <EmptyState
-    v-else-if="bounds.first === null"
+    v-else-if="!hasClosedMonth(bounds.first, bounds.last)"
     :title="t('review.empty')"
     :description="t('review.emptyDescription')"
   >
@@ -65,12 +67,25 @@ const selected = computed({
     </Button>
   </EmptyState>
   <template v-else>
+    <!-- Outside the loading and error states, so changing month keeps the focus on the arrows. -->
     <div class="mb-4">
-      <MonthSelector v-model="selected" :min="bounds.first" :max="bounds.last" />
+      <MonthSelector v-model="selected" :min="bounds.first ?? undefined" :max="bounds.last" />
     </div>
-    <div class="grid gap-4">
+    <p v-if="review.isError.value" role="alert" class="mb-4 text-sm text-destructive">
+      {{ errorMessage(review.error.value) }}
+    </p>
+    <div
+      v-else-if="review.data.value"
+      class="grid gap-4 transition-opacity"
+      :class="review.isPlaceholderData.value && 'opacity-60'"
+      :aria-busy="review.isPlaceholderData.value"
+    >
       <ReviewSummary :data="review.data.value" />
       <ReviewCategories :data="review.data.value" />
+    </div>
+    <div v-else class="grid gap-4">
+      <Skeleton class="h-24 w-full" />
+      <Skeleton class="h-64 w-full" />
     </div>
   </template>
 </template>

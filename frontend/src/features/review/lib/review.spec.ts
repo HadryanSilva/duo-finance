@@ -85,3 +85,10 @@ describe('clampMonth', () => {
     expect(clampMonth('2026-12', null, '2027-02')).toBe('2027-02')
   })
 })
+
+describe('clampMonth before any month is over', () => {
+  it('firstMonthAfterLastClosed_isLastClosed', () => {
+    expect(clampMonth('2026-10', '2026-11', '2026-10')).toBe('2026-10')
+    expect(clampMonth(undefined, '2026-11', '2026-10')).toBe('2026-10')
+  })
+})

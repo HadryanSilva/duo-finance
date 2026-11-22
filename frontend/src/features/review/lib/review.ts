@@ -60,9 +60,19 @@ export function clampMonth(
   firstMonth: string | null,
   lastClosedMonth: string,
 ): string {
-  if (firstMonth === null || typeof wanted !== 'string' || !MONTH.test(wanted))
+  if (
+    firstMonth === null ||
+    !hasClosedMonth(firstMonth, lastClosedMonth) ||
+    typeof wanted !== 'string' ||
+    !MONTH.test(wanted)
+  )
     return lastClosedMonth
   if (wanted < firstMonth) return firstMonth
   if (wanted > lastClosedMonth) return lastClosedMonth
   return wanted
+}
+
+/** Whether any month with transactions is over yet: in a couple's first month, none is. */
+export function hasClosedMonth(firstMonth: string | null, lastClosedMonth: string): boolean {
+  return firstMonth !== null && firstMonth <= lastClosedMonth
 }
