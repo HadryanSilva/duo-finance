@@ -2,16 +2,20 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import BudgetForm from '@/shared/ui/BudgetForm.vue'
+import { useBudgets } from '@/shared/api/queries/budgets'
+import type { BudgetResponse } from '@/shared/api/types'
 import { errorMessage } from '@/shared/i18n/error-codes'
 import { Button } from '@/shared/ui/button'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 import MonthSelector from '@/shared/ui/MonthSelector.vue'
 import PageHeader from '@/shared/ui/PageHeader.vue'
+import SidePanel from '@/shared/ui/SidePanel.vue'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { useMonthReview } from '../api/review-api'
 import ReviewCategories from '../components/ReviewCategories.vue'
 import ReviewSummary from '../components/ReviewSummary.vue'
-import { clampMonth, hasClosedMonth } from '../lib/review'
+import { clampMonth, hasClosedMonth, suggestedLimit, type ReviewRow } from '../lib/review'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -26,6 +30,33 @@ const month = computed(() =>
   bounds.value ? clampMonth(route.query.month, bounds.value.first, bounds.value.last) : undefined,
 )
 const review = useMonthReview(month)
+// Today's budgets judged against the reviewed month's spending, so a past month shows the current limits.
+const budgets = useBudgets(
+  () => month.value ?? '',
+  () => month.value !== undefined,
+)
+
+// Side panel: the row whose budget is being set or adjusted, with that budget (null when it has none).
+const panel = ref<{ row: ReviewRow; budget: BudgetResponse | null } | null>(null)
+const panelOpen = computed({
+  get: () => panel.value !== null,
+  set: (open: boolean) => {
+    if (!open) panel.value = null
+  },
+})
+/** Where the suggested limit comes from is said next to it, so it reads as a reference, not advice. */
+const suggestion = computed(() => {
+  if (!panel.value) return undefined
+  const s = suggestedLimit(panel.value.row)
+  const n = review.data.value?.comparedMonths ?? 0
+  return {
+    cents: s.cents,
+    label:
+      s.source === 'average'
+        ? t('review.suggestionAverage', { n }, n)
+        : t('review.suggestionMonth'),
+  }
+})
 
 watch(
   () => review.data.value,
@@ -81,11 +112,30 @@ const selected = computed({
       :aria-busy="review.isPlaceholderData.value"
     >
       <ReviewSummary :data="review.data.value" />
-      <ReviewCategories :data="review.data.value" />
+      <ReviewCategories
+        :data="review.data.value"
+        :budgets="budgets.data.value"
+        :budgets-error="budgets.isError.value"
+        @budget="(row, budget) => (panel = { row, budget })"
+      />
     </div>
     <div v-else class="grid gap-4">
       <Skeleton class="h-24 w-full" />
       <Skeleton class="h-64 w-full" />
     </div>
   </template>
+
+  <SidePanel
+    v-model:open="panelOpen"
+    :title="panel?.budget ? t('budgets.editTitle') : t('budgets.createTitle')"
+  >
+    <BudgetForm
+      v-if="panel"
+      :key="panel.row.categoryId"
+      :budget="panel.budget ?? undefined"
+      :category="{ id: panel.row.categoryId, name: panel.row.name }"
+      :suggestion="suggestion"
+      @done="panelOpen = false"
+    />
+  </SidePanel>
 </template>

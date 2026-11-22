@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/dom'
 import { http, HttpResponse, type RequestHandler } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { DAILY_ITEMS, MORE_ITEMS } from '@/app/components/nav'
-import type { MonthReviewResponse } from '@/shared/api/types'
+import type { BudgetResponse, MonthReviewResponse } from '@/shared/api/types'
 import { renderRoute } from '@/test/render'
 
 const api = `${window.location.origin}/api/v1`
@@ -36,23 +36,74 @@ const october: MonthReviewResponse = {
   ],
 }
 
-function setup(respond: (month: string | null) => MonthReviewResponse) {
+const budget = (
+  categoryId: string,
+  name: string,
+  monthlyLimitCents: number,
+  spentCents: number,
+  status: BudgetResponse['status'],
+): BudgetResponse => ({
+  id: `b-${categoryId}`,
+  category: { id: categoryId, name, color: '#0ea5e9', icon: 'shopping-cart', archived: false },
+  monthlyLimitCents,
+  month: '2026-10',
+  spentCents,
+  percent: Math.floor((spentCents * 100) / monthlyLimitCents),
+  status,
+})
+
+function setup(
+  respond: (month: string | null) => MonthReviewResponse,
+  budgetsFor: (month: string | null) => BudgetResponse[] | 'error' = () => [],
+) {
   const asked: (string | null)[] = []
+  const budgetsAsked: (string | null)[] = []
+  const created: unknown[] = []
   const handlers: RequestHandler[] = [
     http.get(`${api}/month-review`, ({ request }) => {
       const month = new URL(request.url).searchParams.get('month')
       asked.push(month)
       return HttpResponse.json(respond(month))
     }),
+    http.get(`${api}/budgets`, ({ request }) => {
+      const month = new URL(request.url).searchParams.get('month')
+      budgetsAsked.push(month)
+      const budgets = budgetsFor(month)
+      return budgets === 'error'
+        ? HttpResponse.json({ code: 'INTERNAL_ERROR', status: 500 }, { status: 500 })
+        : HttpResponse.json(budgets)
+    }),
+    http.post(`${api}/budgets`, async ({ request }) => {
+      created.push(await request.json())
+      return HttpResponse.json(budget('c-rest', 'Restaurantes', 12000, 21000, 'EXCEEDED'), {
+        status: 201,
+      })
+    }),
+    http.get(`${api}/categories`, () => HttpResponse.json([])),
   ]
   return {
     asked,
+    budgetsAsked,
+    created,
     handlers,
     render: (route: string) => renderRoute({ route, session: {}, handlers }),
   }
 }
 
-const rowNames = () => screen.getAllByRole('rowheader').map((h) => norm(h.textContent).trim())
+/** Category names in table order (the row header also holds the phone layout's budget line). */
+const rowNames = () =>
+  screen.getAllByRole('rowheader').map((h) => norm(within(h).getByRole('link').textContent).trim())
+
+/** The table row of a category, found by its row header. */
+const rowOf = (name: string) =>
+  screen.getAllByRole('row').find((r) =>
+    norm(within(r).queryByRole('rowheader')?.textContent ?? null)
+      .trim()
+      .startsWith(name),
+  )!
+
+const limitIn = (panel: HTMLElement) =>
+  norm((within(panel).getByLabelText('Limite mensal') as HTMLInputElement).value).replace(/^€ /, '')
 
 const hasClass = (name: string) => (_: string, el: Element | null) =>
   el?.classList.contains(name) ?? false
@@ -62,13 +113,12 @@ describe('ReviewPage', () => {
     await setup(() => october).render('/review?month=2026-10')
 
     const table = await screen.findByRole('table')
-    expect(rowNames()).toEqual(['Mercado', 'Restaurantes', 'Transporte', 'Casa'])
+    expect(rowNames()).toEqual(['Casa', 'Mercado', 'Restaurantes', 'Transporte'])
     expect(within(table).getByRole('columnheader', { name: 'média de 3 meses' })).toBeTruthy()
     const rows = within(table).getAllByRole('row')
-    expect(norm(rows[1]!.textContent)).toContain('+€ 90,00')
-    expect(norm(rows[1]!.textContent)).toContain('a mais')
-    expect(norm(rows[4]!.textContent)).toContain('—')
-    expect(norm(rows[4]!.textContent)).toContain('sem mudança')
+    expect(norm(rows[1]!.textContent)).toContain('sem mudança')
+    expect(norm(rows[2]!.textContent)).toContain('+€ 90,00')
+    expect(norm(rows[2]!.textContent)).toContain('a mais')
   })
 
   it('reviewPage_summaryColoursByMeaning', async () => {
@@ -85,6 +135,164 @@ describe('ReviewPage', () => {
         expect.stringContaining('-€ 310,00'),
       ]),
     )
+  })
+
+  it('reviewPage_orderToggleSwitchesToChange', async () => {
+    const { user } = await setup(() => october).render('/review?month=2026-10')
+    await screen.findByRole('table')
+
+    const group = screen.getByRole('group', { name: 'Ordenar por' })
+    const size = within(group).getByRole('button', { name: 'Maior gasto' })
+    const change = within(group).getByRole('button', { name: 'Maior mudança' })
+    expect(size.getAttribute('aria-pressed')).toBe('true')
+    await user.click(change)
+    expect(rowNames()).toEqual(['Mercado', 'Restaurantes', 'Transporte', 'Casa'])
+    expect(change.getAttribute('aria-pressed')).toBe('true')
+    expect(size.getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('reviewPage_showsShareColumn', async () => {
+    await setup(() => october).render('/review?month=2026-10')
+    const table = await screen.findByRole('table')
+
+    expect(within(table).getByRole('columnheader', { name: '% da saída' })).toBeTruthy()
+    expect(norm(rowOf('Casa').textContent)).toContain('37%')
+    expect(norm(rowOf('Transporte').textContent)).toContain('3%')
+  })
+
+  it('reviewPage_budgetColumnShowsStatus', async () => {
+    await setup(
+      () => october,
+      () => [
+        budget('c-mercado', 'Mercado', 45000, 52000, 'EXCEEDED'),
+        budget('c-casa', 'Casa', 95000, 90000, 'WARNING'),
+        budget('c-transp', 'Transporte', 10000, 8000, 'NORMAL'),
+      ],
+    ).render('/review?month=2026-10')
+    await screen.findAllByText('estourou')
+
+    expect(screen.getByRole('columnheader', { name: /Orçamento atual/ })).toBeTruthy()
+    expect(norm(rowOf('Mercado').textContent)).toContain('€ 450,00')
+    expect(norm(rowOf('Mercado').textContent)).toContain('estourou')
+    expect(norm(rowOf('Casa').textContent)).toContain('€ 950,00')
+    expect(norm(rowOf('Casa').textContent)).toContain('perto do limite')
+    expect(norm(rowOf('Transporte').textContent)).toContain('dentro do orçamento')
+    // On a phone the budget column is hidden and the budget shows under the category name.
+    const mercadoHeader = within(rowOf('Mercado')).getByRole('rowheader')
+    expect(norm(mercadoHeader.textContent)).toContain('€ 450,00')
+    expect(within(mercadoHeader).getByText('estourou')).toBeTruthy()
+    expect(norm(within(rowOf('Restaurantes')).getByRole('rowheader').textContent)).not.toContain(
+      '—',
+    )
+    expect(norm(rowOf('Restaurantes').textContent)).toContain('—')
+    expect(
+      within(rowOf('Restaurantes')).getByRole('button', {
+        name: 'Definir orçamento de Restaurantes',
+      }),
+    ).toBeTruthy()
+    expect(
+      within(rowOf('Mercado')).getByRole('button', { name: 'Ajustar orçamento de Mercado' }),
+    ).toBeTruthy()
+  })
+
+  it('reviewPage_budgetsFollowMonth', async () => {
+    const s = setup((m) => ({ ...october, month: m ?? '2026-10' }))
+    const { user } = await s.render('/review?month=2026-10')
+    await screen.findByRole('table')
+
+    await user.click(screen.getByRole('button', { name: 'Mês anterior' }))
+    await waitFor(() => expect(s.budgetsAsked).toEqual(['2026-10', '2026-09']))
+  })
+
+  it('reviewPage_budgetsErrorKeepsReview', async () => {
+    await setup(
+      () => october,
+      () => 'error',
+    ).render('/review?month=2026-10')
+
+    expect(await screen.findByText('Não foi possível carregar os orçamentos.')).toBeTruthy()
+    expect(rowNames()).toEqual(['Casa', 'Mercado', 'Restaurantes', 'Transporte'])
+  })
+
+  it('reviewPage_definirCreatesBudgetAndRefreshes', async () => {
+    let saved = false
+    const s = setup(
+      () => october,
+      () => (saved ? [budget('c-rest', 'Restaurantes', 12000, 21000, 'EXCEEDED')] : []),
+    )
+    const { user } = await s.render('/review?month=2026-10')
+    await screen.findByRole('table')
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Definir orçamento de Restaurantes' }),
+    )
+    const panel = await screen.findByRole('dialog')
+    expect(within(panel).getByText('Restaurantes')).toBeTruthy()
+    expect(limitIn(panel)).toBe('120,00')
+    expect(within(panel).getByText('média dos últimos 3 meses')).toBeTruthy()
+
+    saved = true
+    await user.click(within(panel).getByRole('button', { name: 'Salvar' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(s.created).toEqual([{ categoryId: 'c-rest', monthlyLimitCents: 12000 }])
+    await waitFor(() => expect(norm(rowOf('Restaurantes').textContent)).toContain('€ 120,00'))
+    expect(
+      within(rowOf('Restaurantes')).getByRole('button', {
+        name: 'Ajustar orçamento de Restaurantes',
+      }),
+    ).toBeTruthy()
+  })
+
+  it('reviewPage_ajustarStartsOnCurrentLimit', async () => {
+    const { user } = await setup(
+      () => october,
+      () => [budget('c-mercado', 'Mercado', 45000, 52000, 'EXCEEDED')],
+    ).render('/review?month=2026-10')
+    await screen.findAllByText('estourou')
+
+    await user.click(screen.getByRole('button', { name: 'Ajustar orçamento de Mercado' }))
+    const panel = await screen.findByRole('dialog')
+    expect(limitIn(panel)).toBe('450,00')
+    expect(within(panel).getByRole('button', { name: /Usar sugestão: €\s430,00/ })).toBeTruthy()
+  })
+
+  it('reviewPage_archivedCategoryHasNoAction', async () => {
+    const archived: MonthReviewResponse = {
+      ...october,
+      categories: october.categories.map((c) =>
+        c.categoryId === 'c-transp' ? { ...c, archived: true } : c,
+      ),
+    }
+    await setup(
+      () => archived,
+      () => [budget('c-transp', 'Transporte', 10000, 8000, 'NORMAL')],
+    ).render('/review?month=2026-10')
+    await screen.findAllByText('dentro do orçamento')
+
+    expect(norm(rowOf('Transporte').textContent)).toContain('€ 100,00')
+    expect(within(rowOf('Transporte')).queryByRole('button')).toBeNull()
+  })
+
+  it('reviewPage_firstMonthSuggestsMonthAmount', async () => {
+    const first: MonthReviewResponse = {
+      ...october,
+      firstMonth: '2026-10',
+      comparedMonths: 0,
+      income: { cents: 320000, averageCents: null },
+      expense: { cents: 245000, averageCents: null },
+      left: { cents: 75000, averageCents: null },
+      categories: october.categories.map((c) => ({ ...c, averageCents: null })),
+    }
+    const { user } = await setup(() => first).render('/review?month=2026-10')
+    await screen.findByRole('table')
+
+    expect(screen.queryByRole('group', { name: 'Ordenar por' })).toBeNull()
+    await user.click(
+      await screen.findByRole('button', { name: 'Definir orçamento de Restaurantes' }),
+    )
+    const panel = await screen.findByRole('dialog')
+    expect(limitIn(panel)).toBe('210,00')
+    expect(within(panel).getByText('gasto deste mês')).toBeTruthy()
   })
 
   it('reviewPage_categoryLinksToTransactions', async () => {

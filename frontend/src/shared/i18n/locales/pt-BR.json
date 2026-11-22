@@ -522,7 +522,24 @@
     "noSpending": "Nenhuma despesa neste mês nem nos anteriores.",
     "empty": "Ainda não há lançamentos para revisar.",
     "emptyDescription": "Importe um extrato ou registre lançamentos e volte quando o mês terminar.",
-    "emptyCta": "Importar extrato"
+    "emptyCta": "Importar extrato",
+    "orderLabel": "Ordenar por",
+    "orderSize": "Maior gasto",
+    "orderChange": "Maior mudança",
+    "share": "% da saída",
+    "budget": "Orçamento atual",
+    "budgetHint": "Limite de hoje aplicado a este mês",
+    "budgetNormal": "dentro do orçamento",
+    "budgetWarning": "perto do limite",
+    "budgetExceeded": "estourou",
+    "budgetError": "Não foi possível carregar os orçamentos.",
+    "actions": "Ações",
+    "setBudget": "Definir",
+    "setBudgetLabel": "Definir orçamento de {name}",
+    "adjustBudget": "Ajustar",
+    "adjustBudgetLabel": "Ajustar orçamento de {name}",
+    "suggestionAverage": "média dos últimos {n} mês | média dos últimos {n} meses",
+    "suggestionMonth": "gasto deste mês"
   },
   "monthSelector": {
     "label": "Mês",
@@ -548,7 +565,8 @@
       "choose": "Selecione",
       "limit": "Limite mensal",
       "limitPositive": "Informe um limite maior que zero.",
-      "noCategories": "Todas as categorias de despesa ativas já têm orçamento."
+      "noCategories": "Todas as categorias de despesa ativas já têm orçamento.",
+      "useSuggestion": "Usar sugestão:"
     },
     "summary": {
       "title": "Total do mês",

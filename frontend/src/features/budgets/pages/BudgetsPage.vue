@@ -20,8 +20,8 @@ import MonthSelector from '@/shared/ui/MonthSelector.vue'
 import PageHeader from '@/shared/ui/PageHeader.vue'
 import SidePanel from '@/shared/ui/SidePanel.vue'
 import { Skeleton } from '@/shared/ui/skeleton'
-import { useBudgets, useDeleteBudget } from '../api/budgets-api'
-import BudgetForm from '../components/BudgetForm.vue'
+import { useBudgets, useDeleteBudget } from '@/shared/api/queries/budgets'
+import BudgetForm from '@/shared/ui/BudgetForm.vue'
 import BudgetsSummary from '../components/BudgetsSummary.vue'
 
 const { t } = useI18n()

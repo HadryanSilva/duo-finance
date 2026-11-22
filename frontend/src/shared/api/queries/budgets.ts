@@ -5,12 +5,16 @@ import type { BudgetResponse, CreateBudgetRequest, UpdateBudgetRequest } from '@
 
 const KEY = ['budgets'] as const
 
-/** Budgets of a `YYYY-MM` month with that month's spending. */
-export function useBudgets(month: MaybeRefOrGetter<string>) {
+/** Budgets of a `YYYY-MM` month with that month's spending; `enabled` waits for a month that is not known yet. */
+export function useBudgets(
+  month: MaybeRefOrGetter<string>,
+  enabled: MaybeRefOrGetter<boolean> = true,
+) {
   const http = useHttp()
   return useQuery({
     queryKey: computed(() => [...KEY, toValue(month)]),
     queryFn: () => http.get<BudgetResponse[]>('/budgets', { month: toValue(month) }),
+    enabled: computed(() => toValue(enabled)),
   })
 }
 
