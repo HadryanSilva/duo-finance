@@ -522,7 +522,24 @@
     "noSpending": "No spending this month or in the months before.",
     "empty": "No transactions to review yet.",
     "emptyDescription": "Import a statement or add transactions, and come back when the month is over.",
-    "emptyCta": "Import statement"
+    "emptyCta": "Import statement",
+    "orderLabel": "Sort by",
+    "orderSize": "Largest spend",
+    "orderChange": "Largest change",
+    "share": "% of spending",
+    "budget": "Current budget",
+    "budgetHint": "Today's limit applied to this month",
+    "budgetNormal": "within budget",
+    "budgetWarning": "near the limit",
+    "budgetExceeded": "over budget",
+    "budgetError": "Couldn't load the budgets.",
+    "actions": "Actions",
+    "setBudget": "Set",
+    "setBudgetLabel": "Set budget for {name}",
+    "adjustBudget": "Adjust",
+    "adjustBudgetLabel": "Adjust budget for {name}",
+    "suggestionAverage": "average of the last {n} month | average of the last {n} months",
+    "suggestionMonth": "this month's spending"
   },
   "monthSelector": {
     "label": "Month",
@@ -549,7 +566,7 @@
       "limit": "Monthly limit",
       "limitPositive": "Enter a limit greater than zero.",
       "noCategories": "Every active expense category already has a budget.",
-      "useSuggestion": "Use suggestion: {amount}"
+      "useSuggestion": "Use suggestion:"
     },
     "summary": {
       "title": "Month total",

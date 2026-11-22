@@ -8,13 +8,12 @@ import { useCategories } from '@/shared/api/queries/categories'
 import { isApiError } from '@/shared/api/problem'
 import type { BudgetResponse } from '@/shared/api/types'
 import { errorMessage } from '@/shared/i18n/error-codes'
-import type { Locale } from '@/shared/i18n'
-import { formatMoney } from '@/shared/lib/money'
+import MoneyText from '@/shared/ui/MoneyText.vue'
 import { Button } from '@/shared/ui/button'
 import { applyFieldErrors } from '@/shared/ui/FormErrors'
 import MoneyInput from '@/shared/ui/MoneyInput.vue'
 import SelectField from '@/shared/ui/SelectField.vue'
-import { useCreateBudget, useUpdateBudget } from '../api/budgets-api'
+import { useCreateBudget, useUpdateBudget } from '@/shared/api/queries/budgets'
 
 const props = defineProps<{
   /** Budget being edited (only its limit changes); absent when creating. */
@@ -28,7 +27,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ done: [] }>()
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
 const create = useCreateBudget()
 const update = useUpdateBudget()
 
@@ -62,9 +61,6 @@ const formError = ref<string | null>(null)
 
 /** The category's name when it is not picked here: the edited budget's, or the one the caller fixed. */
 const fixedName = computed(() => budget?.category.name ?? props.category?.name)
-const suggestionAmount = computed(() =>
-  props.suggestion ? formatMoney(props.suggestion.cents, locale.value as Locale) : '',
-)
 
 const categories = useCategories('EXPENSE')
 /** Active expense categories without a budget yet. */
@@ -148,7 +144,7 @@ const submit = handleSubmit(async (values) => {
         class="h-auto p-0"
         @click="limit = suggestion.cents"
       >
-        {{ t('budgets.form.useSuggestion', { amount: suggestionAmount }) }}
+        {{ t('budgets.form.useSuggestion') }} <MoneyText :cents="suggestion.cents" />
       </Button>
     </div>
 
