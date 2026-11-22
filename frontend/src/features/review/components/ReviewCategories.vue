@@ -92,7 +92,11 @@ const ORDERS: { value: ReviewOrder; label: string }[] = [
                   {{ t('review.difference') }}
                 </th>
               </template>
-              <th scope="col" class="py-2 text-right font-normal" :title="t('review.budgetHint')">
+              <th
+                scope="col"
+                class="hidden py-2 text-right font-normal sm:table-cell"
+                :title="t('review.budgetHint')"
+              >
                 {{ t('review.budget') }}
                 <span class="sr-only">({{ t('review.budgetHint') }})</span>
               </th>
@@ -119,8 +123,21 @@ const ORDERS: { value: ReviewOrder; label: string }[] = [
                   <span class="truncate">{{ r.name }}</span>
                   <ArchivedBadge v-if="r.archived" />
                 </RouterLink>
+                <!-- On a phone the row has no room for a budget column: the budget goes under the name. -->
+                <div
+                  v-if="!budgetsError && (budgetsLoading || budgetOf.has(r.categoryId))"
+                  class="pl-8 text-xs sm:hidden"
+                >
+                  <ReviewBudgetCell
+                    :budget="budgetOf.get(r.categoryId) ?? null"
+                    :loading="budgetsLoading"
+                    align="start"
+                  />
+                </div>
               </th>
-              <td class="py-2 text-right"><MoneyText :cents="r.cents" class="font-medium" /></td>
+              <td class="py-2 text-right whitespace-nowrap">
+                <MoneyText :cents="r.cents" class="font-medium" />
+              </td>
               <td class="hidden py-2 text-right text-muted-foreground sm:table-cell">
                 {{ shareText(r) }}
               </td>
@@ -128,7 +145,7 @@ const ORDERS: { value: ReviewOrder; label: string }[] = [
                 <td class="hidden py-2 text-right text-muted-foreground sm:table-cell">
                   <MoneyText v-if="r.averageCents !== null" :cents="r.averageCents" />
                 </td>
-                <td class="py-2 text-right">
+                <td class="py-2 pl-2 text-right whitespace-nowrap">
                   <DifferenceText
                     v-if="r.differenceCents !== null && r.tone"
                     :cents="r.differenceCents"
@@ -136,7 +153,7 @@ const ORDERS: { value: ReviewOrder; label: string }[] = [
                   />
                 </td>
               </template>
-              <td class="py-2 pl-2 text-right">
+              <td class="hidden py-2 pl-2 text-right sm:table-cell">
                 <ReviewBudgetCell
                   v-if="!budgetsError"
                   :budget="budgetOf.get(r.categoryId) ?? null"

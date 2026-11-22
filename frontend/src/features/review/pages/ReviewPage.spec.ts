@@ -90,7 +90,9 @@ function setup(
   }
 }
 
-const rowNames = () => screen.getAllByRole('rowheader').map((h) => norm(h.textContent).trim())
+/** Category names in table order (the row header also holds the phone layout's budget line). */
+const rowNames = () =>
+  screen.getAllByRole('rowheader').map((h) => norm(within(h).getByRole('link').textContent).trim())
 
 /** The table row of a category, found by its row header. */
 const rowOf = (name: string) =>
@@ -167,7 +169,7 @@ describe('ReviewPage', () => {
         budget('c-transp', 'Transporte', 10000, 8000, 'NORMAL'),
       ],
     ).render('/review?month=2026-10')
-    await screen.findByText('estourou')
+    await screen.findAllByText('estourou')
 
     expect(screen.getByRole('columnheader', { name: /Orçamento atual/ })).toBeTruthy()
     expect(norm(rowOf('Mercado').textContent)).toContain('€ 450,00')
@@ -175,6 +177,13 @@ describe('ReviewPage', () => {
     expect(norm(rowOf('Casa').textContent)).toContain('€ 950,00')
     expect(norm(rowOf('Casa').textContent)).toContain('perto do limite')
     expect(norm(rowOf('Transporte').textContent)).toContain('dentro do orçamento')
+    // On a phone the budget column is hidden and the budget shows under the category name.
+    const mercadoHeader = within(rowOf('Mercado')).getByRole('rowheader')
+    expect(norm(mercadoHeader.textContent)).toContain('€ 450,00')
+    expect(within(mercadoHeader).getByText('estourou')).toBeTruthy()
+    expect(norm(within(rowOf('Restaurantes')).getByRole('rowheader').textContent)).not.toContain(
+      '—',
+    )
     expect(norm(rowOf('Restaurantes').textContent)).toContain('—')
     expect(
       within(rowOf('Restaurantes')).getByRole('button', {
@@ -239,7 +248,7 @@ describe('ReviewPage', () => {
       () => october,
       () => [budget('c-mercado', 'Mercado', 45000, 52000, 'EXCEEDED')],
     ).render('/review?month=2026-10')
-    await screen.findByText('estourou')
+    await screen.findAllByText('estourou')
 
     await user.click(screen.getByRole('button', { name: 'Ajustar orçamento de Mercado' }))
     const panel = await screen.findByRole('dialog')
@@ -258,7 +267,7 @@ describe('ReviewPage', () => {
       () => archived,
       () => [budget('c-transp', 'Transporte', 10000, 8000, 'NORMAL')],
     ).render('/review?month=2026-10')
-    await screen.findByText('dentro do orçamento')
+    await screen.findAllByText('dentro do orçamento')
 
     expect(norm(rowOf('Transporte').textContent)).toContain('€ 100,00')
     expect(within(rowOf('Transporte')).queryByRole('button')).toBeNull()
