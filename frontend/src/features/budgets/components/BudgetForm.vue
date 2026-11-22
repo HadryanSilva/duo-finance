@@ -8,6 +8,8 @@ import { useCategories } from '@/shared/api/queries/categories'
 import { isApiError } from '@/shared/api/problem'
 import type { BudgetResponse } from '@/shared/api/types'
 import { errorMessage } from '@/shared/i18n/error-codes'
+import type { Locale } from '@/shared/i18n'
+import { formatMoney } from '@/shared/lib/money'
 import { Button } from '@/shared/ui/button'
 import { applyFieldErrors } from '@/shared/ui/FormErrors'
 import MoneyInput from '@/shared/ui/MoneyInput.vue'
@@ -19,10 +21,14 @@ const props = defineProps<{
   budget?: BudgetResponse
   /** Categories that already have a budget; they are not offered when creating. */
   budgetedCategoryIds?: string[]
+  /** A category fixed by the caller: when creating, it is shown instead of being picked. */
+  category?: { id: string; name: string }
+  /** A limit to start from, with where it comes from; it prefills a new budget and is offered when editing. */
+  suggestion?: { cents: number; label: string }
 }>()
 const emit = defineEmits<{ done: [] }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const create = useCreateBudget()
 const update = useUpdateBudget()
 
@@ -45,13 +51,20 @@ const budget = props.budget
 const { defineField, handleSubmit, errors, isSubmitting, setFieldError } = useForm({
   validationSchema: schema,
   initialValues: {
-    categoryId: budget?.category.id ?? '',
-    monthlyLimitCents: (budget?.monthlyLimitCents ?? null) as number | null,
+    categoryId: budget?.category.id ?? props.category?.id ?? '',
+    monthlyLimitCents: (budget?.monthlyLimitCents ?? props.suggestion?.cents ?? null) as
+      number | null,
   },
 })
 const [categoryId] = defineField('categoryId')
 const [limit] = defineField('monthlyLimitCents')
 const formError = ref<string | null>(null)
+
+/** The category's name when it is not picked here: the edited budget's, or the one the caller fixed. */
+const fixedName = computed(() => budget?.category.name ?? props.category?.name)
+const suggestionAmount = computed(() =>
+  props.suggestion ? formatMoney(props.suggestion.cents, locale.value as Locale) : '',
+)
 
 const categories = useCategories('EXPENSE')
 /** Active expense categories without a budget yet. */
@@ -100,9 +113,9 @@ const submit = handleSubmit(async (values) => {
       {{ formError }}
     </p>
 
-    <p v-if="budget" class="grid gap-1 text-sm">
+    <p v-if="fixedName" class="grid gap-1 text-sm">
       <span class="font-medium text-foreground">{{ t('budgets.form.category') }}</span>
-      <span class="text-muted-foreground">{{ budget.category.name }}</span>
+      <span class="text-muted-foreground">{{ fixedName }}</span>
     </p>
     <template v-else>
       <SelectField
@@ -122,6 +135,22 @@ const submit = handleSubmit(async (values) => {
       :label="t('budgets.form.limit')"
       :error="errors.monthlyLimitCents"
     />
+    <div
+      v-if="suggestion"
+      class="-mt-2 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground"
+    >
+      <span>{{ suggestion.label }}</span>
+      <Button
+        v-if="limit !== suggestion.cents"
+        type="button"
+        variant="link"
+        size="sm"
+        class="h-auto p-0"
+        @click="limit = suggestion.cents"
+      >
+        {{ t('budgets.form.useSuggestion', { amount: suggestionAmount }) }}
+      </Button>
+    </div>
 
     <div class="flex justify-end pt-2">
       <Button type="submit" :disabled="isSubmitting">{{ t('common.save') }}</Button>

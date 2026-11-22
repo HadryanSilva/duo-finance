@@ -548,7 +548,8 @@
       "choose": "Select",
       "limit": "Monthly limit",
       "limitPositive": "Enter a limit greater than zero.",
-      "noCategories": "Every active expense category already has a budget."
+      "noCategories": "Every active expense category already has a budget.",
+      "useSuggestion": "Use suggestion: {amount}"
     },
     "summary": {
       "title": "Month total",

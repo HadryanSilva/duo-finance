@@ -548,7 +548,8 @@
       "choose": "Selecione",
       "limit": "Limite mensal",
       "limitPositive": "Informe um limite maior que zero.",
-      "noCategories": "Todas as categorias de despesa ativas já têm orçamento."
+      "noCategories": "Todas as categorias de despesa ativas já têm orçamento.",
+      "useSuggestion": "Usar sugestão: {amount}"
     },
     "summary": {
       "title": "Total do mês",
