@@ -533,6 +533,7 @@
     "budgetWarning": "near the limit",
     "budgetExceeded": "over budget",
     "budgetError": "Couldn't load the budgets.",
+    "budgetRetry": "Try again",
     "actions": "Actions",
     "setBudget": "Set",
     "setBudgetLabel": "Set budget for {name}",

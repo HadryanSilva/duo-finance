@@ -21,7 +21,10 @@ const props = defineProps<{
   budgets: BudgetResponse[] | undefined
   budgetsError: boolean
 }>()
-const emit = defineEmits<{ budget: [row: ReviewRow, budget: BudgetResponse | null] }>()
+const emit = defineEmits<{
+  budget: [row: ReviewRow, budget: BudgetResponse | null]
+  retryBudgets: []
+}>()
 
 const { t } = useI18n()
 const compared = computed(() => props.data.comparedMonths > 0)
@@ -189,8 +192,20 @@ const ORDERS: { value: ReviewOrder; label: string }[] = [
             </tr>
           </tbody>
         </table>
-        <p v-if="budgetsError" class="mt-3 text-sm text-muted-foreground">
+        <p
+          v-if="budgetsError"
+          class="mt-3 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground"
+        >
           {{ t('review.budgetError') }}
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            class="h-auto p-0"
+            @click="emit('retryBudgets')"
+          >
+            {{ t('review.budgetRetry') }}
+          </Button>
         </p>
       </template>
     </CardContent>
