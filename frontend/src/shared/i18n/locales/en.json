@@ -36,6 +36,7 @@
     "GOAL_COMPLETED": "This goal is completed. Reopen it to change it.",
     "GOAL_MONTH_TAKEN": "This month was already confirmed or skipped.",
     "GOAL_MONTH_INVALID": "Month is outside the goal period.",
+    "MONTH_NOT_CLOSED": "That month is not over yet.",
     "GOAL_AMOUNT_INVALID": "Invalid amount for this goal: it would go below zero or above the target.",
     "GOAL_NO_SALARY": "No salary is recorded for this month.",
     "GOAL_SALARY_CATEGORY_INVALID": "Choose an active income category.",
@@ -86,6 +87,7 @@
   "nav": {
     "main": "Main navigation",
     "dashboard": "Dashboard",
+    "review": "Review",
     "transactions": "Transactions",
     "bankAccounts": "Accounts",
     "categories": "Categories",
@@ -504,6 +506,23 @@
       "rowInvalidLine": "The file has a row with an unreadable date or amount (line {line}).",
       "rowsNeedAttention": "{n} row needs fixing. | {n} rows need fixing."
     }
+  },
+  "review": {
+    "title": "Month review",
+    "subtitle": "Where the money went, compared with the average.",
+    "summaryLabel": "Month summary compared with the average",
+    "average": "{n}-month average",
+    "whereItWent": "Where it went",
+    "category": "Category",
+    "thisMonth": "This month",
+    "difference": "Difference",
+    "more": "more",
+    "less": "less",
+    "noChange": "no change",
+    "noSpending": "No spending this month or in the months before.",
+    "empty": "No transactions to review yet.",
+    "emptyDescription": "Import a statement or add transactions, and come back when the month is over.",
+    "emptyCta": "Import statement"
   },
   "monthSelector": {
     "label": "Month",

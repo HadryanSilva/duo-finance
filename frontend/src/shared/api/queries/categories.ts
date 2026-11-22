@@ -40,6 +40,7 @@ function useInvalidate(withReferences: boolean) {
     Promise.all([
       qc.invalidateQueries({ queryKey: KEY }),
       qc.invalidateQueries({ queryKey: ['dashboard'] }),
+      qc.invalidateQueries({ queryKey: ['month-review'] }),
       ...(withReferences
         ? [['transactions'], ['recurring-rules'], ['budgets']].map((queryKey) =>
             qc.invalidateQueries({ queryKey }),

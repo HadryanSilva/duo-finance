@@ -21,8 +21,8 @@ function useInvalidate() {
   const qc = useQueryClient()
   return () =>
     Promise.all(
-      [KEY, ['transactions'], ['dashboard'], ['bank-accounts'], ['budgets']].map((queryKey) =>
-        qc.invalidateQueries({ queryKey }),
+      [KEY, ['transactions'], ['dashboard'], ['month-review'], ['bank-accounts'], ['budgets']].map(
+        (queryKey) => qc.invalidateQueries({ queryKey }),
       ),
     )
 }
