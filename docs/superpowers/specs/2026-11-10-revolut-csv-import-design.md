@@ -18,7 +18,7 @@ Critérios de sucesso:
 | --- | --- |
 | Formato | Só Revolut (CSV da conta pessoal), com parser dedicado. Outros bancos serão parsers novos no mesmo encaixe. |
 | Categorias | Tela de revisão obrigatória antes de gravar, com memória de categoria por descrição. |
-| Duplicatas | Linhas já importadas (mesma impressão digital) são puladas. Linhas parecidas com lançamento sem impressão digital (mesma data, valor e conta bancária) aparecem como possível duplicata, desmarcadas por padrão. |
+| Duplicatas | Linhas já importadas (mesma impressão digital) são puladas. Linhas parecidas com lançamento sem impressão digital (mesmo valor e conta bancária, com data entre o dia de início e o dia gravado da linha) aparecem como possível duplicata, desmarcadas por padrão. |
 | Abordagem | O backend lê o arquivo. Preview sem estado e commit que reenvia o mesmo arquivo. O arquivo nunca é armazenado. |
 | Desfazer | Cada importação é um lote; desfazer apaga os lançamentos do lote. |
 
@@ -86,7 +86,7 @@ Critérios de sucesso:
 
 - `NEW`: importável e sem conflito.
 - `ALREADY_IMPORTED`: a impressão digital já existe na conta; não pode ser incluída.
-- `POSSIBLE_DUPLICATE`: existe lançamento sem impressão digital com a mesma data, o mesmo valor, o mesmo tipo e a mesma conta bancária; começa desmarcada, mas pode ser incluída.
+- `POSSIBLE_DUPLICATE`: existe lançamento sem impressão digital com o mesmo valor, o mesmo tipo e a mesma conta bancária, datado de qualquer dia entre o `Started Date` e a data gravada da linha (inclusive; quem lança à mão uma compra pendente usa o dia da compra); começa desmarcada, mas pode ser incluída.
 
 **Categoria sugerida** (só `INCOME` e `EXPENSE`): a da memória para `(description_key, kind)`, se ainda estiver ativa; senão, a categoria padrão do sistema do tipo correspondente ("Outros" / "Outras receitas"), se ativa; senão, nenhuma, e o usuário precisa escolher.
 

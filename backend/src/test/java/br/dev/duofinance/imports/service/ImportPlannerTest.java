@@ -191,6 +191,30 @@ class ImportPlannerTest {
     }
 
     @Test
+    void plan_manualOnPurchaseDayBeforeCompletion_isPossibleDuplicate() {
+        Set<DuplicateKey> manual =
+                Set.of(new DuplicateKey(LocalDate.of(2026, 1, 10), TransactionKind.EXPENSE, 100, CURRENT));
+        assertThat(ImportPlanner.plan(List.of(card(-100)), ctx(Map.of(), Map.of(), manual)).rows().get(0).status())
+                .isEqualTo(RowStatus.POSSIBLE_DUPLICATE);
+    }
+
+    @Test
+    void plan_manualBeforePurchaseDay_isNew() {
+        Set<DuplicateKey> manual =
+                Set.of(new DuplicateKey(LocalDate.of(2026, 1, 9), TransactionKind.EXPENSE, 100, CURRENT));
+        assertThat(ImportPlanner.plan(List.of(card(-100)), ctx(Map.of(), Map.of(), manual)).rows().get(0).status())
+                .isEqualTo(RowStatus.NEW);
+    }
+
+    @Test
+    void plan_manualAfterCompletionDay_isNew() {
+        Set<DuplicateKey> manual =
+                Set.of(new DuplicateKey(LocalDate.of(2026, 1, 12), TransactionKind.EXPENSE, 100, CURRENT));
+        assertThat(ImportPlanner.plan(List.of(card(-100)), ctx(Map.of(), Map.of(), manual)).rows().get(0).status())
+                .isEqualTo(RowStatus.NEW);
+    }
+
+    @Test
     void plan_suggestsMemoryThenDefaultThenNull() {
         UUID remembered = UUID.randomUUID();
         Map<MemoryKey, UUID> memory = Map.of(new MemoryKey(DescriptionKeys.of("Shop"), TransactionKind.EXPENSE),
