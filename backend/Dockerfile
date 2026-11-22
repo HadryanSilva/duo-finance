@@ -1,14 +1,16 @@
 # syntax=docker/dockerfile:1
-FROM eclipse-temurin:25-jdk AS build
+# Maven ships in the build image instead of being downloaded by mvnw: Maven Central answers the
+# distribution download from some CI runners with HTTP 429. Keep the tag's Maven version equal to
+# .mvn/wrapper/maven-wrapper.properties (checked in infra/tests/config.bats).
+FROM maven:3.10.0-eclipse-temurin-25 AS build
 WORKDIR /src
 
 # Dependencies first so this layer is cached until pom.xml changes.
-COPY .mvn/ .mvn/
-COPY mvnw pom.xml ./
-RUN chmod +x mvnw && ./mvnw -B -q dependency:go-offline
+COPY pom.xml ./
+RUN mvn -B -q dependency:go-offline
 
 COPY src/ src/
-RUN ./mvnw -B -q package -DskipTests \
+RUN mvn -B -q package -DskipTests \
  && java -Djarmode=tools -jar target/*.jar extract --layers --launcher --destination /layers
 
 FROM eclipse-temurin:25-jre
