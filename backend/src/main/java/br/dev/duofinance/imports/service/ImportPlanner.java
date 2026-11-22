@@ -140,9 +140,22 @@ public final class ImportPlanner {
         RowStatus status = RowStatus.NEW;
         if (ctx.existingFingerprints().containsKey(rowId)) {
             status = RowStatus.ALREADY_IMPORTED;
-        } else if (ctx.manualTransactions().contains(new DuplicateKey(date, kind, amount, account))) {
+        } else if (manualInWindow(row, kind, amount, account, ctx)) {
             status = RowStatus.POSSIBLE_DUPLICATE;
         }
         return new PlannedRow(rowId, date, kind, amount, description, key, account, destination, category, status);
+    }
+
+    /**
+     * A manual transaction typed while the payment was pending usually carries the purchase day, while the import
+     * stores the completion day; any day from the one to the other counts.
+     */
+    private static boolean manualInWindow(
+            RevolutRow row, TransactionKind kind, long amount, UUID account, PlanContext ctx) {
+        LocalDate last = dateOf(row);
+        for (LocalDate d = row.startedAt().toLocalDate(); !d.isAfter(last); d = d.plusDays(1)) {
+            if (ctx.manualTransactions().contains(new DuplicateKey(d, kind, amount, account))) return true;
+        }
+        return false;
     }
 }
