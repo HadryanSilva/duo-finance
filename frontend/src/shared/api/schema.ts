@@ -836,6 +836,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/month-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["review"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/imports": {
         parameters: {
             query?: never;
@@ -1439,6 +1455,34 @@ export interface components {
             /** @enum {string} */
             mode: "INVITE_ONLY" | "OPEN";
             googleClientId: string | null;
+        };
+        CategoryLine: {
+            /** Format: uuid */
+            categoryId: string;
+            name: string;
+            color: string;
+            icon: string;
+            archived: boolean;
+            /** Format: int64 */
+            cents: number;
+            averageCents: number | null;
+        };
+        Figure: {
+            /** Format: int64 */
+            cents: number;
+            averageCents: number | null;
+        };
+        MonthReviewResponse: {
+            month: string;
+            currency: string;
+            firstMonth: string | null;
+            lastClosedMonth: string;
+            /** Format: int32 */
+            comparedMonths: number;
+            income: components["schemas"]["Figure"];
+            expense: components["schemas"]["Figure"];
+            left: components["schemas"]["Figure"];
+            categories: components["schemas"]["CategoryLine"][];
         };
         ImportBatchResponse: {
             /** Format: uuid */
@@ -3276,6 +3320,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["RegistrationModeResponse"];
+                };
+            };
+        };
+    };
+    review: {
+        parameters: {
+            query?: {
+                month?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MonthReviewResponse"];
                 };
             };
         };
