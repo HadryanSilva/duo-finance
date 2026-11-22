@@ -3,6 +3,7 @@ import { http, HttpResponse, type RequestHandler } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { DAILY_ITEMS, MORE_ITEMS } from '@/app/components/nav'
 import type { BudgetResponse, MonthReviewResponse } from '@/shared/api/types'
+import { holdClosingAnimation } from '@/test/animation'
 import { renderRoute } from '@/test/render'
 
 const api = `${window.location.origin}/api/v1`
@@ -79,6 +80,9 @@ function setup(
         status: 201,
       })
     }),
+    http.put(`${api}/budgets/:id`, () =>
+      HttpResponse.json(budget('c-mercado', 'Mercado', 45000, 52000, 'EXCEEDED')),
+    ),
     http.get(`${api}/categories`, () => HttpResponse.json([])),
   ]
   return {
@@ -196,12 +200,83 @@ describe('ReviewPage', () => {
   })
 
   it('reviewPage_budgetsFollowMonth', async () => {
-    const s = setup((m) => ({ ...october, month: m ?? '2026-10' }))
+    // Same limit, judged against each month's spending: October went over, September did not.
+    const s = setup(
+      (m) => ({ ...october, month: m ?? '2026-10' }),
+      (m) => [
+        budget('c-rest', 'Restaurantes', 15000, 21000, m === '2026-09' ? 'WARNING' : 'EXCEEDED'),
+      ],
+    )
     const { user } = await s.render('/review?month=2026-10')
+    await waitFor(() => expect(norm(rowOf('Restaurantes').textContent)).toContain('estourou'))
+
+    await user.click(screen.getByRole('button', { name: 'Mês anterior' }))
+    await waitFor(() =>
+      expect(norm(rowOf('Restaurantes').textContent)).toContain('perto do limite'),
+    )
+    expect(norm(rowOf('Restaurantes').textContent)).not.toContain('estourou')
+    expect(s.budgetsAsked).toEqual(['2026-10', '2026-09'])
+  })
+
+  it('reviewPage_monthChangeKeepsNewBudgetsOffOldRows', async () => {
+    // September's review is slow while its budgets are quick: October's dimmed rows must not show them.
+    let release = () => {}
+    const septemberReady = new Promise<void>((resolve) => (release = resolve))
+    const s = setup(
+      (m) => ({ ...october, month: m ?? '2026-10' }),
+      (m) => (m === '2026-09' ? [budget('c-rest', 'Restaurantes', 15000, 21000, 'EXCEEDED')] : []),
+    )
+    const slowSeptember = http.get(`${api}/month-review`, async ({ request }) => {
+      if (new URL(request.url).searchParams.get('month') !== '2026-09') return undefined
+      await septemberReady
+      return HttpResponse.json({ ...october, month: '2026-09' })
+    })
+    const { user } = await renderRoute({
+      route: '/review?month=2026-10',
+      session: {},
+      handlers: [slowSeptember, ...s.handlers],
+    })
     await screen.findByRole('table')
 
     await user.click(screen.getByRole('button', { name: 'Mês anterior' }))
     await waitFor(() => expect(s.budgetsAsked).toEqual(['2026-10', '2026-09']))
+    // Give September's budgets time to land while October's rows are still shown.
+    await new Promise((r) => setTimeout(r, 50))
+    expect(norm(rowOf('Restaurantes').textContent)).not.toContain('estourou')
+
+    release()
+    await waitFor(() => expect(norm(rowOf('Restaurantes').textContent)).toContain('estourou'))
+  })
+
+  it('reviewPage_budgetsErrorCanBeRetried', async () => {
+    let fail = true
+    const { user } = await setup(
+      () => october,
+      () => (fail ? 'error' : [budget('c-mercado', 'Mercado', 45000, 52000, 'EXCEEDED')]),
+    ).render('/review?month=2026-10')
+    await screen.findByText('Não foi possível carregar os orçamentos.')
+
+    fail = false
+    await user.click(screen.getByRole('button', { name: 'Tentar de novo' }))
+    await waitFor(() => expect(norm(rowOf('Mercado').textContent)).toContain('estourou'))
+    expect(screen.queryByText('Não foi possível carregar os orçamentos.')).toBeNull()
+  })
+
+  it('reviewPage_panelKeepsTitleWhileClosing', async () => {
+    holdClosingAnimation()
+    const { user } = await setup(
+      () => october,
+      () => [budget('c-mercado', 'Mercado', 45000, 52000, 'EXCEEDED')],
+    ).render('/review?month=2026-10')
+
+    await user.click(await screen.findByRole('button', { name: 'Ajustar orçamento de Mercado' }))
+    const panel = await screen.findByRole('dialog')
+    expect(within(panel).getByRole('heading', { name: 'Editar orçamento' })).toBeTruthy()
+
+    await user.click(within(panel).getByRole('button', { name: 'Salvar' }))
+    // Saved: the panel slides out, and its title stays as it was until it is gone.
+    await waitFor(() => expect(panel.dataset.state).toBe('closed'))
+    expect(within(panel).getByRole('heading', { name: 'Editar orçamento' })).toBeTruthy()
   })
 
   it('reviewPage_budgetsErrorKeepsReview', async () => {
@@ -312,8 +387,9 @@ describe('ReviewPage', () => {
 
     await waitFor(() => expect(router.currentRoute.value.query.month).toBe('2026-10'))
     await screen.findByRole('table')
-    // the first request asks for the server's default month, never for the out-of-range one
-    expect(s.asked).toContain(null)
+    // the first request asks for the server's default month, then the clamped one, never for the out-of-range one;
+    // waiting for the clamped one also keeps it from landing on the next test's handlers
+    await waitFor(() => expect(s.asked).toEqual([null, '2026-10']))
     expect(s.asked).not.toContain('2030-01')
   })
 

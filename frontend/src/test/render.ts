@@ -3,6 +3,7 @@ import { QueryClient } from '@tanstack/vue-query'
 import userEvent from '@testing-library/user-event'
 import { mount, type ComponentMountingOptions } from '@vue/test-utils'
 import type { RequestHandler } from 'msw'
+import { vi } from 'vitest'
 import { createPinia } from 'pinia'
 import type { Component } from 'vue'
 import { createMemoryHistory } from 'vue-router'
@@ -14,6 +15,19 @@ import { setLocale, type Locale } from '@/shared/i18n'
 import { server } from './msw'
 
 const mounted: { unmount: () => void; host: HTMLElement; queryClient: QueryClient }[] = []
+
+/**
+ * Waits (briefly) for requests the test left in flight. MSW picks a request's handler when it serves it, so one
+ * still on its way after the test would be served by the next test's handlers and counted there. A request that
+ * never ends (a test of a loading state) is given up on after `limitMs`; with fake timers nothing is waited for.
+ */
+export async function settle(limitMs = 500): Promise<void> {
+  if (vi.isFakeTimers()) return
+  const busy = () =>
+    mounted.some((m) => m.queryClient.isFetching() + m.queryClient.isMutating() > 0)
+  const until = Date.now() + limitMs
+  while (busy() && Date.now() < until) await new Promise((r) => setTimeout(r, 10))
+}
 
 /** Unmounts everything render() mounted; called after each test by setup.ts. */
 export function cleanup(): void {

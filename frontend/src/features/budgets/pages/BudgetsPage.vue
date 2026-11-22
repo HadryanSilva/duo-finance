@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import type { BudgetResponse } from '@/shared/api/types'
 import { currentMonth } from '@/shared/lib/dates'
+import { lastOpened } from '@/shared/lib/last-opened'
 import { errorMessage } from '@/shared/i18n/error-codes'
 import { swatchInkClass } from '@/shared/lib/contrast'
 import { budgetRemainder } from '@/shared/lib/figures'
@@ -51,6 +52,8 @@ const panelOpen = computed({
     if (!open) panel.value = null
   },
 })
+// The title reads the last opened value, so it holds while the panel animates out.
+const panelShown = lastOpened(panel)
 
 const pendingDelete = ref<BudgetResponse | null>(null)
 const deleteOpen = computed({
@@ -59,6 +62,7 @@ const deleteOpen = computed({
     if (!open) pendingDelete.value = null
   },
 })
+const deleteShown = lastOpened(pendingDelete)
 /** What is left of a budget, or by how much it went over, colored like the dashboard's. */
 function remainder(b: BudgetResponse) {
   const r = budgetRemainder(b.spentCents, b.monthlyLimitCents)
@@ -175,7 +179,7 @@ async function onDelete() {
 
   <SidePanel
     v-model:open="panelOpen"
-    :title="panel === 'new' ? t('budgets.createTitle') : t('budgets.editTitle')"
+    :title="panelShown === 'new' ? t('budgets.createTitle') : t('budgets.editTitle')"
   >
     <BudgetForm
       v-if="panel"
@@ -189,7 +193,7 @@ async function onDelete() {
   <ConfirmDialog
     v-model:open="deleteOpen"
     :title="t('budgets.deleteTitle')"
-    :message="t('budgets.deleteMessage', { name: pendingDelete?.category.name ?? '' })"
+    :message="t('budgets.deleteMessage', { name: deleteShown?.category.name ?? '' })"
     :confirm-label="t('common.delete')"
     destructive
     @confirm="onDelete"

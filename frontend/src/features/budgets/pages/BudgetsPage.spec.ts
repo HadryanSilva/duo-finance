@@ -3,6 +3,7 @@ import { http, HttpResponse, type RequestHandler } from 'msw'
 import { describe, expect, it } from 'vitest'
 import App from '@/app/App.vue'
 import { addMonths, currentMonth } from '@/shared/lib/dates'
+import { holdClosingAnimation } from '@/test/animation'
 import { render, renderRoute } from '@/test/render'
 
 const api = `${window.location.origin}/api/v1`
@@ -189,5 +190,36 @@ describe('BudgetsPage', () => {
     expect(s.calls.deleted).toBeUndefined()
     await user.click(within(dialog).getByRole('button', { name: 'Excluir' }))
     await waitFor(() => expect(s.calls.deleted).toBe('b2'))
+  })
+
+  it('budgets_panelKeepsTitleWhileClosing', async () => {
+    holdClosingAnimation()
+    const s = setup()
+    const { user } = await s.mount('/budgets')
+    await findList()
+    await user.click(screen.getAllByRole('button', { name: 'Novo orçamento' })[0]!)
+    const dialog = await screen.findByRole('dialog', { name: 'Novo orçamento' })
+    const select = within(dialog).getByLabelText('Categoria')
+    await waitFor(() => expect(optionTexts(select)).toContain('Transporte'))
+    await user.selectOptions(select, 'c3')
+    await user.type(within(dialog).getByLabelText('Limite mensal'), '300')
+    await user.click(within(dialog).getByRole('button', { name: 'Salvar' }))
+
+    // The panel slides out still titled as it was opened, not as an edit.
+    await waitFor(() => expect(dialog.dataset.state).toBe('closed'))
+    expect(within(dialog).getByRole('heading', { name: 'Novo orçamento' })).toBeTruthy()
+  })
+
+  it('budgets_deleteKeepsNameWhileClosing', async () => {
+    holdClosingAnimation()
+    const s = setup()
+    const { user } = await s.mount('/budgets')
+    await findList()
+    await user.click(screen.getByRole('button', { name: 'Excluir orçamento de Lazer' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Excluir orçamento?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Excluir' }))
+
+    await waitFor(() => expect(dialog.dataset.state).toBe('closed'))
+    expect(dialog.textContent).toContain('O orçamento de Lazer deixa de existir')
   })
 })

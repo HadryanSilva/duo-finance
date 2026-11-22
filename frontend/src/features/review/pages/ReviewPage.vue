@@ -6,6 +6,7 @@ import BudgetForm from '@/shared/ui/BudgetForm.vue'
 import { useBudgets } from '@/shared/api/queries/budgets'
 import type { BudgetResponse } from '@/shared/api/types'
 import { errorMessage } from '@/shared/i18n/error-codes'
+import { lastOpened } from '@/shared/lib/last-opened'
 import { Button } from '@/shared/ui/button'
 import EmptyState from '@/shared/ui/EmptyState.vue'
 import MonthSelector from '@/shared/ui/MonthSelector.vue'
@@ -35,6 +36,14 @@ const budgets = useBudgets(
   () => month.value ?? '',
   () => month.value !== undefined,
 )
+/**
+ * While the previous month's review is still shown (dimmed) the new month's budgets wait, so its rows never carry
+ * another month's status; they show as loading instead.
+ */
+const shownBudgets = computed(() =>
+  review.isPlaceholderData.value ? undefined : budgets.data.value,
+)
+const shownBudgetsError = computed(() => !review.isPlaceholderData.value && budgets.isError.value)
 
 // Side panel: the row whose budget is being set or adjusted, with that budget (null when it has none).
 const panel = ref<{ row: ReviewRow; budget: BudgetResponse | null } | null>(null)
@@ -44,6 +53,8 @@ const panelOpen = computed({
     if (!open) panel.value = null
   },
 })
+// The title reads the last opened value, so it holds while the panel animates out.
+const panelShown = lastOpened(panel)
 /** Where the suggested limit comes from is said next to it, so it reads as a reference, not advice. */
 const suggestion = computed(() => {
   if (!panel.value) return undefined
@@ -114,9 +125,10 @@ const selected = computed({
       <ReviewSummary :data="review.data.value" />
       <ReviewCategories
         :data="review.data.value"
-        :budgets="budgets.data.value"
-        :budgets-error="budgets.isError.value"
+        :budgets="shownBudgets"
+        :budgets-error="shownBudgetsError"
         @budget="(row, budget) => (panel = { row, budget })"
+        @retry-budgets="budgets.refetch()"
       />
     </div>
     <div v-else class="grid gap-4">
@@ -127,7 +139,7 @@ const selected = computed({
 
   <SidePanel
     v-model:open="panelOpen"
-    :title="panel?.budget ? t('budgets.editTitle') : t('budgets.createTitle')"
+    :title="panelShown?.budget ? t('budgets.editTitle') : t('budgets.createTitle')"
   >
     <BudgetForm
       v-if="panel"

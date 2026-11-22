@@ -533,6 +533,7 @@
     "budgetWarning": "perto do limite",
     "budgetExceeded": "estourou",
     "budgetError": "Não foi possível carregar os orçamentos.",
+    "budgetRetry": "Tentar de novo",
     "actions": "Ações",
     "setBudget": "Definir",
     "setBudgetLabel": "Definir orçamento de {name}",
