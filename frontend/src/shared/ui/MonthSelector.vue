@@ -8,6 +8,11 @@ import { Button } from '@/shared/ui/button'
 
 /** Month as `YYYY-MM`. */
 const model = defineModel<string>({ required: true })
+/** Optional `YYYY-MM` limits: the arrows stop there. */
+const props = defineProps<{ min?: string; max?: string }>()
+// `YYYY-MM` strings order the same as the months they name.
+const atMin = computed(() => props.min !== undefined && model.value <= props.min)
+const atMax = computed(() => props.max !== undefined && model.value >= props.max)
 
 const { t, locale } = useI18n()
 /** Only the first letter is capitalised: "março de 2026" -> "Março de 2026". */
@@ -23,6 +28,7 @@ const label = computed(() => {
       variant="outline"
       size="icon"
       :aria-label="t('monthSelector.previous')"
+      :disabled="atMin"
       @click="model = addMonths(model, -1)"
     >
       <ChevronLeft class="size-4" aria-hidden="true" />
@@ -34,6 +40,7 @@ const label = computed(() => {
       variant="outline"
       size="icon"
       :aria-label="t('monthSelector.next')"
+      :disabled="atMax"
       @click="model = addMonths(model, 1)"
     >
       <ChevronRight class="size-4" aria-hidden="true" />
