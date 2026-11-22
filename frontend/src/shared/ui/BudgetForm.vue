@@ -28,6 +28,10 @@ const props = defineProps<{
 const emit = defineEmits<{ done: [] }>()
 
 const { t } = useI18n()
+/** A limit must be positive, so a suggestion of €0 or less is neither prefilled nor offered. */
+const offered = computed(() =>
+  props.suggestion && props.suggestion.cents > 0 ? props.suggestion : undefined,
+)
 const create = useCreateBudget()
 const update = useUpdateBudget()
 
@@ -51,8 +55,7 @@ const { defineField, handleSubmit, errors, isSubmitting, setFieldError } = useFo
   validationSchema: schema,
   initialValues: {
     categoryId: budget?.category.id ?? props.category?.id ?? '',
-    monthlyLimitCents: (budget?.monthlyLimitCents ?? props.suggestion?.cents ?? null) as
-      number | null,
+    monthlyLimitCents: (budget?.monthlyLimitCents ?? offered.value?.cents ?? null) as number | null,
   },
 })
 const [categoryId] = defineField('categoryId')
@@ -135,19 +138,19 @@ const submit = handleSubmit(async (values) => {
       :error="errors.monthlyLimitCents"
     />
     <div
-      v-if="suggestion"
+      v-if="offered"
       class="-mt-2 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground"
     >
-      <span>{{ suggestion.label }}</span>
+      <span>{{ offered.label }}</span>
       <Button
-        v-if="limit !== suggestion.cents"
+        v-if="limit !== offered.cents"
         type="button"
         variant="link"
         size="sm"
         class="h-auto p-0"
-        @click="limit = suggestion.cents"
+        @click="limit = offered.cents"
       >
-        {{ t('budgets.form.useSuggestion') }} <MoneyText :cents="suggestion.cents" />
+        {{ t('budgets.form.useSuggestion') }} <MoneyText :cents="offered.cents" />
       </Button>
     </div>
 

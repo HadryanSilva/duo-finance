@@ -116,6 +116,39 @@ describe('BudgetForm', () => {
     expect(r.wrapper.emitted('done')).toBeUndefined()
   })
 
+  it('budgetForm_ignoresZeroSuggestion', async () => {
+    // A limit must be positive, so €0 is not something to start from or offer.
+    await render(
+      BudgetForm,
+      { session: {}, handlers: handlers([]) },
+      {
+        props: {
+          budget: mercado,
+          category: { id: 'c-mercado', name: 'Mercado' },
+          suggestion: { cents: 0, label: 'média dos últimos 3 meses' },
+        },
+      },
+    )
+    expect(norm(limitInput().value)).toBe('€ 450,00')
+    expect(screen.queryByText('média dos últimos 3 meses')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Usar sugestão/ })).toBeNull()
+  })
+
+  it('budgetForm_zeroSuggestionDoesNotPrefill', async () => {
+    await render(
+      BudgetForm,
+      { session: {}, handlers: handlers([]) },
+      {
+        props: {
+          category: { id: 'c-rest', name: 'Restaurantes' },
+          suggestion: { cents: 0, label: 'gasto deste mês' },
+        },
+      },
+    )
+    expect(norm(limitInput().value)).toBe('')
+    expect(screen.queryByText('gasto deste mês')).toBeNull()
+  })
+
   it('budgetForm_withoutNewPropsUnchanged', async () => {
     await render(BudgetForm, { session: {}, handlers: handlers([]) })
     expect(screen.getByRole('combobox')).toBeTruthy()
