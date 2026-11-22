@@ -15,6 +15,7 @@ describe('AppLayout', () => {
     expect(linkNames(sidebar)).toEqual([
       'Duo Finance',
       'Dashboard',
+      'Revisão',
       'Lançamentos',
       'Orçamentos',
       'Objetivos',
@@ -135,12 +136,20 @@ describe('AppLayout', () => {
 
     it('lists Admin only for ADMIN', async () => {
       await openMenu('USER')
-      expect(menuItems()).toEqual(['Objetivos', 'Contas', 'Categorias', 'Recorrências', 'Sair'])
+      expect(menuItems()).toEqual([
+        'Revisão',
+        'Objetivos',
+        'Contas',
+        'Categorias',
+        'Recorrências',
+        'Sair',
+      ])
       expect(document.body.textContent).toContain('Cadastros')
       cleanup()
 
       const r = await openMenu('ADMIN')
       expect(menuItems()).toEqual([
+        'Revisão',
         'Objetivos',
         'Contas',
         'Categorias',
@@ -168,7 +177,14 @@ describe('AppLayout', () => {
       })
       await r.user.click(r.wrapper.get('button[aria-haspopup="menu"]').element)
       await vi.waitFor(() =>
-        expect(menuItems()).toEqual(['Goals', 'Accounts', 'Categories', 'Recurring', 'Sign out']),
+        expect(menuItems()).toEqual([
+          'Review',
+          'Goals',
+          'Accounts',
+          'Categories',
+          'Recurring',
+          'Sign out',
+        ]),
       )
       expect(document.body.textContent).toContain('More')
     })

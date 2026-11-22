@@ -96,9 +96,11 @@ public class ImportContextLoader {
         LocalDate min = null;
         LocalDate max = null;
         for (RevolutRow row : rows) {
+            // From the purchase day: the planner matches manual transactions from Started Date to the stored date.
+            LocalDate started = row.startedAt().toLocalDate();
             LocalDate date = (row.completedAt() != null ? row.completedAt() : row.startedAt()).toLocalDate();
-            if (min == null || date.isBefore(min)) {
-                min = date;
+            if (min == null || started.isBefore(min)) {
+                min = started;
             }
             if (max == null || date.isAfter(max)) {
                 max = date;

@@ -23,7 +23,8 @@ class FinanceEntitlementTest {
         "/api/v1/transactions",
         "/api/v1/recurring-rules",
         "/api/v1/budgets",
-        "/api/v1/dashboard"
+        "/api/v1/dashboard",
+        "/api/v1/month-review"
     };
 
     @Autowired
@@ -43,7 +44,8 @@ class FinanceEntitlementTest {
                 "/api/v1/transactions",
                 "/api/v1/recurring-rules",
                 "/api/v1/budgets",
-                "/api/v1/dashboard"
+                "/api/v1/dashboard",
+                "/api/v1/month-review"
             })
     void inactiveSubscription_returns402(String path) {
         TestSession s = testUsers.verified("ana@mail.com");

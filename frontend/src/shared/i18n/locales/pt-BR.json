@@ -36,6 +36,7 @@
     "GOAL_COMPLETED": "Este objetivo está concluído. Reabra-o para alterar.",
     "GOAL_MONTH_TAKEN": "Este mês já foi confirmado ou pulado.",
     "GOAL_MONTH_INVALID": "Mês fora do período do objetivo.",
+    "MONTH_NOT_CLOSED": "Esse mês ainda não terminou.",
     "GOAL_AMOUNT_INVALID": "Valor inválido para este objetivo: ele ficaria negativo ou acima da meta.",
     "GOAL_NO_SALARY": "Não há salário registrado neste mês.",
     "GOAL_SALARY_CATEGORY_INVALID": "Escolha uma categoria de receita ativa.",
@@ -86,6 +87,7 @@
   "nav": {
     "main": "Navegação principal",
     "dashboard": "Dashboard",
+    "review": "Revisão",
     "transactions": "Lançamentos",
     "bankAccounts": "Contas",
     "categories": "Categorias",
@@ -504,6 +506,23 @@
       "rowInvalidLine": "O arquivo tem uma linha com data ou valor ilegível (linha {line}).",
       "rowsNeedAttention": "{n} linha precisa de correção. | {n} linhas precisam de correção."
     }
+  },
+  "review": {
+    "title": "Revisão do mês",
+    "subtitle": "Para onde o dinheiro foi, comparado com a média.",
+    "summaryLabel": "Resumo do mês comparado com a média",
+    "average": "média de {n} mês | média de {n} meses",
+    "whereItWent": "Para onde foi",
+    "category": "Categoria",
+    "thisMonth": "No mês",
+    "difference": "Diferença",
+    "more": "a mais",
+    "less": "a menos",
+    "noChange": "sem mudança",
+    "noSpending": "Nenhuma despesa neste mês nem nos anteriores.",
+    "empty": "Ainda não há lançamentos para revisar.",
+    "emptyDescription": "Importe um extrato ou registre lançamentos e volte quando o mês terminar.",
+    "emptyCta": "Importar extrato"
   },
   "monthSelector": {
     "label": "Mês",
