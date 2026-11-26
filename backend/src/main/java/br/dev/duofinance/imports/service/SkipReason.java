@@ -7,5 +7,6 @@ public enum SkipReason {
     EXCHANGE,
     PRODUCT_IGNORED,
     ZERO_AMOUNT,
-    POCKET_NO_ACCOUNT
+    POCKET_NO_ACCOUNT,
+    POCKET_SAME_ACCOUNT
 }

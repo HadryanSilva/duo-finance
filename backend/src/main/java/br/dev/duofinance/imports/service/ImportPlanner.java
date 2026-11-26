@@ -44,8 +44,7 @@ public final class ImportPlanner {
             } else {
                 accounts[i] = ctx.productMapping().get(row.product());
             }
-            boolean accountsKnown = pocket[i] ? current != null && pockets != null : accounts[i] != null;
-            SkipReason reason = skipReason(row, pocket[i], accountsKnown, ctx);
+            SkipReason reason = skipReason(row, accountProblem(pocket[i], accounts[i], current, pockets), ctx);
             if (reason == null) {
                 importable.add(i);
             } else {
@@ -187,14 +186,25 @@ public final class ImportPlanner {
         return !stored.containsKey(fpI) && !stored.containsKey(fpJ);
     }
 
+    /**
+     * Why the row has no account to land on, if it has none. A pocket move within one bank account leaves its balance
+     * unchanged, so both legs are skipped rather than planned as a transfer from the account to itself.
+     */
+    private static @Nullable SkipReason accountProblem(
+            boolean pocketRow, @Nullable UUID account, @Nullable UUID current, @Nullable UUID pockets) {
+        if (!pocketRow) return account == null ? SkipReason.PRODUCT_IGNORED : null;
+        if (current == null || pockets == null) return SkipReason.POCKET_NO_ACCOUNT;
+        return current.equals(pockets) ? SkipReason.POCKET_SAME_ACCOUNT : null;
+    }
+
     private static @Nullable SkipReason skipReason(
-            RevolutRow row, boolean pocketRow, boolean accountsKnown, PlanContext ctx) {
+            RevolutRow row, @Nullable SkipReason accountProblem, PlanContext ctx) {
         String state = row.state();
         if ("PENDING".equalsIgnoreCase(state)) return SkipReason.PENDING;
         if (!"COMPLETED".equalsIgnoreCase(state)) return SkipReason.REVERTED; // REVERTED, DECLINED, anything else
         if (!row.currency().equalsIgnoreCase(ctx.accountCurrency())) return SkipReason.OTHER_CURRENCY;
         if ("EXCHANGE".equalsIgnoreCase(row.type())) return SkipReason.EXCHANGE;
-        if (!accountsKnown) return pocketRow ? SkipReason.POCKET_NO_ACCOUNT : SkipReason.PRODUCT_IGNORED;
+        if (accountProblem != null) return accountProblem;
         if (row.amountCents() == 0) return SkipReason.ZERO_AMOUNT;
         return null;
     }

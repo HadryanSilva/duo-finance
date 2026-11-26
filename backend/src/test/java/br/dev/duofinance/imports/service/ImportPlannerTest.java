@@ -500,6 +500,27 @@ class ImportPlannerTest {
     }
 
     @Test
+    void pocketRow_pocketsAccountIsCurrent_skipped() {
+        RevolutRow in = leg("Poupanças", "2026-11-26 14:34:39", RESERVA, "250.00");
+        RevolutRow out = leg("Current", "2026-11-26 14:34:39", RESERVA, "-250.00");
+        RevolutRow lone = leg("Poupanças", "2026-11-26 14:55:30", RESERVA, "1000.00");
+        PlanContext mappedToCurrent =
+                pocketCtx(Map.of("Current", CURRENT, "Poupanças", CURRENT), Map.of(), null, List.of());
+        ImportPlan viaMapping = ImportPlanner.plan(List.of(in, out, lone), mappedToCurrent);
+        assertThat(viaMapping.rows()).isEmpty();
+        assertThat(viaMapping.skipped()).extracting(SkippedRow::reason).containsExactly(
+                SkipReason.POCKET_SAME_ACCOUNT, SkipReason.POCKET_SAME_ACCOUNT, SkipReason.POCKET_SAME_ACCOUNT);
+
+        // Savings product unmapped: the remembered pockets account is the Current account.
+        RevolutRow loneCurrent = leg("Current", "2026-11-26 14:54:41", SETUP, "-100.00");
+        PlanContext rememberedCurrent = pocketCtx(Map.of("Current", CURRENT), Map.of(), CURRENT, List.of());
+        ImportPlan viaRemembered = ImportPlanner.plan(List.of(in, out, loneCurrent), rememberedCurrent);
+        assertThat(viaRemembered.rows()).isEmpty();
+        assertThat(viaRemembered.skipped()).extracting(SkippedRow::reason).containsExactly(
+                SkipReason.POCKET_SAME_ACCOUNT, SkipReason.POCKET_SAME_ACCOUNT, SkipReason.POCKET_SAME_ACCOUNT);
+    }
+
+    @Test
     void pocketMatch_linked_nameMatch_none() {
         UUID linked = UUID.randomUUID();
         UUID sameName = UUID.randomUUID();
