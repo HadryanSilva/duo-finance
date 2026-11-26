@@ -283,7 +283,8 @@ class ImportCommitTest {
                 bank,
                 null,
                 null,
-                br.dev.duofinance.imports.service.RowStatus.NEW);
+                br.dev.duofinance.imports.service.RowStatus.NEW,
+                null);
         java.time.Instant now = java.time.Instant.parse("2026-11-10T10:00:00Z");
 
         int[] results = new org.springframework.transaction.support.TransactionTemplate(txManager).execute(status -> {

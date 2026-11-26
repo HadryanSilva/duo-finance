@@ -3,6 +3,7 @@ package br.dev.duofinance.imports.service;
 import br.dev.duofinance.transaction.model.TransactionKind;
 import java.time.LocalDate;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 public record PlannedRow(
         String rowId,
@@ -14,4 +15,5 @@ public record PlannedRow(
         UUID bankAccountId,
         UUID destinationBankAccountId,
         UUID suggestedCategoryId,
-        RowStatus status) {}
+        RowStatus status,
+        @Nullable PocketInfo pocket) {}

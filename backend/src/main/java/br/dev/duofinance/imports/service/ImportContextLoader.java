@@ -71,7 +71,9 @@ public class ImportContextLoader {
                 memory.findActive(accountId),
                 defaultCategories(accountId),
                 manualTransactions(accountId, mapping.values(), rows),
-                feeDescription);
+                feeDescription,
+                null,
+                List.of());
     }
 
     private Map<TransactionKind, UUID> defaultCategories(UUID accountId) {
