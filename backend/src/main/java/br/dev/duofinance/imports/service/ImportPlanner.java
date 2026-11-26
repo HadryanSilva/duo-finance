@@ -239,7 +239,8 @@ public final class ImportPlanner {
             status = RowStatus.POSSIBLE_DUPLICATE;
         }
         return new PlannedRow(
-                rowId, date, kind, amount, description, key, account, destination, category, status, pocket);
+                rowId, date, kind, amount, description, key, account, destination, category, status, pocket,
+                row.startedAt(), row.lineNumber());
     }
 
     /**

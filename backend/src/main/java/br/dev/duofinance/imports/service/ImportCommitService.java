@@ -189,10 +189,10 @@ public class ImportCommitService {
             }
         }
         int created = inserted.size();
-        // In statement date order, so a withdrawal is clamped to what the goal held by then.
+        // In statement order (started time, then file line): a withdrawal is clamped to what the goal held by then.
         List<PlannedRow> goalRows = toInsert.stream()
                 .filter(row -> inserted.containsKey(row.rowId()) && chosen.get(row.rowId()).goalId() != null)
-                .sorted(Comparator.comparing(PlannedRow::date).thenComparing(PlannedRow::rowId))
+                .sorted(Comparator.comparing(PlannedRow::startedAt).thenComparingInt(PlannedRow::lineNumber))
                 .toList();
         for (PlannedRow row : goalRows) {
             Goal goal = goalsById.get(chosen.get(row.rowId()).goalId());

@@ -288,7 +288,9 @@ class ImportCommitTest {
                 null,
                 null,
                 br.dev.duofinance.imports.service.RowStatus.NEW,
-                null);
+                null,
+                java.time.LocalDateTime.of(2026, 10, 3, 12, 4, 51),
+                2);
         java.time.Instant now = java.time.Instant.parse("2026-11-10T10:00:00Z");
 
         UUID[] results = new org.springframework.transaction.support.TransactionTemplate(txManager).execute(status -> {
@@ -911,6 +913,63 @@ class ImportCommitTest {
         assertThat(body(second).path("created").asInt()).isZero();
         assertThat(count("SELECT count(*) FROM goal_movements WHERE goal_id = ?", goal)).isEqualTo(1);
         assertThat(saved(goal)).isEqualTo(25000);
+    }
+
+    @Test
+    void commit_sameDayDepositThenWithdrawal_endsAtZero() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
+        UUID goal = goal(s, "Emergência", 500000, 0, "Reserva de Emergência");
+        // newest first, as Revolut exports list them
+        byte[] file = pocketFile(
+                leg("Poupanças", "2026-11-20 18:00:00", RESERVA, "-100.00"),
+                leg("Atual", "2026-11-20 18:00:00", RESERVA, "100.00"),
+                leg("Poupanças", "2026-11-20 09:00:00", RESERVA, "100.00"),
+                leg("Atual", "2026-11-20 09:00:00", RESERVA, "-100.00"));
+        JsonNode rows = pocketPreview(s, file, bank, pocketsMapping(pockets), null);
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (JsonNode r : rows) {
+            assertThat(r.path("kind").asString()).isEqualTo("TRANSFER");
+            list.add(goalDecision(r, true, goal));
+        }
+        assertThat(list).hasSize(2);
+
+        var result = send(COMMIT, s, file, bank, pocketsMapping(pockets), null, decisions(list));
+
+        assertThat(result).hasStatus(HttpStatus.CREATED);
+        assertThat(count("SELECT count(*) FROM goal_movements WHERE goal_id = ?", goal)).isEqualTo(2);
+        assertThat(saved(goal)).isZero();
+    }
+
+    @Test
+    void commit_partnerLegArrivesLater_noSecondMovement() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
+        UUID cafes = fixtures.category(s, "Cafes", CategoryKind.EXPENSE);
+        UUID goal = goal(s, "Emergência", 500000, 0, "Reserva de Emergência");
+        String at = "2026-11-20 14:55:30";
+        byte[] first = pocketFile(leg("Poupanças", at, RESERVA, "1000.00"));
+        assertThat(commitPocket(s, first, bank, pocketsMapping(pockets), goal)).hasStatus(HttpStatus.CREATED);
+        assertThat(count("SELECT count(*) FROM transactions WHERE kind = 'TRANSFER'")).isEqualTo(1);
+        assertThat(count("SELECT count(*) FROM goal_movements WHERE goal_id = ?", goal)).isEqualTo(1);
+
+        byte[] later = pocketFile(
+                leg("Atual", at, RESERVA, "-1000.00"),
+                leg("Poupanças", at, RESERVA, "1000.00"),
+                "CARD_PAYMENT,Atual,2026-11-21 10:00:00,2026-11-21 10:00:01,Cafe Aurora,-3.50,0.00,EUR,CONCLUÍDA,0.00\n");
+        JsonNode rows = pocketPreview(s, later, bank, pocketsMapping(pockets), null);
+        JsonNode t = transfer(rows);
+        assertThat(t.path("status").asString()).isEqualTo("ALREADY_IMPORTED");
+        var result = send(COMMIT, s, later, bank, pocketsMapping(pockets), null,
+                decisions(List.of(decision(row(rows, "Cafe Aurora"), true, cafes))));
+
+        assertThat(result).hasStatus(HttpStatus.CREATED);
+        assertThat(body(result).path("created").asInt()).isEqualTo(1);
+        assertThat(count("SELECT count(*) FROM transactions WHERE kind = 'TRANSFER'")).isEqualTo(1);
+        assertThat(count("SELECT count(*) FROM goal_movements WHERE goal_id = ?", goal)).isEqualTo(1);
+        assertThat(saved(goal)).isEqualTo(100000);
     }
 
     @Test
