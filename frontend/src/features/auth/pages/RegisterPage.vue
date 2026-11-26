@@ -19,6 +19,7 @@ import PasswordField from '../components/PasswordField.vue'
 import TextField from '@/shared/ui/TextField.vue'
 import { registerSchema } from '../schemas'
 import GoogleButton from '../google/GoogleButton.vue'
+import NativeSelect from '@/shared/ui/NativeSelect.vue'
 
 const { t } = useI18n()
 const http = useHttp()
@@ -146,15 +147,10 @@ const submit = handleSubmit(async (v) => {
       <label for="register-locale" class="text-sm font-medium">
         {{ t('auth.register.locale') }}
       </label>
-      <select
-        id="register-locale"
-        v-model="locale"
-        v-bind="localeAttrs"
-        class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
+      <NativeSelect id="register-locale" v-model="locale" v-bind="localeAttrs">
         <option value="pt-BR">Português (Brasil)</option>
         <option value="en">English</option>
-      </select>
+      </NativeSelect>
     </div>
     <TextField
       v-if="showCode"

@@ -16,9 +16,9 @@ function host(initial: string, attrs: Record<string, unknown> = {}) {
           {
             id: 's',
             modelValue: value.value,
-            'onUpdate:modelValue': (v: string) => {
-              updates.push(v)
-              value.value = v
+            'onUpdate:modelValue': (v: string | undefined) => {
+              updates.push(v ?? '')
+              value.value = v ?? ''
             },
             ...attrs,
           },

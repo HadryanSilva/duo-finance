@@ -148,3 +148,22 @@ export function formatMoneyInFeatureViews(root: string = SRC): string[] {
     .filter((f) => f.startsWith('features/') && f.endsWith('.vue'))
     .filter((f) => /\bformatMoney\(/.test(readFileSync(join(root, f), 'utf8')))
 }
+
+/** Native controls that must go through their shared component, which is the only file allowed to use them raw. */
+export const RAW_CONTROLS: { pattern: RegExp; allowedIn: string }[] = [
+  { pattern: /<select\b/, allowedIn: 'shared/ui/NativeSelect.vue' },
+]
+
+/** Raw native controls in .vue files outside their shared component (file:line: text). */
+export function rawControls(root: string = SRC): string[] {
+  return guardedFiles(root)
+    .filter((f) => f.endsWith('.vue'))
+    .flatMap((file) => {
+      const lines = readFileSync(join(root, file), 'utf8').split('\n')
+      return RAW_CONTROLS.filter((c) => c.allowedIn !== file).flatMap((c) =>
+        lines.flatMap((line, i) =>
+          c.pattern.test(line) ? [`${file}:${i + 1}: ${line.trim()}`] : [],
+        ),
+      )
+    })
+}

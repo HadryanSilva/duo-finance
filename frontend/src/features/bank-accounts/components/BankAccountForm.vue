@@ -13,6 +13,7 @@ import { Label } from '@/shared/ui/label'
 import { applyFieldErrors } from '@/shared/ui/FormErrors'
 import MoneyInput from '@/shared/ui/MoneyInput.vue'
 import TextField from '@/shared/ui/TextField.vue'
+import NativeSelect from '@/shared/ui/NativeSelect.vue'
 
 const props = defineProps<{ account?: BankAccountResponse }>()
 const emit = defineEmits<{ done: [] }>()
@@ -101,14 +102,9 @@ const submit = handleSubmit(async (values) => {
     />
     <div class="grid gap-2">
       <Label for="bank-account-type">{{ t('bankAccounts.form.type') }}</Label>
-      <select
-        id="bank-account-type"
-        v-model="type"
-        v-bind="typeAttrs"
-        class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
+      <NativeSelect id="bank-account-type" v-model="type" v-bind="typeAttrs">
         <option v-for="o in TYPES" :key="o" :value="o">{{ t(`bankAccountType.${o}`) }}</option>
-      </select>
+      </NativeSelect>
       <p v-if="errors.type" class="text-sm text-destructive">{{ errors.type }}</p>
     </div>
     <MoneyInput
@@ -119,18 +115,13 @@ const submit = handleSubmit(async (values) => {
     />
     <div class="grid gap-2">
       <Label for="bank-account-holder">{{ t('bankAccounts.form.holder') }}</Label>
-      <select
-        id="bank-account-holder"
-        v-model="holder"
-        v-bind="holderAttrs"
-        class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
+      <NativeSelect id="bank-account-holder" v-model="holder" v-bind="holderAttrs">
         <option value="">{{ t('bankAccounts.form.noHolder') }}</option>
         <option v-for="m in members" :key="m.userId" :value="m.userId">{{ m.displayName }}</option>
         <option v-if="formerHolderId" :value="formerHolderId">
           {{ t('bankAccounts.formerMember') }}
         </option>
-      </select>
+      </NativeSelect>
       <p v-if="errors.holderUserId" class="text-sm text-destructive">{{ errors.holderUserId }}</p>
     </div>
     <Button type="submit" :disabled="isSubmitting">{{ t('common.save') }}</Button>
