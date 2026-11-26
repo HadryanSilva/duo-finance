@@ -18,7 +18,7 @@ const { t, locale } = useI18n()
 
 const goals = computed(() => props.data?.goals)
 
-/** Goals with a monthly share need a salary to suggest from; an archived category is not usable. */
+/** Goals with a monthly share need a salary to set a target from; an archived category is not usable. */
 const needsSalaryCategory = computed(() => {
   const g = goals.value
   if (!g) return false
@@ -27,12 +27,16 @@ const needsSalaryCategory = computed(() => {
 })
 
 /**
- * Contributions still to decide. Only for the running month: the Goals page, where they are
- * decided, works on the current month.
+ * Month targets still open: neither met nor skipped. Only for the running month: the Goals page,
+ * where they are handled, works on the current month.
  */
-const pending = computed(() =>
-  props.month === currentMonth() ? (goals.value?.suggestions.length ?? 0) : 0,
-)
+const pending = computed(() => {
+  if (props.month !== currentMonth()) return 0
+  const open = (goals.value?.monthTargets ?? []).filter(
+    (x) => !x.skipped && x.contributedCents < x.targetCents,
+  )
+  return open.length
+})
 const pendingMonth = computed(() => formatMonth(props.month, locale.value as Locale))
 
 function percent(g: GoalResponse): number {

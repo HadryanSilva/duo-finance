@@ -63,7 +63,7 @@ export type PageResponseImportBatchResponse = Schemas['PageResponseImportBatchRe
 
 export type GoalsOverview = Schemas['GoalsOverview']
 export type GoalResponse = Schemas['GoalResponse']
-export type GoalSuggestion = Schemas['GoalSuggestion']
+export type GoalMonthTarget = Schemas['GoalMonthTarget']
 export type GoalMovementResponse = Schemas['GoalMovementResponse']
 export type GoalSettingsResponse = Schemas['GoalSettingsResponse']
 export type CreateGoalRequest = Schemas['CreateGoalRequest']

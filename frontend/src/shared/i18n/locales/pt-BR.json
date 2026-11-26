@@ -35,6 +35,8 @@
     "GOAL_PERCENT_CAP": "A soma das porcentagens dos objetivos ativos passaria de 100%. Conclua objetivos já atingidos ou reduza as porcentagens.",
     "GOAL_COMPLETED": "Este objetivo está concluído. Reabra-o para alterar.",
     "GOAL_MONTH_TAKEN": "Este mês já foi confirmado ou pulado.",
+    "GOAL_MONTH_HAS_CONTRIBUTIONS": "Este mês já tem contribuições; não dá para pulá-lo.",
+    "GOAL_MOVEMENT_IMPORTED": "Esta movimentação veio de uma importação e não pode ser desfeita aqui. Desfaça a importação.",
     "GOAL_MONTH_INVALID": "Mês fora do período do objetivo.",
     "MONTH_NOT_CLOSED": "Esse mês ainda não terminou.",
     "GOAL_AMOUNT_INVALID": "Valor inválido para este objetivo: ele ficaria negativo ou acima da meta.",
@@ -610,7 +612,7 @@
       "archivedWarning": "A categoria de salário está arquivada. Escolha outra para calcular as sugestões."
     },
     "actions": {
-      "deposit": "Adicionar valor",
+      "contribute": "Registrar contribuição",
       "withdraw": "Resgatar",
       "history": "Histórico",
       "edit": "Editar",
@@ -619,7 +621,7 @@
       "reopen": "Reabrir"
     },
     "actionLabel": {
-      "deposit": "Adicionar valor a {name}",
+      "contribute": "Registrar contribuição em {name}",
       "withdraw": "Resgatar de {name}",
       "history": "Histórico de {name}",
       "edit": "Editar {name}",
@@ -643,19 +645,21 @@
       "note": "Observação (opcional)",
       "available": "Disponível: {amount}",
       "missing": "Faltam: {amount}",
-      "deposit": "Adicionar",
-      "withdraw": "Resgatar"
+      "contribute": "Registrar",
+      "withdraw": "Resgatar",
+      "date": "Data",
+      "dateFuture": "Escolha hoje ou uma data passada."
     },
     "history": {
       "title": "Histórico",
       "empty": "Nenhuma movimentação ainda.",
       "undo": "Desfazer",
+      "imported": "Importado",
       "undoTitle": "Desfazer movimentação?",
       "undoMessage": "Desfazer {type} de {amount} em {when}? O valor volta ao estado anterior.",
       "type": {
-        "CONTRIBUTION": "Contribuição mensal",
+        "CONTRIBUTION": "Contribuição",
         "SKIP": "Mês pulado",
-        "DEPOSIT": "Depósito",
         "WITHDRAWAL": "Resgate"
       },
       "undoLabel": "Desfazer {type} de {amount} em {when}",
@@ -667,20 +671,19 @@
     "deleteTitle": "Excluir {name}?",
     "deleteMessage": "O histórico será apagado e {amount} deixam de ficar separados.",
     "deleteCompletedMessage": "O histórico será apagado.",
-    "suggestions": {
-      "header": "Sugestões de {month} · Salário {salary}",
-      "listLabel": "Sugestões do mês",
-      "confirm": "Confirmar",
-      "adjust": "Ajustar",
-      "confirmLabel": "Confirmar {name}",
-      "failureFor": "{name}: {message}",
-      "adjustLabel": "Ajustar {name}",
+    "monthTargets": {
+      "header": "Metas de {month} · Salário {salary}",
+      "listLabel": "Metas do mês",
+      "of": "de",
+      "progress": "{percent}% da meta do mês",
+      "met": "Meta do mês atingida",
+      "skipped": "Pulado este mês",
+      "register": "Registrar",
+      "registerLabel": "Registrar {name}",
+      "skip": "Pular",
       "skipLabel": "Pular {name}",
-      "amountFor": "Valor para {name}",
-      "amountTooHigh": "O valor passa do que falta: {amount}.",
-      "noSalary": "Nenhum salário em {month} na categoria {name}.",
-      "allDone": "Tudo decidido em {month}.",
-      "title": "Contribuições de {month}"
+      "noSalaryTarget": "Sem salário neste mês",
+      "noSalary": "Nenhum salário em {month} na categoria {name}."
     },
     "savedTotal": "{amount} guardados em {n} objetivo | {amount} guardados em {n} objetivos"
   },
@@ -783,7 +786,7 @@
       "viewAllLabel": "Ver todos os objetivos",
       "salaryHint": "Escolha a categoria do salário para receber sugestões",
       "listLabel": "Andamento dos objetivos",
-      "pending": "{n} contribuição para confirmar em {month} | {n} contribuições para confirmar em {month}"
+      "pending": "{n} meta do mês em aberto em {month} | {n} metas do mês em aberto em {month}"
     },
     "upcoming": {
       "title": "Próximos",

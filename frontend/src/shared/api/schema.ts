@@ -340,22 +340,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/goals/{id}/deposits": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["deposit"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/goals/{id}/contributions": {
         parameters: {
             query?: never;
@@ -1291,9 +1275,11 @@ export interface components {
             month: string;
         };
         ContributeRequest: {
-            month: string;
             /** Format: int64 */
-            amountCents?: number;
+            amountCents: number;
+            /** Format: date */
+            date?: string;
+            note?: string;
         };
         CategoryRequest: {
             name: string;
@@ -1509,7 +1495,7 @@ export interface components {
             /** Format: int32 */
             totalPages: number;
         };
-        GoalSuggestion: {
+        GoalMonthTarget: {
             /** Format: uuid */
             goalId: string;
             goalName: string;
@@ -1517,7 +1503,10 @@ export interface components {
             /** Format: int32 */
             monthlyPercent: number;
             /** Format: int64 */
-            suggestedCents: number;
+            targetCents: number;
+            /** Format: int64 */
+            contributedCents: number;
+            skipped: boolean;
         };
         GoalsOverview: {
             month: string;
@@ -1528,16 +1517,19 @@ export interface components {
             totalSavedCents: number;
             goals: components["schemas"]["GoalResponse"][];
             completed: components["schemas"]["GoalResponse"][];
-            suggestions: components["schemas"]["GoalSuggestion"][];
+            monthTargets: components["schemas"]["GoalMonthTarget"][];
         };
         GoalMovementResponse: {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "CONTRIBUTION" | "SKIP" | "DEPOSIT" | "WITHDRAWAL";
+            type: "CONTRIBUTION" | "SKIP" | "WITHDRAWAL";
             /** Format: int64 */
             amountCents: number;
             month: string | null;
+            /** Format: date */
+            occurredOn: string;
+            imported: boolean;
             note: string | null;
             createdBy: components["schemas"]["AuthorRef"] | null;
             /** Format: date-time */
@@ -2460,32 +2452,6 @@ export interface operations {
         responses: {
             /** @description OK */
             200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["GoalResponse"];
-                };
-            };
-        };
-    };
-    deposit: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GoalAmountRequest"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
                 headers: {
                     [name: string]: unknown;
                 };

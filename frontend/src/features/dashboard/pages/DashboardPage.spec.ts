@@ -71,7 +71,7 @@ const full: DashboardResponse = {
     totalSavedCents: 0,
     goals: [],
     completed: [],
-    suggestions: [],
+    monthTargets: [],
   },
 }
 

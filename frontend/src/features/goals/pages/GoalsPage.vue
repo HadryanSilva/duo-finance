@@ -20,7 +20,7 @@ import { Skeleton } from '@/shared/ui/skeleton'
 import GoalAmountForm from '../components/GoalAmountForm.vue'
 import GoalForm from '../components/GoalForm.vue'
 import GoalMovements from '../components/GoalMovements.vue'
-import GoalSuggestions from '../components/GoalSuggestions.vue'
+import GoalMonthTargets from '../components/GoalMonthTargets.vue'
 import GoalRow from '../components/GoalRow.vue'
 import SalaryCategoryPicker from '../components/SalaryCategoryPicker.vue'
 import { moneyLabel } from '../lib/goal-copy'
@@ -38,7 +38,7 @@ const completed = computed(() => goals.data.value?.completed ?? [])
 
 // Side panels: the goal form (new or editing), the amount form and the history.
 const form = ref<'new' | GoalResponse | null>(null)
-const amount = ref<{ mode: 'deposit' | 'withdraw'; goal: GoalResponse } | null>(null)
+const amount = ref<{ mode: 'contribute' | 'withdraw'; goal: GoalResponse } | null>(null)
 const history = ref<GoalResponse | null>(null)
 
 function panelModel<T>(source: { value: T | null }) {
@@ -133,7 +133,7 @@ const deleteMessage = computed(() => {
     <template #n>{{ active.length }}</template>
   </i18n-t>
 
-  <GoalSuggestions v-if="goals.data.value" :overview="goals.data.value" class="mb-6" />
+  <GoalMonthTargets v-if="goals.data.value" :overview="goals.data.value" class="mb-6" />
 
   <div v-if="goals.isPending.value" class="grid gap-3">
     <Skeleton class="h-28 w-full" />
@@ -155,7 +155,7 @@ const deleteMessage = computed(() => {
         v-for="g in active"
         :key="g.id"
         :goal="g"
-        @deposit="amount = { mode: 'deposit', goal: g }"
+        @contribute="amount = { mode: 'contribute', goal: g }"
         @withdraw="amount = { mode: 'withdraw', goal: g }"
         @history="history = g"
         @edit="form = g"
@@ -194,7 +194,7 @@ const deleteMessage = computed(() => {
   <SidePanel
     v-model:open="amountOpen"
     :title="
-      amountShown?.mode === 'withdraw' ? t('goals.actions.withdraw') : t('goals.actions.deposit')
+      amountShown?.mode === 'withdraw' ? t('goals.actions.withdraw') : t('goals.actions.contribute')
     "
   >
     <GoalAmountForm
