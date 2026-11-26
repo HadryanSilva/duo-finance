@@ -379,19 +379,23 @@ class DashboardControllerTest {
                 .asString());
     }
 
-    private void contribute(TestSession s, UUID goal, String month, long cents) {
+    private void contribute(TestSession s, UUID goal, String date, long cents) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("amountCents", cents);
+        body.put("date", date);
         assertThat(mvc.post()
                         .uri("/api/v1/goals/" + goal + "/contributions")
                         .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of("month", month, "amountCents", cents)))
+                        .content(json.writeValueAsString(body))
                         .exchange())
                 .hasStatus(HttpStatus.CREATED);
     }
 
+    /** A contribution dated today in the test clock. */
     private void deposit(TestSession s, UUID goal, long cents) {
         assertThat(mvc.post()
-                        .uri("/api/v1/goals/" + goal + "/deposits")
+                        .uri("/api/v1/goals/" + goal + "/contributions")
                         .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(Map.of("amountCents", cents)))
@@ -697,10 +701,10 @@ class DashboardControllerTest {
             budget(s, category, 1_000);
             weeklyRule(s, "2027-03-16", null);
             UUID goal = goal(s, "G" + i + "-" + suffix, 1_000_000, 1);
-            if (i % 2 == 0) {
-                contribute(s, goal, "2027-03", 100 + i);
-            }
             deposit(s, goal, 500 + i);
+            if (i % 2 == 0) {
+                contribute(s, goal, "2027-03-10", 100 + i);
+            }
         }
     }
 }

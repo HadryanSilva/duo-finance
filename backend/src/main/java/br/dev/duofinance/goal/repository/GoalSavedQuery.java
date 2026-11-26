@@ -1,7 +1,11 @@
 package br.dev.duofinance.goal.repository;
 
+import br.dev.duofinance.goal.model.Goal;
+import br.dev.duofinance.shared.time.RunningMonths;
+import java.sql.Date;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -47,6 +51,19 @@ public class GoalSavedQuery {
             WHERE account_id = :accountId AND type IN ('CONTRIBUTION', 'SKIP') AND month = :month
             """;
 
+    private static final String EARLIEST_MOVEMENT_SQL = """
+            SELECT goal_id, MIN(date_trunc('month', occurred_on))::date AS first_month
+            FROM goal_movements
+            WHERE account_id = :accountId
+            GROUP BY goal_id
+            """;
+
+    private static final String ONE_EARLIEST_MOVEMENT_SQL = """
+            SELECT MIN(date_trunc('month', occurred_on))::date
+            FROM goal_movements
+            WHERE goal_id = :goalId
+            """;
+
     private final NamedParameterJdbcTemplate jdbc;
 
     public GoalSavedQuery(NamedParameterJdbcTemplate jdbc) {
@@ -88,5 +105,37 @@ public class GoalSavedQuery {
                     result.add(rs.getObject("goal_id", UUID.class));
                 });
         return result;
+    }
+
+    /**
+     * The first month a goal can hold movements in: the earlier of the month it was created in (anywhere on Earth)
+     * and the month of its earliest movement, which an import may place before the goal existed.
+     */
+    public YearMonth firstMonthOf(Goal goal) {
+        Date earliest = jdbc.queryForObject(
+                ONE_EARLIEST_MOVEMENT_SQL, new MapSqlParameterSource("goalId", goal.getId()), Date.class);
+        return firstMonth(goal, earliest);
+    }
+
+    /** {@link #firstMonthOf} for the given goals of one account in a single query. */
+    public Map<UUID, YearMonth> firstMonthsByGoal(UUID accountId, Collection<Goal> goals) {
+        Map<UUID, Date> earliest = new HashMap<>();
+        jdbc.query(EARLIEST_MOVEMENT_SQL, new MapSqlParameterSource("accountId", accountId), rs -> {
+            earliest.put(rs.getObject("goal_id", UUID.class), rs.getDate("first_month"));
+        });
+        Map<UUID, YearMonth> result = new HashMap<>();
+        for (Goal goal : goals) {
+            result.put(goal.getId(), firstMonth(goal, earliest.get(goal.getId())));
+        }
+        return result;
+    }
+
+    private static YearMonth firstMonth(Goal goal, Date earliestMovement) {
+        YearMonth created = RunningMonths.earliestOf(goal.getCreatedAt());
+        if (earliestMovement == null) {
+            return created;
+        }
+        YearMonth movement = YearMonth.from(earliestMovement.toLocalDate());
+        return movement.isBefore(created) ? movement : created;
     }
 }

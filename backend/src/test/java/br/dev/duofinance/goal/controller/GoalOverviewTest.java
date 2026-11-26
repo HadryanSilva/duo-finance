@@ -121,12 +121,10 @@ class GoalOverviewTest {
         return goal(s, name, target, percent, null);
     }
 
-    private MvcTestResult contribute(TestSession s, String goal, String month, Long amount) {
+    private MvcTestResult contribute(TestSession s, String goal, String date, long amount) {
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("month", month);
-        if (amount != null) {
-            m.put("amountCents", amount);
-        }
+        m.put("amountCents", amount);
+        m.put("date", date);
         return send(HttpMethod.POST, s, GOALS + "/" + goal + "/contributions", m);
     }
 
@@ -168,7 +166,7 @@ class GoalOverviewTest {
         String b = goal(s, "B", 10000, 5);
 
         assertThat(overview(s, "2027-03").path("suggestions")).hasSize(2);
-        assertThat(contribute(s, a, "2027-03", null)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, a, "2027-03-10", 1000L)).hasStatus(HttpStatus.CREATED);
         assertThat(send(HttpMethod.POST, s, GOALS + "/" + b + "/skips", Map.of("month", "2027-03")))
                 .hasStatus(HttpStatus.CREATED);
 
@@ -212,8 +210,7 @@ class GoalOverviewTest {
         goal(s, "Zero", 100000, 0);
         String control = goal(s, "Control", 100000, 10);
         String reached = goal(s, "Reached", 5000, 10);
-        assertThat(send(HttpMethod.POST, s, GOALS + "/" + reached + "/deposits", Map.of("amountCents", 5000)))
-                .hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, reached, "2027-03-10", 5000L)).hasStatus(HttpStatus.CREATED);
 
         JsonNode suggestions = overview(s, "2027-03").path("suggestions");
         assertThat(suggestions).hasSize(1);
@@ -265,11 +262,11 @@ class GoalOverviewTest {
         String open = goal(s, "Open", 120000, 10);
         String done = goal(s, "Done", 50000, 10);
         clock.setInstant(MARCH);
-        assertThat(contribute(s, dated, "2027-03", 40000L)).hasStatus(HttpStatus.CREATED);
-        assertThat(contribute(s, open, "2027-03", 30000L)).hasStatus(HttpStatus.CREATED);
-        assertThat(contribute(s, open, "2027-02", 20000L)).hasStatus(HttpStatus.CREATED);
-        assertThat(contribute(s, open, "2027-01", 10000L)).hasStatus(HttpStatus.CREATED);
-        assertThat(contribute(s, done, "2027-03", 7000L)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, dated, "2027-03-10", 40000L)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, open, "2027-03-10", 30000L)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, open, "2027-02-10", 20000L)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, open, "2027-01-10", 10000L)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, done, "2027-03-10", 7000L)).hasStatus(HttpStatus.CREATED);
         assertThat(send(HttpMethod.POST, s, GOALS + "/" + done + "/complete", null))
                 .hasStatus(HttpStatus.OK);
 

@@ -3,6 +3,7 @@ package br.dev.duofinance.goal.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import br.dev.duofinance.IntegrationTest;
+import br.dev.duofinance.category.model.CategoryKind;
 import br.dev.duofinance.support.FinanceFixtures;
 import br.dev.duofinance.support.MutableClock;
 import br.dev.duofinance.support.TestUsers;
@@ -121,11 +122,11 @@ class GoalMovementControllerTest {
         return body(r).path("id").asString();
     }
 
-    private MvcTestResult contribute(TestSession s, String goal, String month, Long amount) {
+    private MvcTestResult contribute(TestSession s, String goal, String date, Long amount) {
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("month", month);
-        if (amount != null) {
-            m.put("amountCents", amount);
+        m.put("amountCents", amount);
+        if (date != null) {
+            m.put("date", date);
         }
         return send(HttpMethod.POST, s, GOALS + "/" + goal + "/contributions", m);
     }
@@ -150,32 +151,53 @@ class GoalMovementControllerTest {
     }
 
     @Test
-    void contribute_withoutAmount_usesSuggestion() throws Exception {
+    void contribute_twiceSameMonth_bothStored() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
-        withSalary(s);
         String goal = createGoal(s, 100000, 10);
 
-        MvcTestResult r = contribute(s, goal, "2027-03", null);
+        assertThat(contribute(s, goal, null, 10000L)).hasStatus(HttpStatus.CREATED);
+        MvcTestResult second = contribute(s, goal, null, 5000L);
 
-        assertThat(r).hasStatus(HttpStatus.CREATED);
-        assertThat(body(r).path("savedCents").asLong()).isEqualTo(35000);
-        JsonNode list = movements(s, goal);
-        assertThat(list).hasSize(1);
-        assertThat(list.get(0).path("type").asString()).isEqualTo("CONTRIBUTION");
-        assertThat(list.get(0).path("amountCents").asLong()).isEqualTo(35000);
-        assertThat(list.get(0).path("month").asString()).isEqualTo("2027-03");
-        assertThat(list.get(0).path("createdBy").path("userId").asString())
-                .isEqualTo(s.userId().toString());
-        assertThat(list.get(0).path("createdBy").path("displayName").asString()).isNotBlank();
+        assertThat(second).hasStatus(HttpStatus.CREATED);
+        assertThat(body(second).path("savedCents").asLong()).isEqualTo(15000);
+        assertThat(movements(s, goal)).hasSize(2);
     }
 
     @Test
-    void contribute_adjustedAmount_isStored() throws Exception {
+    void contribute_withDate_usesItsMonth() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
-        withSalary(s);
         String goal = createGoal(s, 100000, 10);
 
-        MvcTestResult r = contribute(s, goal, "2027-03", 50000L);
+        assertThat(contribute(s, goal, "2027-03-03", 5000L)).hasStatus(HttpStatus.CREATED);
+
+        JsonNode list = movements(s, goal);
+        assertThat(list).hasSize(1);
+        assertThat(list.get(0).path("type").asString()).isEqualTo("CONTRIBUTION");
+        assertThat(list.get(0).path("month").asString()).isEqualTo("2027-03");
+        assertThat(list.get(0).path("occurredOn").asString()).isEqualTo("2027-03-03");
+        assertThat(list.get(0).path("imported").asBoolean()).isFalse();
+        assertThat(list.get(0).path("createdBy").path("userId").asString())
+                .isEqualTo(s.userId().toString());
+    }
+
+    @Test
+    void contribute_withoutDate_isDatedToday() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        String goal = createGoal(s, 100000, 10);
+
+        assertThat(contribute(s, goal, null, 5000L)).hasStatus(HttpStatus.CREATED);
+
+        JsonNode first = movements(s, goal).get(0);
+        assertThat(first.path("occurredOn").asString()).isEqualTo("2027-03-15");
+        assertThat(first.path("month").asString()).isEqualTo("2027-03");
+    }
+
+    @Test
+    void contribute_noSalary_allowed() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        String goal = createGoal(s, 100000, 10);
+
+        MvcTestResult r = contribute(s, goal, "2027-03-10", 50000L);
 
         assertThat(r).hasStatus(HttpStatus.CREATED);
         assertThat(body(r).path("savedCents").asLong()).isEqualTo(50000);
@@ -184,56 +206,119 @@ class GoalMovementControllerTest {
     @Test
     void contribute_aboveRemaining_rejected() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
-        withSalary(s);
         String goal = createGoal(s, 10000, 10);
 
-        assertError(contribute(s, goal, "2027-03", 10001L), HttpStatus.BAD_REQUEST, "GOAL_AMOUNT_INVALID");
+        assertError(contribute(s, goal, "2027-03-10", 10001L), HttpStatus.BAD_REQUEST, "GOAL_AMOUNT_INVALID");
     }
 
     @Test
-    void contribute_twiceSameMonth_conflict() throws Exception {
+    void contribute_intoSkippedMonth_removesSkip() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
-        withSalary(s);
         String goal = createGoal(s, 100000, 10);
-        assertThat(contribute(s, goal, "2027-03", null)).hasStatus(HttpStatus.CREATED);
+        assertThat(skip(s, goal, "2027-03")).hasStatus(HttpStatus.CREATED);
 
-        assertError(contribute(s, goal, "2027-03", null), HttpStatus.CONFLICT, "GOAL_MONTH_TAKEN");
+        assertThat(contribute(s, goal, "2027-03-10", 5000L)).hasStatus(HttpStatus.CREATED);
+
+        JsonNode list = movements(s, goal);
+        assertThat(list).hasSize(1);
+        assertThat(list.get(0).path("type").asString()).isEqualTo("CONTRIBUTION");
+    }
+
+    @Test
+    void skip_monthWithContribution_conflict() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        String goal = createGoal(s, 100000, 10);
+        assertThat(contribute(s, goal, "2027-03-10", 5000L)).hasStatus(HttpStatus.CREATED);
+
+        assertError(skip(s, goal, "2027-03"), HttpStatus.CONFLICT, "GOAL_MONTH_HAS_CONTRIBUTIONS");
+    }
+
+    @Test
+    void skip_twice_conflict() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        String goal = createGoal(s, 100000, 10);
+        assertThat(skip(s, goal, "2027-03")).hasStatus(HttpStatus.CREATED);
+
         assertError(skip(s, goal, "2027-03"), HttpStatus.CONFLICT, "GOAL_MONTH_TAKEN");
     }
 
     @Test
-    void contribute_futureOrBeforeCreationMonth_rejected() throws Exception {
+    void contribute_futureDate_rejected() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
-        withSalary(s);
         String goal = createGoal(s, 100000, 10);
 
-        assertError(contribute(s, goal, "2027-04", null), HttpStatus.BAD_REQUEST, "GOAL_MONTH_INVALID");
-        assertError(contribute(s, goal, "2027-02", null), HttpStatus.BAD_REQUEST, "GOAL_MONTH_INVALID");
+        assertError(contribute(s, goal, "2027-04-01", 1000L), HttpStatus.BAD_REQUEST, "GOAL_MONTH_INVALID");
+        assertError(contribute(s, goal, "2027-03-17", 1000L), HttpStatus.BAD_REQUEST, "GOAL_MONTH_INVALID");
+        assertThat(contribute(s, goal, "2027-03-16", 1000L)).hasStatus(HttpStatus.CREATED);
     }
 
     @Test
-    void contribute_noSalary_rejected() throws Exception {
+    void contribute_beforeFirstMonth_rejectedUnlessAMovementIsEarlier() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         String goal = createGoal(s, 100000, 10);
 
-        // Settings cleared.
-        assertError(contribute(s, goal, "2027-03", null), HttpStatus.CONFLICT, "GOAL_NO_SALARY");
+        assertError(contribute(s, goal, "2027-02-10", 1000L), HttpStatus.BAD_REQUEST, "GOAL_MONTH_INVALID");
 
-        // Category set but nothing received in the month.
-        setSalaryCategory(s, seededSalaryCategory(s));
-        assertError(contribute(s, goal, "2027-03", null), HttpStatus.CONFLICT, "GOAL_NO_SALARY");
+        // An imported movement older than the goal opens the months from its own month on.
+        jdbc.update(
+                "INSERT INTO goal_movements (id, goal_id, account_id, type, amount_cents, month, occurred_on, created_at)"
+                        + " SELECT gen_random_uuid(), id, account_id, 'CONTRIBUTION', 100, DATE '2027-01-01',"
+                        + " DATE '2027-01-20', now() FROM goals WHERE id = ?",
+                UUID.fromString(goal));
+        assertThat(contribute(s, goal, "2027-01-25", 1000L)).hasStatus(HttpStatus.CREATED);
+        assertError(contribute(s, goal, "2026-12-31", 1000L), HttpStatus.BAD_REQUEST, "GOAL_MONTH_INVALID");
     }
 
     @Test
-    void contribute_archivedSalaryCategory_rejected() throws Exception {
+    void contribute_missingAmount_rejected() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
-        withSalary(s);
         String goal = createGoal(s, 100000, 10);
-        UUID category = seededSalaryCategory(s);
-        assertThat(send(HttpMethod.POST, s, "/api/v1/categories/" + category + "/archive", null))
-                .hasStatus(HttpStatus.OK);
 
-        assertError(contribute(s, goal, "2027-03", null), HttpStatus.CONFLICT, "GOAL_NO_SALARY");
+        assertThat(send(HttpMethod.POST, s, GOALS + "/" + goal + "/contributions", Map.of("date", "2027-03-10")))
+                .hasStatus(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void deposits_endpointGone() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        String goal = createGoal(s, 100000, 10);
+
+        MvcTestResult r = amount(s, goal, "deposits", 1000, null);
+
+        assertThat(r.getResponse().getStatus()).isIn(404, 405);
+    }
+
+    @Test
+    void undo_importedMovement_conflict() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        String goal = createGoal(s, 100000, 10);
+        UUID bank = fixtures.bankAccount(s, "Conta", 0);
+        Map<String, Object> tx = new LinkedHashMap<>();
+        tx.put("kind", "EXPENSE");
+        tx.put("amountCents", 3000);
+        tx.put("date", "2027-03-10");
+        tx.put("categoryId", fixtures.category(s, "Poupar", CategoryKind.EXPENSE));
+        tx.put("bankAccountId", bank);
+        UUID transactionId = fixtures.transaction(s, tx);
+        jdbc.update(
+                "INSERT INTO goal_movements (id, goal_id, account_id, type, amount_cents, month, occurred_on,"
+                        + " transaction_id, created_at) SELECT gen_random_uuid(), id, account_id, 'CONTRIBUTION',"
+                        + " 3000, DATE '2027-03-01', DATE '2027-03-10', ?, now() FROM goals WHERE id = ?",
+                transactionId,
+                UUID.fromString(goal));
+        JsonNode list = movements(s, goal);
+        assertThat(list.get(0).path("imported").asBoolean()).isTrue();
+
+        assertError(
+                send(
+                        HttpMethod.DELETE,
+                        s,
+                        GOALS + "/" + goal + "/movements/"
+                                + list.get(0).path("id").asString(),
+                        null),
+                HttpStatus.CONFLICT,
+                "GOAL_MOVEMENT_IMPORTED");
+        assertThat(movements(s, goal)).hasSize(1);
     }
 
     @Test
@@ -256,7 +341,7 @@ class GoalMovementControllerTest {
         TestSession s = testUsers.verified("ana@mail.com");
         String goal = createGoal(s, 100000, 10);
 
-        MvcTestResult deposit = amount(s, goal, "deposits", 20000, "13º");
+        MvcTestResult deposit = contribute(s, goal, null, 20000L);
         assertThat(deposit).hasStatus(HttpStatus.CREATED);
         assertThat(body(deposit).path("savedCents").asLong()).isEqualTo(20000);
 
@@ -274,7 +359,7 @@ class GoalMovementControllerTest {
     void movements_sameInstant_newestFirst() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         String goal = createGoal(s, 100000, 10);
-        assertThat(amount(s, goal, "deposits", 20000, null)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, goal, null, 20000L)).hasStatus(HttpStatus.CREATED);
         assertThat(amount(s, goal, "withdrawals", 5000, null)).hasStatus(HttpStatus.CREATED);
 
         JsonNode list = movements(s, goal);
@@ -286,25 +371,23 @@ class GoalMovementControllerTest {
     @Test
     void undo_contribution_bringsMonthBack() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
-        withSalary(s);
         String goal = createGoal(s, 100000, 10);
-        assertThat(contribute(s, goal, "2027-03", null)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, goal, "2027-03-10", 5000L)).hasStatus(HttpStatus.CREATED);
         String movementId = movements(s, goal).get(0).path("id").asString();
 
         MvcTestResult undone = send(HttpMethod.DELETE, s, GOALS + "/" + goal + "/movements/" + movementId, null);
 
         assertThat(undone).hasStatus(HttpStatus.OK);
         assertThat(body(undone).path("savedCents").asLong()).isZero();
-        assertThat(contribute(s, goal, "2027-03", null)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, goal, "2027-03-10", 5000L)).hasStatus(HttpStatus.CREATED);
     }
 
     @Test
     void undo_skip_bringsMonthBack() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
-        withSalary(s);
         String goal = createGoal(s, 100000, 10);
         assertThat(skip(s, goal, "2027-03")).hasStatus(HttpStatus.CREATED);
-        assertError(contribute(s, goal, "2027-03", null), HttpStatus.CONFLICT, "GOAL_MONTH_TAKEN");
+        assertError(skip(s, goal, "2027-03"), HttpStatus.CONFLICT, "GOAL_MONTH_TAKEN");
         String movementId = movements(s, goal).get(0).path("id").asString();
 
         MvcTestResult undone = send(HttpMethod.DELETE, s, GOALS + "/" + goal + "/movements/" + movementId, null);
@@ -312,26 +395,26 @@ class GoalMovementControllerTest {
         assertThat(undone).hasStatus(HttpStatus.OK);
         assertThat(body(undone).path("savedCents").asLong()).isZero();
         assertThat(movements(s, goal)).isEmpty();
-        assertThat(contribute(s, goal, "2027-03", null)).hasStatus(HttpStatus.CREATED);
+        assertThat(skip(s, goal, "2027-03")).hasStatus(HttpStatus.CREATED);
     }
 
     @Test
     void deposit_aboveRemaining_rejected() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         String goal = createGoal(s, 20000, 10);
-        assertThat(amount(s, goal, "deposits", 15000, null)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, goal, null, 15000L)).hasStatus(HttpStatus.CREATED);
 
-        assertError(amount(s, goal, "deposits", 5001, null), HttpStatus.BAD_REQUEST, "GOAL_AMOUNT_INVALID");
+        assertError(contribute(s, goal, null, 5001L), HttpStatus.BAD_REQUEST, "GOAL_AMOUNT_INVALID");
 
         assertThat(movements(s, goal)).hasSize(1);
-        assertThat(amount(s, goal, "deposits", 5000, null)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, goal, null, 5000L)).hasStatus(HttpStatus.CREATED);
     }
 
     @Test
     void undo_withdrawalAboveLoweredTarget_rejected() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         String goal = createGoal(s, 20000, 10);
-        assertThat(amount(s, goal, "deposits", 15000, null)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, goal, null, 15000L)).hasStatus(HttpStatus.CREATED);
         assertThat(amount(s, goal, "withdrawals", 5000, null)).hasStatus(HttpStatus.CREATED);
         Map<String, Object> lowered = new LinkedHashMap<>();
         lowered.put("name", "Meta");
@@ -351,7 +434,7 @@ class GoalMovementControllerTest {
     void undo_withdrawalUpToTarget_allowed() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         String goal = createGoal(s, 20000, 10);
-        assertThat(amount(s, goal, "deposits", 20000, null)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, goal, null, 20000L)).hasStatus(HttpStatus.CREATED);
         assertThat(amount(s, goal, "withdrawals", 5000, null)).hasStatus(HttpStatus.CREATED);
         String withdrawalId = movements(s, goal).get(0).path("id").asString();
 
@@ -377,8 +460,8 @@ class GoalMovementControllerTest {
 
         JsonNode overview = body(send(HttpMethod.GET, s, GOALS + "?month=2027-05", null));
         assertThat(overview.path("suggestions")).hasSize(1);
-        assertThat(contribute(s, goal, "2027-05", null)).hasStatus(HttpStatus.CREATED);
-        assertError(contribute(s, goal, "2027-06", 100L), HttpStatus.BAD_REQUEST, "GOAL_MONTH_INVALID");
+        assertThat(contribute(s, goal, "2027-05-01", 1000L)).hasStatus(HttpStatus.CREATED);
+        assertError(contribute(s, goal, "2027-06-10", 100L), HttpStatus.BAD_REQUEST, "GOAL_MONTH_INVALID");
     }
 
     /**
@@ -396,15 +479,15 @@ class GoalMovementControllerTest {
 
         JsonNode overview = body(send(HttpMethod.GET, s, GOALS + "?month=2027-04", null));
         assertThat(overview.path("suggestions")).hasSize(1);
-        assertThat(contribute(s, goal, "2027-04", null)).hasStatus(HttpStatus.CREATED);
-        assertError(contribute(s, goal, "2027-03", 100L), HttpStatus.BAD_REQUEST, "GOAL_MONTH_INVALID");
+        assertThat(contribute(s, goal, "2027-04-30", 1000L)).hasStatus(HttpStatus.CREATED);
+        assertError(contribute(s, goal, "2027-03-10", 100L), HttpStatus.BAD_REQUEST, "GOAL_MONTH_INVALID");
     }
 
     @Test
     void undo_depositBelowZero_rejected() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         String goal = createGoal(s, 100000, 10);
-        assertThat(amount(s, goal, "deposits", 10000, null)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, goal, null, 10000L)).hasStatus(HttpStatus.CREATED);
         assertThat(amount(s, goal, "withdrawals", 8000, null)).hasStatus(HttpStatus.CREATED);
         String depositId = null;
         for (JsonNode m : movements(s, goal)) {
@@ -428,7 +511,7 @@ class GoalMovementControllerTest {
         other.put("targetCents", 50000);
         other.put("monthlyPercent", 5);
         String second = body(send(HttpMethod.POST, s, GOALS, other)).path("id").asString();
-        assertThat(amount(s, first, "deposits", 1000, null)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, first, null, 1000L)).hasStatus(HttpStatus.CREATED);
         String movementId = movements(s, first).get(0).path("id").asString();
 
         assertError(
@@ -441,14 +524,14 @@ class GoalMovementControllerTest {
     void movements_onCompletedGoal_rejected() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         String goal = createGoal(s, 100000, 10);
-        assertThat(amount(s, goal, "deposits", 1000, null)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, goal, null, 1000L)).hasStatus(HttpStatus.CREATED);
         String movementId = movements(s, goal).get(0).path("id").asString();
         assertThat(send(HttpMethod.POST, s, GOALS + "/" + goal + "/complete", null))
                 .hasStatus(HttpStatus.OK);
 
-        assertError(amount(s, goal, "deposits", 1000, null), HttpStatus.CONFLICT, "GOAL_COMPLETED");
+        assertError(contribute(s, goal, null, 1000L), HttpStatus.CONFLICT, "GOAL_COMPLETED");
         assertError(amount(s, goal, "withdrawals", 500, null), HttpStatus.CONFLICT, "GOAL_COMPLETED");
-        assertError(contribute(s, goal, "2027-03", 500L), HttpStatus.CONFLICT, "GOAL_COMPLETED");
+        assertError(contribute(s, goal, "2027-03-10", 500L), HttpStatus.CONFLICT, "GOAL_COMPLETED");
         assertError(skip(s, goal, "2027-03"), HttpStatus.CONFLICT, "GOAL_COMPLETED");
         assertError(
                 send(HttpMethod.DELETE, s, GOALS + "/" + goal + "/movements/" + movementId, null),
@@ -461,7 +544,7 @@ class GoalMovementControllerTest {
         TestSession s = testUsers.verified("ana@mail.com");
         String goal = createGoal(s, 20000, 10);
 
-        MvcTestResult r = amount(s, goal, "deposits", 20000, null);
+        MvcTestResult r = contribute(s, goal, null, 20000L);
 
         assertThat(r).hasStatus(HttpStatus.CREATED);
         assertThat(body(r).path("status").asString()).isEqualTo("REACHED");
@@ -469,9 +552,8 @@ class GoalMovementControllerTest {
     }
 
     @Test
-    void concurrentContributions_oneWins() throws Exception {
+    void concurrentSkips_oneWins() throws Exception {
         TestSession[] couple = testUsers.couple("ana@mail.com", "bia@mail.com");
-        withSalary(couple[0]);
         String goal = createGoal(couple[0], 100000, 10);
 
         CountDownLatch ready = new CountDownLatch(2);
@@ -483,7 +565,7 @@ class GoalMovementControllerTest {
                 calls.add(pool.submit(() -> {
                     ready.countDown();
                     go.await();
-                    return contribute(who, goal, "2027-03", null).getResponse().getStatus();
+                    return skip(who, goal, "2027-03").getResponse().getStatus();
                 }));
             }
             ready.await();
@@ -498,7 +580,7 @@ class GoalMovementControllerTest {
         }
 
         Integer rows = jdbc.queryForObject(
-                "SELECT count(*) FROM goal_movements WHERE goal_id = ? AND type = 'CONTRIBUTION'",
+                "SELECT count(*) FROM goal_movements WHERE goal_id = ? AND type = 'SKIP'",
                 Integer.class,
                 UUID.fromString(goal));
         assertThat(rows).isEqualTo(1);

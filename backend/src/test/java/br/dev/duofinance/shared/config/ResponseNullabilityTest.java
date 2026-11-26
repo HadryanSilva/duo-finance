@@ -69,6 +69,7 @@ class ResponseNullabilityTest {
             "DashboardResponse.upcoming",
             "GoalMovementResponse.createdAt",
             "GoalMovementResponse.id",
+            "GoalMovementResponse.occurredOn",
             "GoalMovementResponse.type",
             "GoalResponse.createdAt",
             "GoalResponse.id",

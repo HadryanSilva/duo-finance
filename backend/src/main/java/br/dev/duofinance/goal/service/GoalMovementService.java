@@ -11,12 +11,12 @@ import br.dev.duofinance.goal.model.GoalMovement;
 import br.dev.duofinance.goal.model.GoalMovementType;
 import br.dev.duofinance.goal.repository.GoalMovementRepository;
 import br.dev.duofinance.goal.repository.GoalRepository;
-import br.dev.duofinance.goal.repository.GoalSalaryQuery;
 import br.dev.duofinance.goal.repository.GoalSavedQuery;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ErrorCode;
 import br.dev.duofinance.shared.time.RunningMonths;
 import br.dev.duofinance.transaction.dto.TransactionResponse.AuthorRef;
+import br.dev.duofinance.transaction.model.TransactionKind;
 import br.dev.duofinance.user.model.User;
 import br.dev.duofinance.user.repository.UserRepository;
 import java.time.Clock;
@@ -36,8 +36,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Every write locks the account row first and then loads the goal, so concurrent movements on the same account
- * serialise. The partial unique index on (goal, month) stays as the last line of defence; the controller maps it to
- * GOAL_MONTH_TAKEN after the rollback.
+ * serialise. The partial unique index on (goal, month) for SKIP rows stays as the last line of defence; the
+ * controller maps it to GOAL_MONTH_TAKEN after the rollback.
  */
 @Service
 public class GoalMovementService {
@@ -45,8 +45,6 @@ public class GoalMovementService {
     private final GoalRepository goals;
     private final GoalMovementRepository movements;
     private final GoalSavedQuery saved;
-    private final GoalSalaryQuery salaries;
-    private final GoalSettingsService salarySettings;
     private final AccountRepository accounts;
     private final UserRepository users;
     private final Clock clock;
@@ -55,16 +53,12 @@ public class GoalMovementService {
             GoalRepository goals,
             GoalMovementRepository movements,
             GoalSavedQuery saved,
-            GoalSalaryQuery salaries,
-            GoalSettingsService salarySettings,
             AccountRepository accounts,
             UserRepository users,
             Clock clock) {
         this.goals = goals;
         this.movements = movements;
         this.saved = saved;
-        this.salaries = salaries;
-        this.salarySettings = salarySettings;
         this.accounts = accounts;
         this.users = users;
         this.clock = clock;
@@ -87,6 +81,8 @@ public class GoalMovementService {
                         m.getType(),
                         m.getAmountCents(),
                         m.getMonth() == null ? null : YearMonth.from(m.getMonth()),
+                        m.getOccurredOn(),
+                        m.getTransactionId() != null,
                         m.getNote(),
                         m.getCreatedBy() == null ? null : authorRef(userById.get(m.getCreatedBy())),
                         m.getCreatedAt()))
@@ -96,36 +92,35 @@ public class GoalMovementService {
     @Transactional
     public GoalResponse contribute(UUID accountId, UUID userId, UUID goalId, ContributeRequest request) {
         Goal goal = lockAndLoadActive(accountId, goalId);
-        YearMonth month = requireFreeMonth(goal, request.month());
-        long salary = salarySettings
-                .usableSalaryCategoryId(accountId)
-                .map(id -> salaries.salary(accountId, id, month))
-                .orElse(0L);
-        if (salary <= 0) {
-            throw new ApiException(ErrorCode.GOAL_NO_SALARY);
+        LocalDate today = LocalDate.now(clock);
+        LocalDate date = request.date() == null ? today : request.date();
+        YearMonth month = YearMonth.from(date);
+        if (RunningMonths.isFuture(month, clock) || date.isAfter(today.plusDays(1))) {
+            throw new ApiException(ErrorCode.GOAL_MONTH_INVALID);
         }
-        long remaining = remainingOf(goal, savedOf(goal));
-        Long requested = request.amountCents();
-        long amount =
-                requested != null ? requested : GoalService.suggestedCents(salary, goal.getMonthlyPercent(), remaining);
-        requireAmount(amount, remaining);
-        return record(goal, userId, GoalMovementType.CONTRIBUTION, amount, month, month.atDay(1), null);
+        requireMonthNotBeforeFirst(goal, month);
+        long amount = request.amountCents();
+        requireAmount(amount, remainingOf(goal, savedOf(goal)));
+        removeSkip(goal, month);
+        return record(goal, userId, GoalMovementType.CONTRIBUTION, amount, month, date, request.note());
     }
 
     @Transactional
     public GoalResponse skip(UUID accountId, UUID userId, UUID goalId, SkipRequest request) {
         Goal goal = lockAndLoadActive(accountId, goalId);
-        YearMonth month = requireFreeMonth(goal, request.month());
-        return record(goal, userId, GoalMovementType.SKIP, 0L, month, month.atDay(1), null);
-    }
-
-    @Transactional
-    public GoalResponse deposit(UUID accountId, UUID userId, UUID goalId, GoalAmountRequest request) {
-        Goal goal = lockAndLoadActive(accountId, goalId);
-        long amount = request.amountCents();
-        requireAmount(amount, remainingOf(goal, savedOf(goal)));
-        LocalDate today = LocalDate.now(clock);
-        return record(goal, userId, GoalMovementType.CONTRIBUTION, amount, YearMonth.from(today), today, request.note());
+        YearMonth month = request.month();
+        if (RunningMonths.isFuture(month, clock)) {
+            throw new ApiException(ErrorCode.GOAL_MONTH_INVALID);
+        }
+        requireMonthNotBeforeFirst(goal, month);
+        LocalDate first = month.atDay(1);
+        if (movements.existsByGoalIdAndMonthAndType(goal.getId(), first, GoalMovementType.SKIP)) {
+            throw new ApiException(ErrorCode.GOAL_MONTH_TAKEN);
+        }
+        if (movements.existsByGoalIdAndMonthAndType(goal.getId(), first, GoalMovementType.CONTRIBUTION)) {
+            throw new ApiException(ErrorCode.GOAL_MONTH_HAS_CONTRIBUTIONS);
+        }
+        return record(goal, userId, GoalMovementType.SKIP, 0L, month, first, null);
     }
 
     @Transactional
@@ -136,12 +131,58 @@ public class GoalMovementService {
         return record(goal, userId, GoalMovementType.WITHDRAWAL, amount, null, LocalDate.now(clock), request.note());
     }
 
+    /**
+     * Records a movement that mirrors an imported transaction. The amount and date come from the file, so there is no
+     * month, first-month or cap check; the caller passes the goal it loaded for the account it is importing into.
+     */
+    @Transactional
+    public void recordImported(
+            Goal goal, UUID userId, GoalMovementType type, long amountCents, LocalDate date, UUID transactionId) {
+        if (goal.isCompleted()) {
+            throw new ApiException(ErrorCode.GOAL_COMPLETED);
+        }
+        YearMonth month = type == GoalMovementType.CONTRIBUTION ? YearMonth.from(date) : null;
+        if (month != null) {
+            removeSkip(goal, month);
+        }
+        movements.saveAndFlush(new GoalMovement(
+                goal.getId(),
+                goal.getAccountId(),
+                type,
+                amountCents,
+                month == null ? null : month.atDay(1),
+                date,
+                transactionId,
+                null,
+                userId,
+                Instant.now(clock)));
+    }
+
+    /**
+     * The transaction a movement mirrors was edited or deleted: drop the movement unless the transaction is still a
+     * transfer, in which case it takes the transaction's amount and date.
+     */
+    @Transactional
+    public void followTransaction(UUID transactionId, TransactionKind kind, long amountCents, LocalDate date) {
+        movements.findByTransactionId(transactionId).ifPresent(movement -> {
+            if (kind != TransactionKind.TRANSFER) {
+                movements.delete(movement);
+            } else {
+                movement.followTransaction(amountCents, date);
+            }
+            movements.flush();
+        });
+    }
+
     @Transactional
     public GoalResponse undo(UUID accountId, UUID goalId, UUID movementId) {
         Goal goal = lockAndLoadActive(accountId, goalId);
         GoalMovement movement = movements
                 .findByIdAndGoalId(movementId, goalId)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        if (movement.getTransactionId() != null) {
+            throw new ApiException(ErrorCode.GOAL_MOVEMENT_IMPORTED);
+        }
         long effect = movement.getType() == GoalMovementType.WITHDRAWAL
                 ? -movement.getAmountCents()
                 : movement.getAmountCents();
@@ -171,15 +212,15 @@ public class GoalMovementService {
         return goals.findByIdAndAccountId(goalId, accountId).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
     }
 
-    private YearMonth requireFreeMonth(Goal goal, YearMonth month) {
-        YearMonth first = RunningMonths.earliestOf(goal.getCreatedAt());
-        if (month.isBefore(first) || RunningMonths.isFuture(month, clock)) {
+    private void requireMonthNotBeforeFirst(Goal goal, YearMonth month) {
+        if (month.isBefore(saved.firstMonthOf(goal))) {
             throw new ApiException(ErrorCode.GOAL_MONTH_INVALID);
         }
-        if (movements.existsByGoalIdAndMonth(goal.getId(), month.atDay(1))) {
-            throw new ApiException(ErrorCode.GOAL_MONTH_TAKEN);
-        }
-        return month;
+    }
+
+    /** A contribution supersedes the month's skip. */
+    private void removeSkip(Goal goal, YearMonth month) {
+        movements.deleteByGoalIdAndMonthAndType(goal.getId(), month.atDay(1), GoalMovementType.SKIP);
     }
 
     private long savedOf(Goal goal) {

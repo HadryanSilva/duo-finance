@@ -69,7 +69,6 @@ class AccountIsolationTest {
                 Arguments.of("goals", "POST", "/complete"),
                 Arguments.of("goals", "POST", "/reopen"),
                 Arguments.of("goals", "GET", "/movements"),
-                Arguments.of("goals", "POST", "/deposits"),
                 Arguments.of("goals", "POST", "/withdrawals"),
                 Arguments.of("goals", "POST", "/contributions"),
                 Arguments.of("goals", "POST", "/skips"));
@@ -389,7 +388,7 @@ class AccountIsolationTest {
         UUID goal = create(owner, "goals", Map.of("name", "Trip", "targetCents", 100000, "monthlyPercent", 10));
         ids.put("goals", goal);
         assertThat(mvc.post()
-                        .uri("/api/v1/goals/" + goal + "/deposits")
+                        .uri("/api/v1/goals/" + goal + "/contributions")
                         .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(owner))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(Map.of("amountCents", 1000)))
@@ -420,8 +419,8 @@ class AccountIsolationTest {
     /** Valid body for each goal POST action, so the request reaches the ownership check. */
     private String goalActionBody(String suffix) {
         Map<String, Object> body = switch (suffix) {
-            case "/deposits", "/withdrawals" -> Map.of("amountCents", 100);
-            case "/contributions", "/skips" -> Map.of("month", "2026-11");
+            case "/withdrawals", "/contributions" -> Map.of("amountCents", 100);
+            case "/skips" -> Map.of("month", "2026-11");
             default -> Map.of();
         };
         return json.writeValueAsString(body);

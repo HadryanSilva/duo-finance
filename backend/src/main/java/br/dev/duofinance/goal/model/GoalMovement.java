@@ -79,6 +79,15 @@ public class GoalMovement {
         this.createdAt = now;
     }
 
+    /** The mirrored transaction changed: take its amount and date, and count a contribution in the new month. */
+    public void followTransaction(long amountCents, LocalDate occurredOn) {
+        this.amountCents = amountCents;
+        this.occurredOn = occurredOn;
+        if (type == GoalMovementType.CONTRIBUTION) {
+            this.month = occurredOn.withDayOfMonth(1);
+        }
+    }
+
     public UUID getId() {
         return id;
     }
