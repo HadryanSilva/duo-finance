@@ -33,12 +33,12 @@ public class GoalSavedQuery {
 
     private static final String LAST_CONTRIBUTIONS_SQL = """
             SELECT goal_id, amount_cents
-            FROM (SELECT goal_id, amount_cents, month,
-                         ROW_NUMBER() OVER (PARTITION BY goal_id ORDER BY month DESC) AS rn
+            FROM (SELECT goal_id, amount_cents, month, occurred_on,
+                         ROW_NUMBER() OVER (PARTITION BY goal_id ORDER BY month DESC, occurred_on DESC) AS rn
                   FROM goal_movements
                   WHERE account_id = :accountId AND type = 'CONTRIBUTION') ranked
             WHERE rn <= 3
-            ORDER BY goal_id, month DESC
+            ORDER BY goal_id, month DESC, occurred_on DESC
             """;
 
     private static final String DECIDED_SQL = """
@@ -53,7 +53,7 @@ public class GoalSavedQuery {
         this.jdbc = jdbc;
     }
 
-    /** Σ of contributions and deposits minus withdrawals, by goal; goals without movements are absent. */
+    /** Σ of contributions minus withdrawals, by goal; goals without movements are absent. */
     public Map<UUID, Long> savedByGoal(UUID accountId) {
         Map<UUID, Long> result = new HashMap<>();
         jdbc.query(SQL, new MapSqlParameterSource("accountId", accountId), rs -> {

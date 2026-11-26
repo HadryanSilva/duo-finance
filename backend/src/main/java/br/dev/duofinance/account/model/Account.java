@@ -9,6 +9,7 @@ import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.type.SqlTypes;
+import org.jspecify.annotations.Nullable;
 
 @Entity
 @Table(name = "accounts")
@@ -29,6 +30,9 @@ public class Account {
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(nullable = false, length = 3)
     private String currency = DEFAULT_CURRENCY;
+
+    @Column(name = "pockets_bank_account_id")
+    private @Nullable UUID pocketsBankAccountId;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -58,6 +62,14 @@ public class Account {
 
     public String getCurrency() {
         return currency;
+    }
+
+    public @Nullable UUID getPocketsBankAccountId() {
+        return pocketsBankAccountId;
+    }
+
+    public void setPocketsBankAccountId(@Nullable UUID pocketsBankAccountId) {
+        this.pocketsBankAccountId = pocketsBankAccountId;
     }
 
     public Instant getCreatedAt() {

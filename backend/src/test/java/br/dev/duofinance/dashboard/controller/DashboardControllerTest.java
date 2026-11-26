@@ -697,10 +697,10 @@ class DashboardControllerTest {
             budget(s, category, 1_000);
             weeklyRule(s, "2027-03-16", null);
             UUID goal = goal(s, "G" + i + "-" + suffix, 1_000_000, 1);
-            deposit(s, goal, 500 + i);
             if (i % 2 == 0) {
                 contribute(s, goal, "2027-03", 100 + i);
             }
+            deposit(s, goal, 500 + i);
         }
     }
 }

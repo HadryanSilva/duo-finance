@@ -21,6 +21,7 @@ import br.dev.duofinance.user.model.User;
 import br.dev.duofinance.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
@@ -108,14 +109,14 @@ public class GoalMovementService {
         long amount =
                 requested != null ? requested : GoalService.suggestedCents(salary, goal.getMonthlyPercent(), remaining);
         requireAmount(amount, remaining);
-        return record(goal, userId, GoalMovementType.CONTRIBUTION, amount, month, null);
+        return record(goal, userId, GoalMovementType.CONTRIBUTION, amount, month, month.atDay(1), null);
     }
 
     @Transactional
     public GoalResponse skip(UUID accountId, UUID userId, UUID goalId, SkipRequest request) {
         Goal goal = lockAndLoadActive(accountId, goalId);
         YearMonth month = requireFreeMonth(goal, request.month());
-        return record(goal, userId, GoalMovementType.SKIP, 0L, month, null);
+        return record(goal, userId, GoalMovementType.SKIP, 0L, month, month.atDay(1), null);
     }
 
     @Transactional
@@ -123,7 +124,8 @@ public class GoalMovementService {
         Goal goal = lockAndLoadActive(accountId, goalId);
         long amount = request.amountCents();
         requireAmount(amount, remainingOf(goal, savedOf(goal)));
-        return record(goal, userId, GoalMovementType.DEPOSIT, amount, null, request.note());
+        LocalDate today = LocalDate.now(clock);
+        return record(goal, userId, GoalMovementType.CONTRIBUTION, amount, YearMonth.from(today), today, request.note());
     }
 
     @Transactional
@@ -131,7 +133,7 @@ public class GoalMovementService {
         Goal goal = lockAndLoadActive(accountId, goalId);
         long amount = request.amountCents();
         requireAmount(amount, savedOf(goal));
-        return record(goal, userId, GoalMovementType.WITHDRAWAL, amount, null, request.note());
+        return record(goal, userId, GoalMovementType.WITHDRAWAL, amount, null, LocalDate.now(clock), request.note());
     }
 
     @Transactional
@@ -200,6 +202,7 @@ public class GoalMovementService {
             GoalMovementType type,
             long amount,
             @Nullable YearMonth month,
+            LocalDate occurredOn,
             @Nullable String note) {
         movements.saveAndFlush(new GoalMovement(
                 goal.getId(),
@@ -207,6 +210,8 @@ public class GoalMovementService {
                 type,
                 amount,
                 month == null ? null : month.atDay(1),
+                occurredOn,
+                null,
                 note == null || note.isBlank() ? null : note.strip(),
                 userId,
                 Instant.now(clock)));

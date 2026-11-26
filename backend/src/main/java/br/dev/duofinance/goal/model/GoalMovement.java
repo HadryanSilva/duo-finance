@@ -33,9 +33,17 @@ public class GoalMovement {
     @Column(name = "amount_cents", nullable = false)
     private long amountCents;
 
-    /** First day of the month a CONTRIBUTION or SKIP refers to; null for DEPOSIT and WITHDRAWAL. */
+    /** First day of the month a CONTRIBUTION or SKIP refers to; null for WITHDRAWAL. */
     @Column
     private @Nullable LocalDate month;
+
+    /** The day the money was set aside (or taken out). */
+    @Column(name = "occurred_on", nullable = false)
+    private LocalDate occurredOn;
+
+    /** The imported transaction this movement mirrors, if any. */
+    @Column(name = "transaction_id")
+    private @Nullable UUID transactionId;
 
     @Column(length = 200)
     private @Nullable String note;
@@ -54,9 +62,13 @@ public class GoalMovement {
             GoalMovementType type,
             long amountCents,
             @Nullable LocalDate month,
+            LocalDate occurredOn,
+            @Nullable UUID transactionId,
             @Nullable String note,
             @Nullable UUID createdBy,
             Instant now) {
+        this.occurredOn = occurredOn;
+        this.transactionId = transactionId;
         this.goalId = goalId;
         this.accountId = accountId;
         this.type = type;
@@ -89,6 +101,14 @@ public class GoalMovement {
 
     public @Nullable LocalDate getMonth() {
         return month;
+    }
+
+    public LocalDate getOccurredOn() {
+        return occurredOn;
+    }
+
+    public @Nullable UUID getTransactionId() {
+        return transactionId;
     }
 
     public @Nullable String getNote() {

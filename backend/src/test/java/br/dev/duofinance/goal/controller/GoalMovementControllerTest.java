@@ -280,7 +280,7 @@ class GoalMovementControllerTest {
         JsonNode list = movements(s, goal);
 
         assertThat(list.get(0).path("type").asString()).isEqualTo("WITHDRAWAL");
-        assertThat(list.get(1).path("type").asString()).isEqualTo("DEPOSIT");
+        assertThat(list.get(1).path("type").asString()).isEqualTo("CONTRIBUTION");
     }
 
     @Test
@@ -408,7 +408,7 @@ class GoalMovementControllerTest {
         assertThat(amount(s, goal, "withdrawals", 8000, null)).hasStatus(HttpStatus.CREATED);
         String depositId = null;
         for (JsonNode m : movements(s, goal)) {
-            if ("DEPOSIT".equals(m.path("type").asString())) {
+            if ("CONTRIBUTION".equals(m.path("type").asString())) {
                 depositId = m.path("id").asString();
             }
         }
