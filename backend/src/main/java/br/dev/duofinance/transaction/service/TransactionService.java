@@ -68,7 +68,9 @@ public class TransactionService {
 
     @Transactional
     public void delete(UUID accountId, UUID id) {
-        transactions.delete(requireOwned(accountId, id));
+        Transaction transaction = requireOwned(accountId, id);
+        goalMovements.requireTransactionRemovable(accountId, id);
+        transactions.delete(transaction);
         transactions.flush();
     }
 

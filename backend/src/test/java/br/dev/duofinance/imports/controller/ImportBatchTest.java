@@ -211,7 +211,7 @@ class ImportBatchTest {
 
     /** Pin: the V10 cascade takes a linked movement with its transaction, so an undo leaves nothing behind. */
     @Test
-    void undo_batch_dropsPocketContributions() throws Exception {
+    void undo_batch_dropsLinkedGoalMovements() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         UUID bank = fixtures.bankAccount(s, "Revolut", 0);
         UUID cafes = fixtures.category(s, "Cafes", CategoryKind.EXPENSE);
@@ -236,6 +236,46 @@ class ImportBatchTest {
 
         assertThat(count("SELECT coalesce(sum(amount_cents), 0) FROM goal_movements WHERE goal_id = ?", goal))
                 .isZero();
+    }
+
+    @Test
+    void undo_batch_wouldMakeGoalNegative_refused() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID cafes = fixtures.category(s, "Cafes", CategoryKind.EXPENSE);
+        UUID batch = importRows(s, bank, cafes, "Cafe Aurora");
+        UUID imported = jdbc.queryForObject("SELECT id FROM transactions WHERE import_batch_id = ?", UUID.class, batch);
+        UUID goal = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO goals (id, account_id, name, target_cents, monthly_percent, created_at, updated_at)"
+                        + " VALUES (?, ?, 'Reserva', 100000, 10, now(), now())",
+                goal,
+                s.accountId());
+        jdbc.update(
+                "INSERT INTO goal_movements (id, goal_id, account_id, type, amount_cents, month, occurred_on,"
+                        + " transaction_id, created_at) VALUES (?, ?, ?, 'CONTRIBUTION', 1000, '2026-11-01',"
+                        + " '2026-11-20', ?, now())",
+                UUID.randomUUID(),
+                goal,
+                s.accountId(),
+                imported);
+        jdbc.update(
+                "INSERT INTO goal_movements (id, goal_id, account_id, type, amount_cents, occurred_on, created_at)"
+                        + " VALUES (?, ?, ?, 'WITHDRAWAL', 800, '2026-11-21', now())",
+                UUID.randomUUID(),
+                goal,
+                s.accountId());
+
+        var result = undo(s, batch);
+
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("GOAL_AMOUNT_INVALID");
+        assertThat(count("SELECT count(*) FROM transactions WHERE id = ?", imported))
+                .isEqualTo(1);
+        assertThat(count("SELECT count(*) FROM import_batches WHERE id = ? AND undone_at IS NULL", batch))
+                .isEqualTo(1);
+        assertThat(count("SELECT count(*) FROM goal_movements WHERE goal_id = ?", goal))
+                .isEqualTo(2);
     }
 
     @Test

@@ -1,5 +1,6 @@
 package br.dev.duofinance.imports.service;
 
+import br.dev.duofinance.goal.service.GoalMovementService;
 import br.dev.duofinance.imports.dto.ImportBatchResponse;
 import br.dev.duofinance.imports.model.ImportBatch;
 import br.dev.duofinance.imports.repository.ImportBatchRepository;
@@ -29,13 +30,19 @@ public class ImportBatchService {
     private final ImportBatchRepository batches;
     private final TransactionRepository transactions;
     private final UserRepository users;
+    private final GoalMovementService goalMovements;
     private final Clock clock;
 
     public ImportBatchService(
-            ImportBatchRepository batches, TransactionRepository transactions, UserRepository users, Clock clock) {
+            ImportBatchRepository batches,
+            TransactionRepository transactions,
+            UserRepository users,
+            GoalMovementService goalMovements,
+            Clock clock) {
         this.batches = batches;
         this.transactions = transactions;
         this.users = users;
+        this.goalMovements = goalMovements;
         this.clock = clock;
     }
 
@@ -62,6 +69,7 @@ public class ImportBatchService {
         if (batch.getUndoneAt() != null) {
             throw new ApiException(ErrorCode.IMPORT_ALREADY_UNDONE);
         }
+        goalMovements.requireBatchRemovable(accountId, batchId);
         // marked first: the bulk delete flushes this change and then clears the persistence context
         batch.markUndone(clock.instant());
         transactions.deleteByImportBatch(accountId, batchId);

@@ -161,8 +161,8 @@ public class GoalMovementService {
     /**
      * The transaction a movement mirrors was edited: drop the movement unless the transaction is still a transfer, in
      * which case it takes the transaction's amount and date. A contribution that lands in a skipped month supersedes
-     * the skip; a withdrawal is clamped so the goal's saved amount never goes below zero. (Deleting the transaction
-     * needs no call: the movement goes with it through ON DELETE CASCADE.)
+     * the skip; a withdrawal is clamped so the goal's saved amount never goes below zero, and an edit that would take
+     * the saved amount below zero (a contribution lowered or dropped after later withdrawals) is refused.
      */
     @Transactional
     public void followTransaction(
@@ -173,18 +173,61 @@ public class GoalMovementService {
         // Lock order: the account row first, then re-read the movement under the lock.
         accounts.findByIdForUpdate(accountId).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
         movements.findByTransactionId(transactionId).ifPresent(movement -> {
-            if (kind != TransactionKind.TRANSFER) {
+            long before = saved.savedOf(movement.getGoalId());
+            long withoutIt = before - effectOf(movement);
+            boolean isWithdrawal = movement.getType() == GoalMovementType.WITHDRAWAL;
+            // A withdrawal is capped by what the goal holds without it; a contribution follows the new amount.
+            long newAmount = isWithdrawal ? Math.min(amountCents, withoutIt) : amountCents;
+            if (kind != TransactionKind.TRANSFER || newAmount <= 0) {
+                requireNotNegative(withoutIt);
                 movements.delete(movement);
-            } else if (movement.getType() == GoalMovementType.WITHDRAWAL) {
-                long room = saved.savedOf(movement.getGoalId()) + movement.getAmountCents();
-                movement.followTransaction(Math.min(amountCents, room), date);
             } else {
-                movement.followTransaction(amountCents, date);
-                movements.deleteByGoalIdAndMonthAndType(
-                        movement.getGoalId(), movement.getMonth(), GoalMovementType.SKIP);
+                requireNotNegative(isWithdrawal ? withoutIt - newAmount : withoutIt + newAmount);
+                movement.followTransaction(newAmount, date);
+                if (!isWithdrawal) {
+                    movements.deleteByGoalIdAndMonthAndType(
+                            movement.getGoalId(), movement.getMonth(), GoalMovementType.SKIP);
+                }
             }
             movements.flush();
         });
+    }
+
+    /** A transaction is about to be deleted: refuse if its linked movement is a contribution the goal has spent. */
+    @Transactional
+    public void requireTransactionRemovable(UUID accountId, UUID transactionId) {
+        if (movements.findByTransactionId(transactionId).isEmpty()) {
+            return;
+        }
+        accounts.findByIdForUpdate(accountId).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        requireRemovable(movements.findByTransactionId(transactionId).stream().toList());
+    }
+
+    /** An import batch is about to be undone: refuse if any goal would end below zero without its linked movements. */
+    @Transactional
+    public void requireBatchRemovable(UUID accountId, UUID batchId) {
+        accounts.findByIdForUpdate(accountId).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        requireRemovable(movements.findByImportBatch(batchId));
+    }
+
+    private void requireRemovable(List<GoalMovement> removed) {
+        Map<UUID, Long> effectByGoal = removed.stream()
+                .collect(Collectors.groupingBy(GoalMovement::getGoalId, Collectors.summingLong(m -> effectOf(m))));
+        effectByGoal.forEach((goalId, effect) -> requireNotNegative(saved.savedOf(goalId) - effect));
+    }
+
+    private static long effectOf(GoalMovement movement) {
+        return switch (movement.getType()) {
+            case CONTRIBUTION -> movement.getAmountCents();
+            case WITHDRAWAL -> -movement.getAmountCents();
+            case SKIP -> 0;
+        };
+    }
+
+    private static void requireNotNegative(long saved) {
+        if (saved < 0) {
+            throw new ApiException(ErrorCode.GOAL_AMOUNT_INVALID);
+        }
     }
 
     @Transactional

@@ -556,4 +556,56 @@ class TransactionCrudTest {
         assertThat(((Number) linkedMovement(goal).get("amount_cents")).longValue()).isEqualTo(1000);
         assertThat(saved(goal)).isZero();
     }
+
+    /** A linked contribution of 1000 followed by a manual withdrawal of 800: the goal holds 200. */
+    private UUID contributionThenWithdrawal(TestSession s, UUID goal) {
+        UUID id = linkedTransfer(s, goal, "CONTRIBUTION", 1000, "2026-11-05");
+        movement(s, goal, "WITHDRAWAL", 800, "2026-11-10", null);
+        return id;
+    }
+
+    private void assertRefusedAndUntouched(MvcTestResult result, UUID goal, UUID id) {
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("GOAL_AMOUNT_INVALID");
+        assertThat(saved(goal)).isEqualTo(200);
+        assertThat(((Number) linkedMovement(goal).get("amount_cents")).longValue()).isEqualTo(1000);
+        assertThat(jdbc.queryForObject("SELECT amount_cents FROM transactions WHERE id = ?", Long.class, id))
+                .isEqualTo(1000);
+    }
+
+    @Test
+    void update_linkedContributionDownAfterWithdrawal_refused() {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID goal = goalWithPocket(s);
+        UUID id = contributionThenWithdrawal(s, goal);
+
+        var result = send(HttpMethod.PUT, s, BASE + "/" + id, editedTransfer(id, 100, "2026-11-05"));
+
+        assertRefusedAndUntouched(result, goal, id);
+    }
+
+    @Test
+    void update_linkedContributionToExpenseAfterWithdrawal_refused() {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID goal = goalWithPocket(s);
+        UUID id = contributionThenWithdrawal(s, goal);
+        UUID bank = jdbc.queryForObject("SELECT bank_account_id FROM transactions WHERE id = ?", UUID.class, id);
+        Map<String, Object> body = expense(seeded(s, "EXPENSE"), bank);
+        body.put("amountCents", 1000);
+
+        var result = send(HttpMethod.PUT, s, BASE + "/" + id, body);
+
+        assertRefusedAndUntouched(result, goal, id);
+    }
+
+    @Test
+    void delete_linkedContributionAfterWithdrawal_refused() {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID goal = goalWithPocket(s);
+        UUID id = contributionThenWithdrawal(s, goal);
+
+        var result = send(HttpMethod.DELETE, s, BASE + "/" + id, null);
+
+        assertRefusedAndUntouched(result, goal, id);
+    }
 }
