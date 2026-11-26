@@ -11,8 +11,10 @@ import br.dev.duofinance.support.FinanceFixtures;
 import br.dev.duofinance.support.TestUsers;
 import br.dev.duofinance.support.TestUsers.TestSession;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -20,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
@@ -365,5 +368,124 @@ class ImportPreviewTest {
 
         assertThat(result).hasStatus(HttpStatus.PAYMENT_REQUIRED);
         assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("SUBSCRIPTION_INACTIVE");
+    }
+
+    private static final String PT_HEADER =
+            "Tipo,Produto,Data de início,Data de Conclusão,Descrição,Montante,Comissão,Moeda,Estado,Saldo\n";
+    private static final String RESERVA = "Carregamento de subconta EUR Reserva de Emergência de EUR";
+    private static final String SETUP = "Carregamento de subconta EUR Setup de EUR";
+
+    private static String leg(String product, String at, String description, String amount) {
+        return "Transferência,%s,%s,%s,%s,%s,0.00,EUR,CONCLUÍDA,0.00\n"
+                .formatted(product, at, at, description, amount);
+    }
+
+    private static byte[] pocketFile(String... legs) {
+        return (PT_HEADER + String.join("", legs)).getBytes(StandardCharsets.UTF_8);
+    }
+
+    private UUID goal(TestSession s, String name, String pocket) throws Exception {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("name", name);
+        m.put("targetCents", 500000);
+        m.put("monthlyPercent", 0);
+        m.put("revolutPocket", pocket);
+        var r = mvc.post()
+                .uri("/api/v1/goals")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(m))
+                .exchange();
+        assertThat(r).hasStatus(HttpStatus.CREATED);
+        return UUID.fromString(body(r).path("id").asString());
+    }
+
+    private static JsonNode transferNamed(JsonNode root, String description) {
+        for (JsonNode r : root.path("rows")) {
+            if (r.path("kind").asString().equals("TRANSFER") && description.equals(r.path("description").asString())) {
+                return r;
+            }
+        }
+        throw new AssertionError("no transfer " + description);
+    }
+
+    @Test
+    void preview_pocketRows_carryPocketInfo() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
+        UUID goal = goal(s, "Emergência", "Reserva de Emergência");
+        byte[] file = pocketFile(
+                leg("Poupanças", "2026-11-20 14:34:39", RESERVA, "250.00"),
+                leg("Poupanças", "2026-11-20 14:54:41", SETUP, "100.00"),
+                leg("Atual", "2026-11-20 14:34:39", RESERVA, "-250.00"),
+                leg("Atual", "2026-11-20 14:54:41", SETUP, "-100.00"),
+                "CARD_PAYMENT,Atual,2026-11-21 10:00:00,2026-11-21 10:00:01,Cafe Aurora,-3.50,0.00,EUR,CONCLUÍDA,0.00\n");
+
+        var result = preview(s, file, bank.toString(), "{\"Poupanças\":\"" + pockets + "\"}");
+
+        assertThat(result).hasStatus(HttpStatus.OK);
+        JsonNode root = body(result);
+        JsonNode reserva = transferNamed(root, RESERVA).path("pocket");
+        assertThat(reserva.path("name").asString()).isEqualTo("Reserva de Emergência");
+        assertThat(reserva.path("direction").asString()).isEqualTo("INTO");
+        assertThat(reserva.path("goalId").asString()).isEqualTo(goal.toString());
+        assertThat(reserva.path("match").asString()).isEqualTo("LINKED");
+        JsonNode setup = transferNamed(root, SETUP).path("pocket");
+        assertThat(setup.path("name").asString()).isEqualTo("Setup");
+        assertThat(setup.path("goalId").isNull()).isTrue();
+        assertThat(setup.path("match").asString()).isEqualTo("NONE");
+        assertThat(row(root, "Cafe Aurora").path("pocket").isNull()).isTrue();
+    }
+
+    @Test
+    void preview_rememberedPocketsAccount_fillsSavingsMapping() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
+        jdbc.update("UPDATE accounts SET pockets_bank_account_id = ? WHERE id = ?", pockets, s.accountId());
+        byte[] file = pocketFile(
+                leg("Poupanças", "2026-11-20 14:34:39", RESERVA, "250.00"),
+                leg("Atual", "2026-11-20 14:34:39", RESERVA, "-250.00"));
+
+        var result = preview(s, file, bank.toString(), null);
+
+        assertThat(result).hasStatus(HttpStatus.OK);
+        JsonNode root = body(result);
+        JsonNode products = root.path("products");
+        assertThat(products.size()).isEqualTo(2);
+        assertThat(products.get(0).path("product").asString()).isEqualTo("Poupanças");
+        assertThat(products.get(0).path("bankAccountId").asString()).isEqualTo(pockets.toString());
+        assertThat(products.get(1).path("product").asString()).isEqualTo("Current");
+        assertThat(products.get(1).path("bankAccountId").asString()).isEqualTo(bank.toString());
+        JsonNode transfer = transferNamed(root, RESERVA);
+        assertThat(transfer.path("bankAccountId").asString()).isEqualTo(bank.toString());
+        assertThat(transfer.path("destinationBankAccountId").asString()).isEqualTo(pockets.toString());
+    }
+
+    @Test
+    void preview_pocketsAccountParam_overridesRemembered() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID remembered = fixtures.bankAccount(s, "Old pockets", 0);
+        UUID chosen = fixtures.bankAccount(s, "Pockets", 0);
+        jdbc.update("UPDATE accounts SET pockets_bank_account_id = ? WHERE id = ?", remembered, s.accountId());
+        byte[] file = pocketFile(leg("Atual", "2026-11-20 14:54:41", SETUP, "-100.00"));
+
+        var result = mvc.post()
+                .uri(URI)
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                .multipart()
+                .file(new MockMultipartFile("file", "statement.csv", "text/csv", file))
+                .file(new MockMultipartFile("bankAccountId", "", "text/plain", bank.toString().getBytes()))
+                .file(new MockMultipartFile("pocketsBankAccountId", "", "text/plain", chosen.toString().getBytes()))
+                .exchange();
+
+        assertThat(result).hasStatus(HttpStatus.OK);
+        assertThat(transferNamed(body(result), SETUP).path("destinationBankAccountId").asString())
+                .isEqualTo(chosen.toString());
+        assertThat(jdbc.queryForObject(
+                        "SELECT pockets_bank_account_id FROM accounts WHERE id = ?", UUID.class, s.accountId()))
+                .isEqualTo(remembered);
     }
 }

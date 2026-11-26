@@ -2,6 +2,7 @@ package br.dev.duofinance.imports.dto;
 
 import br.dev.duofinance.imports.service.ImportPlan;
 import br.dev.duofinance.imports.service.PlannedRow;
+import br.dev.duofinance.imports.service.PocketInfo;
 import br.dev.duofinance.imports.service.RowStatus;
 import br.dev.duofinance.imports.service.SkipReason;
 import br.dev.duofinance.imports.service.SkippedRow;
@@ -27,7 +28,8 @@ public record PreviewResponse(List<ProductMapping> products, List<PreviewRow> ro
             UUID bankAccountId,
             @Nullable UUID destinationBankAccountId,
             @Nullable UUID suggestedCategoryId,
-            RowStatus status) {
+            RowStatus status,
+            @Nullable PocketInfo pocket) {
 
         static PreviewRow of(PlannedRow row) {
             return new PreviewRow(
@@ -40,7 +42,8 @@ public record PreviewResponse(List<ProductMapping> products, List<PreviewRow> ro
                     row.bankAccountId(),
                     row.destinationBankAccountId(),
                     row.suggestedCategoryId(),
-                    row.status());
+                    row.status(),
+                    row.pocket());
         }
     }
 

@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.UUID;
 import org.hibernate.engine.spi.SharedSessionContractImplementor;
 import org.hibernate.id.uuid.UuidVersion7Strategy;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,13 +30,15 @@ public class ImportedTransactionWriter {
     @PersistenceContext
     private EntityManager entityManager;
 
-    /** Returns 1 when inserted, 0 when the fingerprint already exists. */
+    /** Returns the new transaction's id, or null when the fingerprint already exists. */
     @Transactional(propagation = Propagation.MANDATORY)
-    public int insert(UUID accountId, UUID userId, UUID batchId, PlannedRow row, UUID categoryId, Instant now) {
+    public @Nullable UUID insert(
+            UUID accountId, UUID userId, UUID batchId, PlannedRow row, UUID categoryId, Instant now) {
         SharedSessionContractImplementor session = entityManager.unwrap(SharedSessionContractImplementor.class);
-        return entityManager
+        UUID id = UuidVersion7Strategy.INSTANCE.generateUuid(session);
+        int inserted = entityManager
                 .createNativeQuery(INSERT)
-                .setParameter("id", UuidVersion7Strategy.INSTANCE.generateUuid(session))
+                .setParameter("id", id)
                 .setParameter("accountId", accountId)
                 .setParameter("kind", row.kind().name())
                 .setParameter("amount", row.amountCents())
@@ -49,5 +52,6 @@ public class ImportedTransactionWriter {
                 .setParameter("batchId", batchId)
                 .setParameter("fingerprint", row.rowId())
                 .executeUpdate();
+        return inserted == 1 ? id : null;
     }
 }
