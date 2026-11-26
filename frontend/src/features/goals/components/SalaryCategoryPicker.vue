@@ -30,7 +30,11 @@ const options = computed(() => {
 
 // What the select shows: the saved category, or the one being saved.
 const picked = ref('')
-watch(saved, (s) => (picked.value = s?.id ?? ''), { immediate: true })
+watch(
+  () => saved.value?.id,
+  (id) => (picked.value = id ?? ''),
+  { immediate: true },
+)
 
 async function onChange(value: string | undefined) {
   if (!value || value === saved.value?.id) return

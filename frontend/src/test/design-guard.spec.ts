@@ -298,4 +298,27 @@ describe('raw native controls', () => {
       rmSync(root, { recursive: true, force: true })
     }
   })
+
+  it('rawControls catches single quotes and bound literal types', () => {
+    const root = mkdtempSync(join(tmpdir(), 'guard-'))
+    try {
+      mkdirSync(join(root, 'features/x'), { recursive: true })
+      writeFileSync(
+        join(root, 'features/x/B.vue'),
+        [
+          `<input type='checkbox' />`,
+          `<input :type="'file'" />`,
+          `<input type="checkbox" />`,
+          `<input type="text" />`,
+        ].join('\n'),
+      )
+      expect(
+        rawControls(root)
+          .map((o) => o.split(':')[1])
+          .sort(),
+      ).toEqual(['1', '2', '3'])
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
 })

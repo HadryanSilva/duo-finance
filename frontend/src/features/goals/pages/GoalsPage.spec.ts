@@ -297,6 +297,46 @@ describe('GoalsPage', () => {
     expect(select.value).toBe('')
   })
 
+  it('goals_salaryCategory_failedSave_keepsTheSavedCategory', async () => {
+    const s = setup({
+      settingsCategory: ref(freelance),
+      extra: [http.put(`${api}/goals/settings`, () => problem(400, 'VALIDATION'))],
+    })
+    const { user } = await s.render()
+    const select = (await screen.findByLabelText('O salário vem da categoria')) as HTMLSelectElement
+    await waitFor(() => expect(select.value).toBe('c3'))
+    await user.selectOptions(select, 'Salário')
+    await screen.findByRole('alert')
+    expect(select.value).toBe('c3')
+  })
+
+  it('goals_salaryCategory_refetchWhileSaving_keepsThePick', async () => {
+    let release = () => {}
+    const held = new Promise<void>((r) => (release = r))
+    let reads = 0
+    const s = setup({
+      extra: [
+        http.get(`${api}/goals/settings`, () => {
+          reads++
+          return HttpResponse.json({ salaryCategory: ref(freelance) })
+        }),
+        http.put(`${api}/goals/settings`, async () => {
+          await held
+          return HttpResponse.json({ salaryCategory: ref(salario) })
+        }),
+      ],
+    })
+    const { user, queryClient } = await s.render()
+    const select = (await screen.findByLabelText('O salário vem da categoria')) as HTMLSelectElement
+    await waitFor(() => expect(select.value).toBe('c3'))
+    await user.selectOptions(select, 'Salário')
+    const before = reads
+    await queryClient.refetchQueries({ queryKey: ['goals', 'settings'] })
+    expect(reads).toBeGreaterThan(before)
+    expect(select.value).toBe('c2')
+    release()
+  })
+
   it('goals_completedRow_hidesRemaining', async () => {
     await setup({ goals: [], completed: [done] }).render()
     const r = await row('Viagem')
