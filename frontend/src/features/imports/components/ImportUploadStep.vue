@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
-import { Label } from '@/shared/ui/label'
+import FileInput from '@/shared/ui/FileInput.vue'
 import SelectField from '@/shared/ui/SelectField.vue'
 
 /** Step 1: destination account and CSV file; after a preview, the other products' mapping. */
@@ -25,14 +24,9 @@ const file = defineModel<File | null>('file', { required: true })
 const emit = defineEmits<{ submit: []; map: [product: string, bankAccountId: string | null] }>()
 
 const { t } = useI18n()
-const fileId = useId()
 
 function onSubmit() {
   if (!props.reviewing && !props.locked) emit('submit')
-}
-
-function onFile(event: Event) {
-  file.value = (event.target as HTMLInputElement).files?.[0] ?? null
 }
 </script>
 
@@ -52,17 +46,12 @@ function onFile(event: Event) {
             :placeholder="t('imports.upload.choose')"
             :disabled="locked"
           />
-          <div class="grid gap-2">
-            <Label :for="fileId">{{ t('imports.upload.file') }}</Label>
-            <input
-              :id="fileId"
-              type="file"
-              accept=".csv,text/csv"
-              :disabled="locked"
-              class="text-sm file:mr-3 file:rounded-md file:border file:border-input file:bg-background file:px-3 file:py-1.5 file:text-sm"
-              @change="onFile"
-            />
-          </div>
+          <FileInput
+            v-model="file"
+            :label="t('imports.upload.file')"
+            accept=".csv,text/csv"
+            :disabled="locked"
+          />
         </div>
 
         <details class="text-sm">

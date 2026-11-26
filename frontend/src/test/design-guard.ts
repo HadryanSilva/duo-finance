@@ -153,6 +153,7 @@ export function formatMoneyInFeatureViews(root: string = SRC): string[] {
 export const RAW_CONTROLS: { pattern: RegExp; allowedIn: string }[] = [
   { pattern: /<select\b/, allowedIn: 'shared/ui/NativeSelect.vue' },
   { pattern: /type="checkbox"/, allowedIn: 'shared/ui/Checkbox.vue' },
+  { pattern: /type="file"/, allowedIn: 'shared/ui/FileInput.vue' },
 ]
 
 /** Raw native controls in .vue files outside their shared component (file:line: text). */

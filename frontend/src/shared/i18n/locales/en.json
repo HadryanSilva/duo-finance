@@ -68,6 +68,7 @@
     "Invalid": "Invalid value."
   },
   "common": {
+    "file": { "choose": "Choose file", "none": "No file chosen" },
     "logout": "Sign out",
     "signIn": "Sign in",
     "cancel": "Cancel",
