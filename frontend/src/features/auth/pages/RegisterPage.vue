@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Checkbox from '@/shared/ui/Checkbox.vue'
 import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import { computed, ref } from 'vue'
@@ -163,12 +164,11 @@ const submit = handleSubmit(async (v) => {
     />
     <div class="grid gap-2">
       <div class="flex items-start gap-2">
-        <input
+        <Checkbox
           id="register-terms"
           v-model="acceptTerms"
           v-bind="acceptTermsAttrs"
-          type="checkbox"
-          class="mt-0.5 size-4 accent-primary"
+          class="mt-0.5"
           :aria-invalid="errors.acceptTerms ? 'true' : undefined"
           :aria-describedby="errors.acceptTerms ? 'register-terms-error' : undefined"
         />

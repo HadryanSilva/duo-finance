@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Checkbox from '@/shared/ui/Checkbox.vue'
 import { toTypedSchema } from '@vee-validate/zod'
 import { useQuery } from '@tanstack/vue-query'
 import { useForm } from 'vee-validate'
@@ -229,12 +230,11 @@ async function retryLogin(credential: string) {
     />
     <div class="grid gap-2">
       <div class="flex items-start gap-2">
-        <input
+        <Checkbox
           id="google-terms"
           v-model="acceptTerms"
           v-bind="acceptTermsAttrs"
-          type="checkbox"
-          class="mt-0.5 size-4 accent-primary"
+          class="mt-0.5"
           :aria-invalid="errors.acceptTerms ? 'true' : undefined"
           :aria-describedby="errors.acceptTerms ? 'google-terms-error' : undefined"
         />

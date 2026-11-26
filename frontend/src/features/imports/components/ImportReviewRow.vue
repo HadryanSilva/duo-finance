@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Checkbox from '@/shared/ui/Checkbox.vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatBusinessDate } from '@/shared/lib/dates'
@@ -47,15 +48,13 @@ const categoryInvalid = computed(
     :class="{ 'opacity-60': locked || !row.include }"
   >
     <div class="flex flex-wrap items-center gap-3">
-      <input
-        type="checkbox"
-        class="size-4 accent-primary"
-        :checked="row.include"
+      <Checkbox
+        :model-value="row.include"
         :disabled="locked"
         :aria-label="t('imports.review.include', { description: row.description })"
         :aria-invalid="includeInvalid ? 'true' : undefined"
         :aria-describedby="includeInvalid ? errorId : undefined"
-        @change="emit('include', ($event.target as HTMLInputElement).checked)"
+        @update:model-value="emit('include', !!$event)"
       />
       <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-center gap-2">
