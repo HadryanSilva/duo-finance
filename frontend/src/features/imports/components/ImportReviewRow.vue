@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Checkbox from '@/shared/ui/Checkbox.vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatBusinessDate } from '@/shared/lib/dates'
@@ -7,6 +8,7 @@ import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import MoneyText from '@/shared/ui/MoneyText.vue'
 import type { ReviewRow } from '../lib/review-state'
+import NativeSelect from '@/shared/ui/NativeSelect.vue'
 
 /** One planned row of the review: include checkbox, amount and category (none for a transfer). */
 const props = defineProps<{
@@ -38,9 +40,6 @@ const includeInvalid = computed(() => !!props.error && (props.error.onInclude ||
 const categoryInvalid = computed(
   () => (!!props.error && !includeInvalid.value) || (props.row.include && !props.row.categoryId),
 )
-
-const SELECT =
-  'h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 sm:w-56'
 </script>
 
 <template>
@@ -49,15 +48,13 @@ const SELECT =
     :class="{ 'opacity-60': locked || !row.include }"
   >
     <div class="flex flex-wrap items-center gap-3">
-      <input
-        type="checkbox"
-        class="size-4 accent-primary"
-        :checked="row.include"
+      <Checkbox
+        :model-value="row.include"
         :disabled="locked"
         :aria-label="t('imports.review.include', { description: row.description })"
         :aria-invalid="includeInvalid ? 'true' : undefined"
         :aria-describedby="includeInvalid ? errorId : undefined"
-        @change="emit('include', ($event.target as HTMLInputElement).checked)"
+        @update:model-value="emit('include', !!$event)"
       />
       <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-center gap-2">
@@ -78,19 +75,19 @@ const SELECT =
         </p>
       </div>
       <MoneyText :cents="row.amountCents" :kind="row.kind" class="font-semibold" />
-      <select
+      <NativeSelect
         v-if="!isTransfer"
-        :class="SELECT"
-        :value="row.categoryId ?? ''"
+        class="sm:w-56"
+        :model-value="row.categoryId ?? ''"
         :disabled="locked"
         :aria-label="t('imports.review.category', { description: row.description })"
         :aria-invalid="categoryInvalid ? 'true' : undefined"
         :aria-describedby="error && !includeInvalid ? errorId : undefined"
-        @change="emit('category', ($event.target as HTMLSelectElement).value)"
+        @update:model-value="emit('category', $event ?? '')"
       >
         <option value="" disabled>{{ t('imports.review.chooseCategory') }}</option>
         <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.label }}</option>
-      </select>
+      </NativeSelect>
     </div>
     <p v-if="error" :id="errorId" class="text-sm text-destructive">{{ error.message }}</p>
     <div

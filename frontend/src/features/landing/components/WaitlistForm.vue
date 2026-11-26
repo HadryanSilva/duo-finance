@@ -12,6 +12,7 @@ import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { applyFieldErrors } from '@/shared/ui/FormErrors'
 import { joinWaitlist } from '../api/landing-api'
+import NativeSelect from '@/shared/ui/NativeSelect.vue'
 
 const { t } = useI18n()
 const http = useHttp()
@@ -81,15 +82,10 @@ const submit = handleSubmit(async (v) => {
       </div>
       <div class="grid gap-2">
         <Label for="waitlist-locale">{{ t('auth.register.locale') }}</Label>
-        <select
-          id="waitlist-locale"
-          v-model="locale"
-          v-bind="localeAttrs"
-          class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-        >
+        <NativeSelect id="waitlist-locale" v-model="locale" v-bind="localeAttrs">
           <option value="pt-BR">Português (Brasil)</option>
           <option value="en">English</option>
-        </select>
+        </NativeSelect>
       </div>
       <Button type="submit" :disabled="isSubmitting">{{ t('landing.waitlist.submit') }}</Button>
     </form>

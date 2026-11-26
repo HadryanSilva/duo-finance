@@ -68,6 +68,7 @@
     "Invalid": "Valor inválido."
   },
   "common": {
+    "file": { "choose": "Escolher arquivo", "none": "Nenhum arquivo selecionado" },
     "logout": "Sair",
     "signIn": "Entrar",
     "cancel": "Cancelar",

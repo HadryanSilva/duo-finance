@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, useId } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useCategories } from '@/shared/api/queries/categories'
 import { useGoalSettings, useUpdateGoalSettings } from '@/shared/api/queries/goals'
 import { errorMessage } from '@/shared/i18n/error-codes'
 import { Label } from '@/shared/ui/label'
-import { nativeSelectClass } from '@/shared/ui/native-select'
+import NativeSelect from '@/shared/ui/NativeSelect.vue'
 
 const { t } = useI18n()
 const id = useId()
@@ -28,17 +28,23 @@ const options = computed(() => {
   return list
 })
 
-async function onChange(event: Event) {
-  const select = event.target as HTMLSelectElement
-  const value = select.value
-  if (!value) return
+// What the select shows: the saved category, or the one being saved.
+const picked = ref('')
+watch(
+  () => saved.value?.id,
+  (id) => (picked.value = id ?? ''),
+  { immediate: true },
+)
+
+async function onChange(value: string | undefined) {
+  if (!value || value === saved.value?.id) return
   error.value = null
   try {
     await save.mutateAsync({ salaryCategoryId: value })
   } catch (e) {
     error.value = errorMessage(e)
     // The choice was not saved: show the saved one again rather than the one just picked.
-    select.value = saved.value?.id ?? ''
+    picked.value = saved.value?.id ?? ''
   }
 }
 </script>
@@ -46,16 +52,15 @@ async function onChange(event: Event) {
 <template>
   <div class="mb-4 grid gap-2 rounded-lg border border-border bg-card p-4 sm:max-w-md">
     <Label :for="id">{{ t('goals.salary.label') }}</Label>
-    <select
+    <NativeSelect
       :id="id"
-      :class="nativeSelectClass"
-      :value="saved?.id ?? ''"
+      v-model="picked"
       :disabled="save.isPending.value"
-      @change="onChange"
+      @update:model-value="onChange"
     >
       <option value="" disabled>{{ t('goals.salary.choose') }}</option>
       <option v-for="o in options" :key="o.id" :value="o.id">{{ o.label }}</option>
-    </select>
+    </NativeSelect>
     <p v-if="saved?.archived" role="status" class="text-sm text-warning">
       {{ t('goals.salary.archivedWarning') }}
     </p>

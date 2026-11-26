@@ -11,6 +11,7 @@ import { Button } from '@/shared/ui/button'
 import { Label } from '@/shared/ui/label'
 import { applyFieldErrors } from '@/shared/ui/FormErrors'
 import MoneyInput from '@/shared/ui/MoneyInput.vue'
+import NativeSelect from '@/shared/ui/NativeSelect.vue'
 
 const emit = defineEmits<{ done: [] }>()
 
@@ -85,14 +86,9 @@ const submit = handleSubmit(async (values) => {
     />
     <div class="grid gap-2">
       <Label for="onboarding-bank-type">{{ t('onboarding.bank.type') }}</Label>
-      <select
-        id="onboarding-bank-type"
-        v-model="type"
-        v-bind="typeAttrs"
-        class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
+      <NativeSelect id="onboarding-bank-type" v-model="type" v-bind="typeAttrs">
         <option v-for="o in TYPES" :key="o" :value="o">{{ t(`bankAccountType.${o}`) }}</option>
-      </select>
+      </NativeSelect>
       <p v-if="errors.type" class="text-sm text-destructive">{{ errors.type }}</p>
     </div>
     <MoneyInput
