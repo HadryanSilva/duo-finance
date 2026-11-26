@@ -41,6 +41,13 @@ describe('FileInput', () => {
     expect(screen.getByText('extrato.csv')).toBeTruthy()
   })
 
+  it('names the file in full on hover, since a long name is clamped', async () => {
+    const { C } = host()
+    const r = await render(C)
+    await r.user.upload(input(), csv())
+    expect(screen.getByText('extrato.csv').getAttribute('title')).toBe('extrato.csv')
+  })
+
   it('clears when the model resets', async () => {
     const { C, value } = host()
     const r = await render(C)

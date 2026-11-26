@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronRight } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
@@ -54,8 +55,14 @@ function onSubmit() {
           />
         </div>
 
-        <details class="text-sm">
-          <summary class="cursor-pointer font-medium text-primary">
+        <details class="group text-sm">
+          <summary
+            class="flex w-fit cursor-pointer list-none items-center gap-1 font-medium text-primary"
+          >
+            <ChevronRight
+              class="size-4 shrink-0 transition-transform group-open:rotate-90"
+              aria-hidden="true"
+            />
             {{ t('imports.upload.helpTitle') }}
           </summary>
           <p class="mt-2 text-muted-foreground">{{ t('imports.upload.help') }}</p>

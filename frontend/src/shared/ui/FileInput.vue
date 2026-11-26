@@ -51,7 +51,10 @@ watch(model, (file) => {
       >
         {{ t('common.file.choose') }}
       </label>
-      <span class="min-w-0 truncate text-sm text-muted-foreground">
+      <span
+        class="line-clamp-2 min-w-0 text-sm wrap-anywhere text-muted-foreground"
+        :title="model?.name"
+      >
         {{ model?.name ?? t('common.file.none') }}
       </span>
     </div>
