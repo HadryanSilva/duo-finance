@@ -459,7 +459,7 @@ class GoalMovementControllerTest {
         String goal = createGoal(s, 100000, 10);
 
         JsonNode overview = body(send(HttpMethod.GET, s, GOALS + "?month=2027-05", null));
-        assertThat(overview.path("suggestions")).hasSize(1);
+        assertThat(overview.path("monthTargets")).hasSize(1);
         assertThat(contribute(s, goal, "2027-05-01", 1000L)).hasStatus(HttpStatus.CREATED);
         assertError(contribute(s, goal, "2027-06-10", 100L), HttpStatus.BAD_REQUEST, "GOAL_MONTH_INVALID");
     }
@@ -478,7 +478,7 @@ class GoalMovementControllerTest {
         String goal = createGoal(s, 100000, 10);
 
         JsonNode overview = body(send(HttpMethod.GET, s, GOALS + "?month=2027-04", null));
-        assertThat(overview.path("suggestions")).hasSize(1);
+        assertThat(overview.path("monthTargets")).hasSize(1);
         assertThat(contribute(s, goal, "2027-04-30", 1000L)).hasStatus(HttpStatus.CREATED);
         assertError(contribute(s, goal, "2027-03-10", 100L), HttpStatus.BAD_REQUEST, "GOAL_MONTH_INVALID");
     }

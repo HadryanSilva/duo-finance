@@ -125,4 +125,13 @@ class GoalProjectionTest {
         assertThat(GoalProjections.of(100000, 120000, null, List.of(5L), TODAY, PENDING))
                 .isNull();
     }
+
+    @Test
+    void pace_usesMonthlyTotals() {
+        // Two months with 125000 and 30000 in total average 77500; 232500 left is three months: March to May.
+        GoalProjection p = GoalProjections.of(300000, 67500, null, List.of(125000L, 30000L), TODAY, PENDING);
+
+        assertThat(p).isNotNull();
+        assertThat(p.projectedMonth()).isEqualTo(YearMonth.of(2027, 5));
+    }
 }

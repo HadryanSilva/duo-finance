@@ -40,7 +40,7 @@ class DashboardControllerTest {
 
     private static final String BASE = "/api/v1/dashboard";
     private static final long AUTH_STATEMENTS = 2;
-    private static final long GOALS_STATEMENTS = 7;
+    private static final long GOALS_STATEMENTS = 9;
 
     @Autowired
     MockMvcTester mvc;
@@ -674,8 +674,9 @@ class DashboardControllerTest {
         long large = statementsFor(s);
 
         // 2 auth/entitlement + 9 for the dashboard: totals with currency, bank accounts, balances, last imported dates,
-        // spending, budgets, budget categories, spending categories, active rules; plus 7 for the goals overview
-        // (decided this month, saved, last contributions, goals, salary setting, salary category, salary total).
+        // spending, budgets, budget categories, spending categories, active rules; plus 9 for the goals overview
+        // (contributed and skipped this month, saved, last monthly totals, goals, salary setting, salary category,
+        // salary total, first months).
         assertThat(small).isEqualTo(AUTH_STATEMENTS + 9 + GOALS_STATEMENTS);
         assertThat(large).isEqualTo(small);
     }
