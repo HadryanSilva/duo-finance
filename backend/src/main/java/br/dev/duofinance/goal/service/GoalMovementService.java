@@ -159,16 +159,29 @@ public class GoalMovementService {
     }
 
     /**
-     * The transaction a movement mirrors was edited or deleted: drop the movement unless the transaction is still a
-     * transfer, in which case it takes the transaction's amount and date.
+     * The transaction a movement mirrors was edited: drop the movement unless the transaction is still a transfer, in
+     * which case it takes the transaction's amount and date. A contribution that lands in a skipped month supersedes
+     * the skip; a withdrawal is clamped so the goal's saved amount never goes below zero. (Deleting the transaction
+     * needs no call: the movement goes with it through ON DELETE CASCADE.)
      */
     @Transactional
-    public void followTransaction(UUID transactionId, TransactionKind kind, long amountCents, LocalDate date) {
+    public void followTransaction(
+            UUID accountId, UUID transactionId, TransactionKind kind, long amountCents, LocalDate date) {
+        if (movements.findByTransactionId(transactionId).isEmpty()) {
+            return;
+        }
+        // Lock order: the account row first, then re-read the movement under the lock.
+        accounts.findByIdForUpdate(accountId).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
         movements.findByTransactionId(transactionId).ifPresent(movement -> {
             if (kind != TransactionKind.TRANSFER) {
                 movements.delete(movement);
+            } else if (movement.getType() == GoalMovementType.WITHDRAWAL) {
+                long room = saved.savedOf(movement.getGoalId()) + movement.getAmountCents();
+                movement.followTransaction(Math.min(amountCents, room), date);
             } else {
                 movement.followTransaction(amountCents, date);
+                movements.deleteByGoalIdAndMonthAndType(
+                        movement.getGoalId(), movement.getMonth(), GoalMovementType.SKIP);
             }
             movements.flush();
         });

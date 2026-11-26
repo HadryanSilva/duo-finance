@@ -1,5 +1,6 @@
 package br.dev.duofinance.transaction.service;
 
+import br.dev.duofinance.goal.service.GoalMovementService;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ErrorCode;
 import br.dev.duofinance.shared.finance.FinanceValidation;
@@ -24,16 +25,19 @@ public class TransactionService {
     private final TransactionRepository transactions;
     private final TransactionReferenceValidator validator;
     private final TransactionResponseAssembler assembler;
+    private final GoalMovementService goalMovements;
     private final Clock clock;
 
     public TransactionService(
             TransactionRepository transactions,
             TransactionReferenceValidator validator,
             TransactionResponseAssembler assembler,
+            GoalMovementService goalMovements,
             Clock clock) {
         this.transactions = transactions;
         this.validator = validator;
         this.assembler = assembler;
+        this.goalMovements = goalMovements;
         this.clock = clock;
     }
 
@@ -58,6 +62,7 @@ public class TransactionService {
                 transaction.getCategoryId(), transaction.getBankAccountId(), transaction.getDestinationBankAccountId());
         validate(accountId, request, current);
         apply(transaction, request, Instant.now(clock));
+        goalMovements.followTransaction(accountId, id, request.kind(), request.amountCents(), request.date());
         return respond(accountId, transactions.saveAndFlush(transaction));
     }
 
