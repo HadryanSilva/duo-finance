@@ -176,14 +176,18 @@ public class GoalService {
         lockAccount(accountId);
         String name = request.name().strip();
         requireNameFree(accountId, name, null);
+        String pocket = PocketNames.clean(request.revolutPocket());
+        requirePocketFree(accountId, pocket, null);
         requirePercentFits(accountId, null, request.monthlyPercent());
-        Goal goal = goals.saveAndFlush(new Goal(
+        Goal goal = new Goal(
                 accountId,
                 name,
                 request.targetCents(),
                 request.targetDate(),
                 request.monthlyPercent(),
-                Instant.now(clock)));
+                Instant.now(clock));
+        goal.setRevolutPocket(pocket);
+        goals.saveAndFlush(goal);
         return single(goal);
     }
 
@@ -196,11 +200,14 @@ public class GoalService {
         }
         String name = request.name().strip();
         requireNameFree(accountId, name, id);
+        String pocket = PocketNames.clean(request.revolutPocket());
+        requirePocketFree(accountId, pocket, id);
         requirePercentFits(accountId, id, request.monthlyPercent());
         goal.setName(name);
         goal.setTargetCents(request.targetCents());
         goal.setTargetDate(request.targetDate());
         goal.setMonthlyPercent(request.monthlyPercent());
+        goal.setRevolutPocket(pocket);
         goal.setUpdatedAt(Instant.now(clock));
         return single(goals.saveAndFlush(goal));
     }
@@ -233,6 +240,7 @@ public class GoalService {
             throw new ApiException(ErrorCode.GOAL_COMPLETED);
         }
         requireNameFree(accountId, goal.getName(), id);
+        requirePocketFree(accountId, goal.getRevolutPocket(), id);
         requirePercentFits(accountId, id, goal.getMonthlyPercent());
         goal.setCompletedAt(null);
         goal.setUpdatedAt(Instant.now(clock));
@@ -260,6 +268,21 @@ public class GoalService {
                         && g.getName().equalsIgnoreCase(name));
         if (taken) {
             throw new ApiException(ErrorCode.GOAL_NAME_TAKEN);
+        }
+    }
+
+    void requirePocketFree(UUID accountId, @Nullable String pocket, @Nullable UUID exceptId) {
+        if (pocket == null) {
+            return;
+        }
+        String wanted = PocketNames.normalise(pocket);
+        boolean taken = goals.findByAccountIdOrderByCreatedAtAscIdAsc(accountId).stream()
+                .anyMatch(g -> !g.isCompleted()
+                        && !g.getId().equals(exceptId)
+                        && g.getRevolutPocket() != null
+                        && PocketNames.normalise(g.getRevolutPocket()).equals(wanted));
+        if (taken) {
+            throw new ApiException(ErrorCode.GOAL_POCKET_TAKEN);
         }
     }
 

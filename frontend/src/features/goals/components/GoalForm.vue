@@ -43,6 +43,7 @@ const schema = computed(() =>
         .trim()
         .regex(/^\d{1,3}$/, t('goals.form.percentRange'))
         .refine((v) => Number(v) <= 100, { message: t('goals.form.percentRange') }),
+      revolutPocket: z.string().trim().max(100, t('goals.form.pocketMax')),
     }),
   ),
 )
@@ -55,34 +56,43 @@ const { defineField, handleSubmit, errors, isSubmitting, setFieldError } = useFo
     targetCents: (goal?.targetCents ?? null) as number | null,
     targetDate: goal?.targetDate ?? '',
     monthlyPercent: String(goal?.monthlyPercent ?? 0),
+    revolutPocket: goal?.revolutPocket ?? '',
   },
 })
 const [name] = defineField('name')
 const [target] = defineField('targetCents')
 const [targetDate] = defineField('targetDate')
 const [percent] = defineField('monthlyPercent')
+const [pocket] = defineField('revolutPocket')
 const formError = ref<string | null>(null)
 
-const FIELD_CODES: Record<string, 'name' | 'monthlyPercent'> = {
+const FIELD_CODES: Record<string, 'name' | 'monthlyPercent' | 'revolutPocket'> = {
   GOAL_NAME_TAKEN: 'name',
   GOAL_PERCENT_CAP: 'monthlyPercent',
+  GOAL_POCKET_TAKEN: 'revolutPocket',
 }
 
 const submit = handleSubmit(async (values) => {
   formError.value = null
-  // No date is sent as a missing field, which the API reads as null (also clearing it on edit).
+  // No date or pocket is sent as a missing field, which the API reads as null (also clearing it on edit).
   const body: CreateGoalRequest = {
     name: values.name.trim(),
     targetCents: values.targetCents as number,
     targetDate: values.targetDate || undefined,
     monthlyPercent: Number(values.monthlyPercent),
+    revolutPocket: values.revolutPocket || undefined,
   }
   try {
     if (goal) await update.mutateAsync({ id: goal.id, body })
     else await create.mutateAsync(body)
   } catch (e) {
     const shown = applyFieldErrors(e, (field, message) => {
-      if (field === 'name' || field === 'targetCents' || field === 'monthlyPercent') {
+      if (
+        field === 'name' ||
+        field === 'targetCents' ||
+        field === 'monthlyPercent' ||
+        field === 'revolutPocket'
+      ) {
         setFieldError(field, message)
       } else {
         formError.value = message
@@ -117,6 +127,12 @@ const submit = handleSubmit(async (values) => {
       :label="t('goals.form.percent')"
       :hint="t('goals.form.percentHint')"
       :error="errors.monthlyPercent"
+    />
+    <TextField
+      v-model="pocket"
+      :label="t('goals.form.pocket')"
+      :hint="t('goals.form.pocketHint')"
+      :error="errors.revolutPocket"
     />
     <div class="flex justify-end pt-2">
       <Button type="submit" :disabled="isSubmitting">{{ t('common.save') }}</Button>

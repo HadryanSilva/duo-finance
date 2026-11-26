@@ -37,6 +37,7 @@
     "GOAL_MONTH_TAKEN": "This month was already confirmed or skipped.",
     "GOAL_MONTH_HAS_CONTRIBUTIONS": "This month already has contributions, so it cannot be skipped.",
     "GOAL_MOVEMENT_IMPORTED": "This movement came from an import and cannot be undone here. Undo the import instead.",
+    "GOAL_POCKET_TAKEN": "Another active goal already uses this Revolut pocket.",
     "GOAL_MONTH_INVALID": "Month is outside the goal period.",
     "MONTH_NOT_CLOSED": "That month is not over yet.",
     "GOAL_AMOUNT_INVALID": "Invalid amount for this goal: it would go below zero or above the target.",
@@ -637,6 +638,9 @@
       "targetDatePast": "Choose today or a later date.",
       "percent": "Share of salary",
       "percentHint": "0 = no monthly suggestion",
+      "pocket": "Revolut pocket",
+      "pocketHint": "The pocket's name in the Revolut app, to link imports",
+      "pocketMax": "Use at most 100 characters.",
       "percentRange": "Enter a whole number from 0 to 100."
     },
     "amount": {

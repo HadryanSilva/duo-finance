@@ -1090,6 +1090,7 @@ export interface components {
             targetDate?: string;
             /** Format: int32 */
             monthlyPercent: number;
+            revolutPocket?: string | null;
         };
         GoalProjection: {
             requiredMonthlyCents: number | null;
@@ -1114,6 +1115,7 @@ export interface components {
             completedAt: string | null;
             /** Format: date-time */
             createdAt: string;
+            revolutPocket?: string | null;
             projection: components["schemas"]["GoalProjection"] | null;
         };
         UpdateGoalSettingsRequest: {
@@ -1265,6 +1267,7 @@ export interface components {
             targetDate?: string;
             /** Format: int32 */
             monthlyPercent: number;
+            revolutPocket?: string | null;
         };
         GoalAmountRequest: {
             /** Format: int64 */

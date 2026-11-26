@@ -498,6 +498,38 @@ describe('GoalsPage', () => {
     expect(s.calls.post).toBeUndefined()
   })
 
+  it('goals_form_sendsPocket', async () => {
+    const s = setup()
+    const { user } = await s.render()
+    await user.click(await screen.findByRole('button', { name: 'Novo objetivo' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Novo objetivo' })
+    await user.type(within(dialog).getByLabelText('Nome'), 'Reserva')
+    await user.type(within(dialog).getByLabelText('Valor alvo'), '500')
+    await user.type(within(dialog).getByLabelText('Pocket da Revolut'), '  Reserva de Emergência ')
+    expect(
+      within(dialog).getByText('Nome do pocket no app da Revolut, para ligar as importações'),
+    ).toBeTruthy()
+    await user.click(within(dialog).getByRole('button', { name: 'Salvar' }))
+    await waitFor(() =>
+      expect(s.calls.post).toEqual({
+        name: 'Reserva',
+        targetCents: 50000,
+        monthlyPercent: 0,
+        revolutPocket: 'Reserva de Emergência',
+      }),
+    )
+  })
+
+  it('goals_form_editShowsStoredPocket', async () => {
+    const s = setup({ goals: [{ ...goal, revolutPocket: 'Viagem' }] })
+    const { user } = await s.render()
+    await user.click(await screen.findByRole('button', { name: 'Editar Videogame novo' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Editar objetivo' })
+    expect((within(dialog).getByLabelText('Pocket da Revolut') as HTMLInputElement).value).toBe(
+      'Viagem',
+    )
+  })
+
   it('goals_create_withoutDate_omitsIt', async () => {
     const s = setup()
     const { user } = await s.render()

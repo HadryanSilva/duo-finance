@@ -37,6 +37,7 @@
     "GOAL_MONTH_TAKEN": "Este mês já foi confirmado ou pulado.",
     "GOAL_MONTH_HAS_CONTRIBUTIONS": "Este mês já tem contribuições; não dá para pulá-lo.",
     "GOAL_MOVEMENT_IMPORTED": "Esta movimentação veio de uma importação e não pode ser desfeita aqui. Desfaça a importação.",
+    "GOAL_POCKET_TAKEN": "Outro objetivo ativo já usa este pocket da Revolut.",
     "GOAL_MONTH_INVALID": "Mês fora do período do objetivo.",
     "MONTH_NOT_CLOSED": "Esse mês ainda não terminou.",
     "GOAL_AMOUNT_INVALID": "Valor inválido para este objetivo: ele ficaria negativo ou acima da meta.",
@@ -637,6 +638,9 @@
       "targetDatePast": "Escolha hoje ou uma data futura.",
       "percent": "Porcentagem do salário",
       "percentHint": "0 = sem sugestão mensal",
+      "pocket": "Pocket da Revolut",
+      "pocketHint": "Nome do pocket no app da Revolut, para ligar as importações",
+      "pocketMax": "Use no máximo 100 caracteres.",
       "percentRange": "Informe um número inteiro de 0 a 100."
     },
     "amount": {
