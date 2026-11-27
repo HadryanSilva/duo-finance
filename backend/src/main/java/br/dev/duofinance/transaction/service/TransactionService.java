@@ -61,8 +61,15 @@ public class TransactionService {
         ReferenceSnapshot current = new ReferenceSnapshot(
                 transaction.getCategoryId(), transaction.getBankAccountId(), transaction.getDestinationBankAccountId());
         validate(accountId, request, current);
+        // A linked goal movement only follows a change of kind, amount or date: re-evaluating it on any other edit
+        // would re-clamp a withdrawal against today's saved amount.
+        boolean movementInputsChanged = transaction.getKind() != request.kind()
+                || transaction.getAmountCents() != request.amountCents()
+                || !transaction.getDate().equals(request.date());
         apply(transaction, request, Instant.now(clock));
-        goalMovements.followTransaction(accountId, id, request.kind(), request.amountCents(), request.date());
+        if (movementInputsChanged) {
+            goalMovements.followTransaction(accountId, id, request.kind(), request.amountCents(), request.date());
+        }
         return respond(accountId, transactions.saveAndFlush(transaction));
     }
 

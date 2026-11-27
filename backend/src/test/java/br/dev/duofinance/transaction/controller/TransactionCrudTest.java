@@ -557,6 +557,24 @@ class TransactionCrudTest {
         assertThat(saved(goal)).isZero();
     }
 
+    /** 300 left the pocket but the goal held 100, so 100 was recorded; the goal has since grown to 500. */
+    @Test
+    void update_linkedWithdrawalDescriptionOnly_keepsAmount() {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID goal = goalWithPocket(s);
+        movement(s, goal, "CONTRIBUTION", 100, "2026-10-01", null);
+        UUID id = linkedTransfer(s, goal, "WITHDRAWAL", 300, "2026-11-05");
+        jdbc.update("UPDATE goal_movements SET amount_cents = 100 WHERE transaction_id = ?", id);
+        movement(s, goal, "CONTRIBUTION", 500, "2026-11-10", null);
+        Map<String, Object> body = editedTransfer(id, 300, "2026-11-05");
+        body.put("description", "Pocket renamed");
+
+        assertThat(send(HttpMethod.PUT, s, BASE + "/" + id, body)).hasStatus(HttpStatus.OK);
+
+        assertThat(((Number) linkedMovement(goal).get("amount_cents")).longValue()).isEqualTo(100);
+        assertThat(saved(goal)).isEqualTo(500);
+    }
+
     /** A linked contribution of 1000 followed by a manual withdrawal of 800: the goal holds 200. */
     private UUID contributionThenWithdrawal(TestSession s, UUID goal) {
         UUID id = linkedTransfer(s, goal, "CONTRIBUTION", 1000, "2026-11-05");
