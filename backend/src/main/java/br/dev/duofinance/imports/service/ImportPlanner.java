@@ -30,8 +30,8 @@ public final class ImportPlanner {
         LinkedHashSet<String> products = new LinkedHashSet<>();
         for (RevolutRow row : rows) products.add(row.product());
 
+        // The statement's own account: savings-product rows (pocket moves, interest) belong to it too.
         UUID current = ctx.productMapping().get(CURRENT);
-        UUID pockets = pocketsAccount(products, ctx);
         boolean[] pocket = new boolean[rows.size()];
         UUID[] accounts = new UUID[rows.size()];
         List<SkippedRow> skipped = new ArrayList<>();
@@ -40,12 +40,9 @@ public final class ImportPlanner {
         for (int i = 0; i < rows.size(); i++) {
             RevolutRow row = rows.get(i);
             pocket[i] = PocketRows.isPocketRow(row);
-            if (pocket[i]) {
-                accounts[i] = PocketRows.isSavingsProduct(row.product()) ? pockets : current;
-            } else {
-                accounts[i] = ctx.productMapping().get(row.product());
-            }
-            SkipReason reason = skipReason(row, accountProblem(pocket[i], accounts[i], current, pockets), ctx);
+            accounts[i] =
+                    PocketRows.isSavingsProduct(row.product()) ? current : ctx.productMapping().get(row.product());
+            SkipReason reason = skipReason(row, accounts[i] == null ? SkipReason.PRODUCT_IGNORED : null, ctx);
             if (reason == null) {
                 importable.add(i);
             } else {
@@ -54,7 +51,7 @@ public final class ImportPlanner {
             }
         }
 
-        int[] partner = pairTransfers(rows, importable, fingerprints, accounts, ctx);
+        int[] partner = pairTransfers(rows, importable, fingerprints, accounts, pocket, ctx);
 
         List<PlannedRow> planned = new ArrayList<>();
         Set<String> pocketMoves = new HashSet<>(); // row ids of planned pocket moves: each move is planned once
@@ -63,7 +60,7 @@ public final class ImportPlanner {
             if (p != -1 && p < i) continue; // already emitted together with its partner
             RevolutRow row = rows.get(i);
             if (p == -1 && pocket[i]) {
-                planPocketLeg(planned, pocketMoves, fingerprints.get(i), row, current, pockets, ctx);
+                planPocketLeg(planned, pocketMoves, fingerprints.get(i), row, current, ctx);
             } else if (p == -1) {
                 TransactionKind kind = row.amountCents() < 0 ? TransactionKind.EXPENSE : TransactionKind.INCOME;
                 planned.add(build(fingerprints.get(i), row, kind, Math.abs(row.amountCents()), accounts[i], null,
@@ -79,9 +76,10 @@ public final class ImportPlanner {
                     if (!pocketMoves.add(fingerprints.get(neg))) continue;
                     info = pocketInfo(pocket[pos] ? posRow : negRow, ctx);
                 }
+                // A pocket move stays in the statement's account: no destination account.
                 planned.add(build(fingerprints.get(neg), negRow, TransactionKind.TRANSFER,
-                        Math.abs(negRow.amountCents()), accounts[neg], accounts[pos], negRow.description(), ctx,
-                        info));
+                        Math.abs(negRow.amountCents()), accounts[neg], info == null ? accounts[pos] : null,
+                        negRow.description(), ctx, info));
                 addFee(planned, fingerprints.get(neg), negRow, accounts[neg], ctx);
                 addFee(planned, fingerprints.get(pos), posRow, accounts[pos], ctx);
             }
@@ -89,22 +87,13 @@ public final class ImportPlanner {
         return new ImportPlan(List.copyOf(products), planned, skipped);
     }
 
-    /** The mapping of the savings product in the file, else the account remembered for pockets. */
-    private static @Nullable UUID pocketsAccount(Set<String> products, PlanContext ctx) {
-        for (String product : products) {
-            UUID mapped = PocketRows.isSavingsProduct(product) ? ctx.productMapping().get(product) : null;
-            if (mapped != null) return mapped;
-        }
-        return ctx.pocketsBankAccountId();
-    }
-
     /**
-     * A pocket leg without its partner is still a transfer between Current and the pockets account. It takes the
+     * A pocket leg without its partner is still one pocket move in the statement's account. It takes the
      * fingerprint of the move's negative leg, synthesised when this leg is the positive one, so the move is recognised
      * as already imported whichever legs a later statement carries.
      */
     private static void planPocketLeg(List<PlannedRow> out, Set<String> pocketMoves, String fingerprint,
-            RevolutRow row, UUID current, UUID pockets, PlanContext ctx) {
+            RevolutRow row, UUID current, PlanContext ctx) {
         String rowId = fingerprint;
         if (row.amountCents() > 0) {
             String otherProduct = PocketRows.isSavingsProduct(row.product())
@@ -113,12 +102,9 @@ public final class ImportPlanner {
             rowId = RowFingerprints.forLeg(row, otherProduct, negate(row.amountRaw()));
         }
         if (!pocketMoves.add(rowId)) return;
-        PocketInfo info = pocketInfo(row, ctx);
-        boolean into = info.direction() == PocketInfo.Direction.INTO;
-        UUID own = PocketRows.isSavingsProduct(row.product()) ? pockets : current;
-        out.add(build(rowId, row, TransactionKind.TRANSFER, Math.abs(row.amountCents()), into ? current : pockets,
-                into ? pockets : current, row.description(), ctx, info));
-        addFee(out, fingerprint, row, own, ctx);
+        out.add(build(rowId, row, TransactionKind.TRANSFER, Math.abs(row.amountCents()), current, null,
+                row.description(), ctx, pocketInfo(row, ctx)));
+        addFee(out, fingerprint, row, current, ctx);
     }
 
     private static PocketInfo pocketInfo(RevolutRow row, PlanContext ctx) {
@@ -151,12 +137,13 @@ public final class ImportPlanner {
     }
 
     /**
-     * Pairs opposite-sign rows with the same Started Date on different mapped accounts, first match in file order. A
+     * Pairs opposite-sign rows with the same Started Date on different mapped accounts, first match in file order. The
+     * two legs of a pocket move pair on the statement's own account, and a pocket leg never pairs with another row. A
      * pair whose negative leg is stored as a TRANSFER is the already imported transfer; a pair with either leg stored
      * otherwise (INCOME/EXPENSE: the mapping changed between imports) is not paired, so each leg keeps its own status.
      */
     private static int[] pairTransfers(List<RevolutRow> rows, List<Integer> importable, List<String> fingerprints,
-            UUID[] accounts, PlanContext ctx) {
+            UUID[] accounts, boolean[] pocket, PlanContext ctx) {
         int[] partner = new int[rows.size()];
         Arrays.fill(partner, -1);
         for (int a = 0; a < importable.size(); a++) {
@@ -169,7 +156,8 @@ public final class ImportPlanner {
                 if (partner[j] == -1
                         && rj.startedRaw().equals(ri.startedRaw())
                         && rj.amountCents() == -ri.amountCents()
-                        && !accounts[i].equals(accounts[j])
+                        && pocket[i] == pocket[j]
+                        && (pocket[i] ? !ri.product().equals(rj.product()) : !accounts[i].equals(accounts[j]))
                         && pairable(fingerprints.get(i), ri, fingerprints.get(j), ctx)) {
                     partner[i] = j;
                     partner[j] = i;
@@ -185,17 +173,6 @@ public final class ImportPlanner {
         String negative = ri.amountCents() < 0 ? fpI : fpJ;
         if (stored.get(negative) == TransactionKind.TRANSFER) return true;
         return !stored.containsKey(fpI) && !stored.containsKey(fpJ);
-    }
-
-    /**
-     * Why the row has no account to land on, if it has none. A pocket move within one bank account leaves its balance
-     * unchanged, so both legs are skipped rather than planned as a transfer from the account to itself.
-     */
-    private static @Nullable SkipReason accountProblem(
-            boolean pocketRow, @Nullable UUID account, @Nullable UUID current, @Nullable UUID pockets) {
-        if (!pocketRow) return account == null ? SkipReason.PRODUCT_IGNORED : null;
-        if (current == null || pockets == null) return SkipReason.POCKET_NO_ACCOUNT;
-        return current.equals(pockets) ? SkipReason.POCKET_SAME_ACCOUNT : null;
     }
 
     private static @Nullable SkipReason skipReason(
@@ -236,7 +213,7 @@ public final class ImportPlanner {
         RowStatus status = RowStatus.NEW;
         if (ctx.existingFingerprints().containsKey(rowId)) {
             status = RowStatus.ALREADY_IMPORTED;
-        } else if (manualInWindow(row, kind, amount, account, ctx)) {
+        } else if (pocket == null && manualInWindow(row, kind, amount, account, ctx)) {
             status = RowStatus.POSSIBLE_DUPLICATE;
         }
         return new PlannedRow(

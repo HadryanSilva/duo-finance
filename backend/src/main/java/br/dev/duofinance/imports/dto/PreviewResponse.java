@@ -2,6 +2,7 @@ package br.dev.duofinance.imports.dto;
 
 import br.dev.duofinance.imports.service.ImportPlan;
 import br.dev.duofinance.imports.service.PlannedRow;
+import br.dev.duofinance.imports.service.PocketRows;
 import br.dev.duofinance.imports.service.RowStatus;
 import br.dev.duofinance.imports.service.SkipReason;
 import br.dev.duofinance.imports.service.SkippedRow;
@@ -63,7 +64,9 @@ public record PreviewResponse(List<ProductMapping> products, List<PreviewRow> ro
 
     /** {@code mapping} is the effective product to bank account assignment; unmapped products show null. */
     public static PreviewResponse of(ImportPlan plan, Map<String, UUID> mapping) {
+        // Savings products have no mapping to choose: their rows belong to the statement's own account.
         List<ProductMapping> products = plan.products().stream()
+                .filter(p -> !PocketRows.isSavingsProduct(p))
                 .map(p -> new ProductMapping(p, mapping.get(p)))
                 .toList();
         List<PlannedRow> applied =

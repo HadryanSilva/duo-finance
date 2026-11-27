@@ -10,8 +10,9 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Everything the planner needs besides the rows; loaded from the database by the caller. {@code existingFingerprints}
- * maps each stored import fingerprint to the kind of the transaction stored under it. {@code pocketsBankAccountId} is
- * the remembered other side of pocket moves when the file has no mapped savings product.
+ * maps each stored import fingerprint to the kind of the transaction stored under it; a fingerprint kept by an
+ * imported goal movement (a pocket move) counts as a TRANSFER.
+ * Savings products need no mapping: their rows belong to the statement's own account (the {@code Current} one).
  */
 public record PlanContext(
         String accountCurrency,
@@ -21,7 +22,6 @@ public record PlanContext(
         Map<TransactionKind, UUID> defaultCategories,
         Set<DuplicateKey> manualTransactions,
         String feeDescription,
-        @Nullable UUID pocketsBankAccountId,
         List<GoalRef> activeGoals) {
 
     public record MemoryKey(String descriptionKey, TransactionKind kind) {}

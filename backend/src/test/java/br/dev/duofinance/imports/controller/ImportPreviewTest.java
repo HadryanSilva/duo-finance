@@ -99,7 +99,7 @@ class ImportPreviewTest {
         assertThat(root.path("products").get(0).path("product").asString()).isEqualTo("Current");
         assertThat(root.path("products").get(0).path("bankAccountId").asString())
                 .isEqualTo(bank.toString());
-        assertThat(root.path("products").get(1).path("product").asString()).isEqualTo("Savings");
+        assertThat(root.path("products").get(1).path("product").asString()).isEqualTo("Vault");
         assertThat(root.path("products").get(1).path("bankAccountId").isNull()).isTrue();
         JsonNode cafe = row(root, "Cafe Aurora");
         assertThat(cafe.path("kind").asString()).isEqualTo("EXPENSE");
@@ -218,7 +218,7 @@ class ImportPreviewTest {
         UUID bank = fixtures.bankAccount(s, "Revolut", 0);
         UUID savings = fixtures.bankAccount(s, "Savings", 0);
 
-        JsonNode root = body(preview(s, sample(), bank.toString(), "{\"Savings\":\"" + savings + "\"}"));
+        JsonNode root = body(preview(s, sample(), bank.toString(), "{\"Vault\":\"" + savings + "\"}"));
 
         assertThat(root.path("products").get(1).path("bankAccountId").asString())
                 .isEqualTo(savings.toString());
@@ -236,7 +236,7 @@ class ImportPreviewTest {
         assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("NOT_FOUND");
 
-        var mapped = preview(intruder, sample(), own.toString(), "{\"Savings\":\"" + foreign + "\"}");
+        var mapped = preview(intruder, sample(), own.toString(), "{\"Vault\":\"" + foreign + "\"}");
         assertThat(mapped).hasStatus(HttpStatus.NOT_FOUND);
     }
 
@@ -291,7 +291,7 @@ class ImportPreviewTest {
         assertThat(badMapping).hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(badMapping).bodyJson().extractingPath("$.code").isEqualTo("VALIDATION_FAILED");
 
-        var badValue = preview(s, sample(), bank.toString(), "{\"Savings\":\"nope\"}");
+        var badValue = preview(s, sample(), bank.toString(), "{\"Vault\":\"nope\"}");
         assertThat(badValue).hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(badValue).bodyJson().extractingPath("$.code").isEqualTo("VALIDATION_FAILED");
     }
@@ -413,7 +413,6 @@ class ImportPreviewTest {
     void preview_pocketRows_carryPocketInfo() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         UUID bank = fixtures.bankAccount(s, "Revolut", 0);
-        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
         UUID goal = goal(s, "Emergência", "Reserva de Emergência");
         byte[] file = pocketFile(
                 leg("Poupanças", "2026-11-20 14:34:39", RESERVA, "250.00"),
@@ -422,7 +421,7 @@ class ImportPreviewTest {
                 leg("Atual", "2026-11-20 14:54:41", SETUP, "-100.00"),
                 "CARD_PAYMENT,Atual,2026-11-21 10:00:00,2026-11-21 10:00:01,Cafe Aurora,-3.50,0.00,EUR,CONCLUÍDA,0.00\n");
 
-        var result = preview(s, file, bank.toString(), "{\"Poupanças\":\"" + pockets + "\"}");
+        var result = preview(s, file, bank.toString(), null);
 
         assertThat(result).hasStatus(HttpStatus.OK);
         JsonNode root = body(result);
@@ -439,11 +438,9 @@ class ImportPreviewTest {
     }
 
     @Test
-    void preview_rememberedPocketsAccount_fillsSavingsMapping() throws Exception {
+    void preview_productsOmitSavings() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         UUID bank = fixtures.bankAccount(s, "Revolut", 0);
-        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
-        jdbc.update("UPDATE accounts SET pockets_bank_account_id = ? WHERE id = ?", pockets, s.accountId());
         byte[] file = pocketFile(
                 leg("Poupanças", "2026-11-20 14:34:39", RESERVA, "250.00"),
                 leg("Atual", "2026-11-20 14:34:39", RESERVA, "-250.00"));
@@ -453,39 +450,10 @@ class ImportPreviewTest {
         assertThat(result).hasStatus(HttpStatus.OK);
         JsonNode root = body(result);
         JsonNode products = root.path("products");
-        assertThat(products.size()).isEqualTo(2);
-        assertThat(products.get(0).path("product").asString()).isEqualTo("Poupanças");
-        assertThat(products.get(0).path("bankAccountId").asString()).isEqualTo(pockets.toString());
-        assertThat(products.get(1).path("product").asString()).isEqualTo("Current");
-        assertThat(products.get(1).path("bankAccountId").asString()).isEqualTo(bank.toString());
-        JsonNode transfer = transferNamed(root, RESERVA);
-        assertThat(transfer.path("bankAccountId").asString()).isEqualTo(bank.toString());
-        assertThat(transfer.path("destinationBankAccountId").asString()).isEqualTo(pockets.toString());
-    }
-
-    @Test
-    void preview_pocketsAccountParam_overridesRemembered() throws Exception {
-        TestSession s = testUsers.verified("ana@mail.com");
-        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
-        UUID remembered = fixtures.bankAccount(s, "Old pockets", 0);
-        UUID chosen = fixtures.bankAccount(s, "Pockets", 0);
-        jdbc.update("UPDATE accounts SET pockets_bank_account_id = ? WHERE id = ?", remembered, s.accountId());
-        byte[] file = pocketFile(leg("Atual", "2026-11-20 14:54:41", SETUP, "-100.00"));
-
-        var result = mvc.post()
-                .uri(URI)
-                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
-                .multipart()
-                .file(new MockMultipartFile("file", "statement.csv", "text/csv", file))
-                .file(new MockMultipartFile("bankAccountId", "", "text/plain", bank.toString().getBytes()))
-                .file(new MockMultipartFile("pocketsBankAccountId", "", "text/plain", chosen.toString().getBytes()))
-                .exchange();
-
-        assertThat(result).hasStatus(HttpStatus.OK);
-        assertThat(transferNamed(body(result), SETUP).path("destinationBankAccountId").asString())
-                .isEqualTo(chosen.toString());
-        assertThat(jdbc.queryForObject(
-                        "SELECT pockets_bank_account_id FROM accounts WHERE id = ?", UUID.class, s.accountId()))
-                .isEqualTo(remembered);
+        assertThat(products.size()).isEqualTo(1);
+        assertThat(products.get(0).path("product").asString()).isEqualTo("Current");
+        JsonNode move = transferNamed(root, RESERVA);
+        assertThat(move.path("bankAccountId").asString()).isEqualTo(bank.toString());
+        assertThat(move.path("destinationBankAccountId").isNull()).isTrue();
     }
 }

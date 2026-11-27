@@ -6,7 +6,5 @@ public enum SkipReason {
     OTHER_CURRENCY,
     EXCHANGE,
     PRODUCT_IGNORED,
-    ZERO_AMOUNT,
-    POCKET_NO_ACCOUNT,
-    POCKET_SAME_ACCOUNT
+    ZERO_AMOUNT
 }

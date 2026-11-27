@@ -10,7 +10,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -34,14 +33,11 @@ public class ImportContextLoader {
     }
 
     /**
-     * The effective product mapping: the given one, plus {@code Current -> bankAccountId} unless given, plus
-     * {@code pocketsAccount} for each savings product of the file left unmapped.
+     * The effective product mapping: the given one, plus {@code Current -> bankAccountId} unless given. Savings
+     * products are never mapped: their rows belong to the statement's own account, so a mapping given for one is
+     * ignored.
      */
-    public static Map<String, UUID> effectiveMapping(
-            UUID bankAccountId,
-            Map<String, UUID> productMapping,
-            @Nullable UUID pocketsAccount,
-            Set<String> productsInFile) {
+    static Map<String, UUID> effectiveMapping(UUID bankAccountId, @Nullable Map<String, UUID> productMapping) {
         Map<String, UUID> mapping = new LinkedHashMap<>();
         if (productMapping != null) {
             mapping.putAll(productMapping);
@@ -49,33 +45,21 @@ public class ImportContextLoader {
         if (!mapping.containsKey(DEFAULT_PRODUCT)) {
             mapping.put(DEFAULT_PRODUCT, bankAccountId);
         }
-        if (pocketsAccount != null) {
-            for (String product : productsInFile) {
-                if (PocketRows.isSavingsProduct(product) && mapping.get(product) == null) {
-                    mapping.put(product, pocketsAccount);
-                }
-            }
-        }
+        mapping.keySet().removeIf(PocketRows::isSavingsProduct);
         return mapping;
     }
 
     /**
-     * {@code pocketsBankAccountId} is the pockets account chosen for this import, already validated by the caller;
-     * without one, the account's remembered pockets account is used while it is still active.
+     * Already imported fingerprints come from transactions and from imported goal movements (pocket moves, which have
+     * no transaction); the latter count as TRANSFER, so a later statement pairs the move's legs and marks it imported.
      */
     public PlanContext load(
             UUID accountId,
             UUID userId,
             UUID bankAccountId,
             Map<String, UUID> productMapping,
-            @Nullable UUID pocketsBankAccountId,
             List<RevolutRow> rows) {
-        UUID pockets = pocketsBankAccountId != null ? pocketsBankAccountId : rememberedPockets(accountId);
-        Set<String> products = new LinkedHashSet<>();
-        for (RevolutRow row : rows) {
-            products.add(row.product());
-        }
-        Map<String, UUID> mapping = effectiveMapping(bankAccountId, productMapping, pockets, products);
+        Map<String, UUID> mapping = effectiveMapping(bankAccountId, productMapping);
         String currency = jdbc.queryForObject("SELECT currency FROM accounts WHERE id = ?", String.class, accountId)
                 .trim();
         String locale = jdbc.queryForObject("SELECT locale FROM users WHERE id = ?", String.class, userId);
@@ -90,6 +74,12 @@ public class ImportContextLoader {
                             rs.getString("import_fingerprint"), TransactionKind.valueOf(rs.getString("kind")));
                 },
                 accountId);
+        jdbc.query(
+                "SELECT import_fingerprint FROM goal_movements WHERE account_id = ? AND import_fingerprint IS NOT NULL",
+                rs -> {
+                    fingerprints.put(rs.getString("import_fingerprint"), TransactionKind.TRANSFER);
+                },
+                accountId);
 
         return new PlanContext(
                 currency,
@@ -99,20 +89,7 @@ public class ImportContextLoader {
                 defaultCategories(accountId),
                 manualTransactions(accountId, mapping.values(), rows),
                 feeDescription,
-                pockets,
                 activeGoals(accountId));
-    }
-
-    private @Nullable UUID rememberedPockets(UUID accountId) {
-        List<UUID> found = jdbc.queryForList(
-                """
-                SELECT a.pockets_bank_account_id FROM accounts a
-                JOIN bank_accounts b ON b.id = a.pockets_bank_account_id AND b.account_id = a.id
-                WHERE a.id = ? AND b.archived_at IS NULL
-                """,
-                UUID.class,
-                accountId);
-        return found.isEmpty() ? null : found.get(0);
     }
 
     private List<GoalRef> activeGoals(UUID accountId) {
