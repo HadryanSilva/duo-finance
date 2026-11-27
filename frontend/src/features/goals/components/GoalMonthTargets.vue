@@ -14,6 +14,9 @@ import SidePanel from '@/shared/ui/SidePanel.vue'
 import { goalPercent } from '../lib/goal-copy'
 import GoalAmountForm from './GoalAmountForm.vue'
 
+// Two roots (the section and its panel): the page's spacing classes go on the section.
+defineOptions({ inheritAttrs: false })
+
 /** The month's goals overview (`GET /goals`): each goal's target is met by contributions, or skipped. */
 const props = defineProps<{ overview: GoalsOverview }>()
 
@@ -75,6 +78,7 @@ async function skipMonth(x: GoalMonthTarget) {
 <template>
   <section
     v-if="shown"
+    v-bind="$attrs"
     aria-labelledby="goal-month-targets-title"
     class="grid gap-3 rounded-lg border border-border bg-card p-4"
   >

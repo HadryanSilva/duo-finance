@@ -57,6 +57,16 @@ function mountTargets(data: GoalsOverview, handlers: Parameters<typeof render>[1
 }
 
 describe('GoalMonthTargets', () => {
+  it('classFromThePage_landsOnTheSection', async () => {
+    await render(
+      GoalMonthTargets,
+      { session: SESSION },
+      { props: { overview: overview() }, attrs: { class: 'mb-6' } },
+    )
+    const section = screen.getByRole('region', { name: /Metas de/ })
+    expect(section.classList.contains('mb-6')).toBe(true)
+  })
+
   it('showsProgress', async () => {
     await mountTargets(overview())
     const bar = screen.getByRole('progressbar', { name: 'Videogame novo' })
