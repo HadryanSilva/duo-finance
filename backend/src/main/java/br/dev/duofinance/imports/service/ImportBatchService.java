@@ -31,6 +31,7 @@ public class ImportBatchService {
     private final TransactionRepository transactions;
     private final UserRepository users;
     private final GoalMovementService goalMovements;
+    private final ImportSeenRows seenRows;
     private final Clock clock;
 
     public ImportBatchService(
@@ -38,11 +39,13 @@ public class ImportBatchService {
             TransactionRepository transactions,
             UserRepository users,
             GoalMovementService goalMovements,
+            ImportSeenRows seenRows,
             Clock clock) {
         this.batches = batches;
         this.transactions = transactions;
         this.users = users;
         this.goalMovements = goalMovements;
+        this.seenRows = seenRows;
         this.clock = clock;
     }
 
@@ -73,6 +76,7 @@ public class ImportBatchService {
         }
         // marked first: the bulk delete flushes this change and then clears the persistence context
         batch.markUndone(clock.instant());
+        seenRows.forgetBatch(accountId, batchId);
         transactions.deleteByImportBatch(accountId, batchId);
     }
 

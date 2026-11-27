@@ -1,6 +1,5 @@
 package br.dev.duofinance.imports.service;
 
-import br.dev.duofinance.account.model.Account;
 import br.dev.duofinance.account.repository.AccountRepository;
 import br.dev.duofinance.goal.model.Goal;
 import br.dev.duofinance.goal.model.GoalMovementType;
@@ -54,6 +53,7 @@ public class ImportCommitService {
     private final GoalRepository goals;
     private final GoalSavedQuery saved;
     private final GoalMovementService goalMovements;
+    private final ImportSeenRows seenRows;
     private final Clock clock;
 
     public ImportCommitService(
@@ -66,6 +66,7 @@ public class ImportCommitService {
             GoalRepository goals,
             GoalSavedQuery saved,
             GoalMovementService goalMovements,
+            ImportSeenRows seenRows,
             Clock clock) {
         this.references = references;
         this.contexts = contexts;
@@ -76,6 +77,7 @@ public class ImportCommitService {
         this.goals = goals;
         this.saved = saved;
         this.goalMovements = goalMovements;
+        this.seenRows = seenRows;
         this.clock = clock;
     }
 
@@ -86,12 +88,10 @@ public class ImportCommitService {
             byte[] file,
             UUID bankAccountId,
             Map<String, UUID> productMapping,
-            @Nullable UUID pocketsBankAccountId,
             List<RowDecision> decisions) {
         // Lock order of every goal write: the account row first. Held for the whole commit, so imports serialise with
         // each other and with manual goal movements, and the plan and saved amounts read below cannot go stale.
-        Account account =
-                accounts.findByIdForUpdate(accountId).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
+        accounts.findByIdForUpdate(accountId).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
         references.validateBankAccount(accountId, bankAccountId);
         if (productMapping != null) {
             productMapping.values().stream()
@@ -99,11 +99,8 @@ public class ImportCommitService {
                     .distinct()
                     .forEach(id -> references.validateBankAccount(accountId, id));
         }
-        if (pocketsBankAccountId != null) {
-            references.validateBankAccount(accountId, pocketsBankAccountId);
-        }
         List<RevolutRow> rows = RevolutCsvParser.parse(file);
-        PlanContext ctx = contexts.load(accountId, userId, bankAccountId, productMapping, pocketsBankAccountId, rows);
+        PlanContext ctx = contexts.load(accountId, userId, bankAccountId, productMapping, rows);
         ImportPlan plan = ImportPlanner.plan(rows, ctx);
         Map<UUID, Goal> goalsById = decisions.stream().anyMatch(d -> d != null && d.goalId() != null)
                 ? goals.findByAccountIdOrderByCreatedAtAscIdAsc(accountId).stream()
@@ -163,14 +160,19 @@ public class ImportCommitService {
         }
 
         Instant now = Instant.now(clock);
-        rememberPocketsAccount(account, ctx.productMapping(), pocketsBankAccountId);
         ImportBatch batch =
                 batches.saveAndFlush(new ImportBatch(accountId, ImportSource.REVOLUT, bankAccountId, userId, 0, now));
         List<PlannedRow> toInsert = new ArrayList<>();
+        List<PlannedRow> pocketMoves = new ArrayList<>();
         Map<MemoryTarget, UUID> remembered = new LinkedHashMap<>();
         for (PlannedRow row : plan.rows()) {
             RowDecision d = chosen.get(row.rowId());
             if (d == null || !d.include()) {
+                continue;
+            }
+            // A pocket move stays in the statement's account: it is only a goal movement, never a transaction.
+            if (row.pocket() != null) {
+                pocketMoves.add(row);
                 continue;
             }
             toInsert.add(row);
@@ -181,28 +183,34 @@ public class ImportCommitService {
         // Inserted in fingerprint order, so concurrent commits of overlapping files lock the unique-index entries in
         // the same order and cannot deadlock. The category memory keeps file order (the last choice wins).
         toInsert.sort(Comparator.comparing(PlannedRow::rowId));
-        int included = toInsert.size();
-        Map<String, UUID> inserted = new HashMap<>();
+        int included = toInsert.size() + pocketMoves.size();
+        int created = 0;
+        int seen = 0;
         for (PlannedRow row : toInsert) {
-            UUID id = writer.insert(accountId, userId, batch.getId(), row, chosen.get(row.rowId()).categoryId(), now);
-            if (id != null) {
-                inserted.put(row.rowId(), id);
+            if (writer.insert(accountId, userId, batch.getId(), row, chosen.get(row.rowId()).categoryId(), now) != null) {
+                created++;
             }
         }
-        int created = inserted.size();
         // In statement order (started time, then file line): a withdrawal is clamped to what the goal held by then.
-        List<PlannedRow> goalRows = toInsert.stream()
-                .filter(row -> inserted.containsKey(row.rowId()) && chosen.get(row.rowId()).goalId() != null)
+        // A move without a goal, or a withdrawal from an empty goal, records nothing.
+        List<PlannedRow> goalRows = pocketMoves.stream()
+                .filter(row -> chosen.get(row.rowId()).goalId() != null)
                 .sorted(PlannedRow.APPLY_ORDER)
                 .toList();
         for (PlannedRow row : goalRows) {
             Goal goal = goalsById.get(chosen.get(row.rowId()).goalId());
-            recordGoalMovement(goal, userId, row, inserted.get(row.rowId()));
+            if (recordGoalMovement(goal, userId, row, batch.getId())) {
+                created++;
+            } else {
+                // Nothing to take from an empty goal: remember the row so a later import does not apply it.
+                seenRows.remember(accountId, row.rowId(), batch.getId());
+                seen++;
+            }
             linkPocket(goal, row.pocket().name(), goalsById.values(), now);
         }
         remembered.forEach((t, category) -> memory.upsert(accountId, t.key(), t.kind(), category, now));
 
-        if (created == 0) {
+        if (created == 0 && seen == 0) {
             batches.delete(batch);
             batches.flush();
             return new CommitResponse(null, 0, included);
@@ -214,30 +222,23 @@ public class ImportCommitService {
 
     private record MemoryTarget(String key, TransactionKind kind) {}
 
-    /** The pockets account this import used (a mapped savings product, else the one chosen) becomes the default. */
-    private static void rememberPocketsAccount(
-            Account account, Map<String, UUID> mapping, @Nullable UUID pocketsBankAccountId) {
-        UUID used = mapping.entrySet().stream()
-                .filter(e -> PocketRows.isSavingsProduct(e.getKey()) && e.getValue() != null)
-                .map(Map.Entry::getValue)
-                .findFirst()
-                .orElse(pocketsBankAccountId);
-        if (used != null && !used.equals(account.getPocketsBankAccountId())) {
-            account.setPocketsBankAccountId(used);
-        }
-    }
-
-    /** Money into the pocket is a contribution of any size; money out is a withdrawal of at most what is saved. */
-    private void recordGoalMovement(Goal goal, UUID userId, PlannedRow row, UUID transactionId) {
+    /**
+     * Money into the pocket is a contribution of any size; money out is a withdrawal of at most what is saved. Returns
+     * whether a movement was recorded (a withdrawal from an empty goal records none).
+     */
+    private boolean recordGoalMovement(Goal goal, UUID userId, PlannedRow row, UUID batchId) {
         if (row.pocket().direction() == PocketInfo.Direction.INTO) {
             goalMovements.recordImported(
-                    goal, userId, GoalMovementType.CONTRIBUTION, row.amountCents(), row.date(), transactionId);
-            return;
+                    goal, userId, GoalMovementType.CONTRIBUTION, row.amountCents(), row.date(), row.rowId(), batchId);
+            return true;
         }
         long amount = Math.min(row.amountCents(), saved.savedOf(goal.getId()));
-        if (amount > 0) {
-            goalMovements.recordImported(goal, userId, GoalMovementType.WITHDRAWAL, amount, row.date(), transactionId);
+        if (amount <= 0) {
+            return false;
         }
+        goalMovements.recordImported(
+                goal, userId, GoalMovementType.WITHDRAWAL, amount, row.date(), row.rowId(), batchId);
+        return true;
     }
 
     /** A goal without a pocket takes the row's pocket name, unless another active goal already has it. */

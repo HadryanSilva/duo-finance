@@ -7,8 +7,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 public interface GoalMovementRepository extends JpaRepository<GoalMovement, UUID> {
 
@@ -16,17 +14,11 @@ public interface GoalMovementRepository extends JpaRepository<GoalMovement, UUID
 
     Optional<GoalMovement> findByIdAndGoalId(UUID id, UUID goalId);
 
-    Optional<GoalMovement> findByTransactionId(UUID transactionId);
-
     boolean existsByGoalIdAndMonthAndType(UUID goalId, LocalDate month, GoalMovementType type);
 
     List<GoalMovement> findByGoalIdAndMonthAndType(UUID goalId, LocalDate month, GoalMovementType type);
 
     long deleteByGoalIdAndMonthAndType(UUID goalId, LocalDate month, GoalMovementType type);
 
-    @Query(
-            value = "SELECT m.* FROM goal_movements m JOIN transactions t ON t.id = m.transaction_id"
-                    + " WHERE t.import_batch_id = :batchId AND m.account_id = :accountId",
-            nativeQuery = true)
-    List<GoalMovement> findByImportBatch(@Param("accountId") UUID accountId, @Param("batchId") UUID batchId);
+    List<GoalMovement> findByAccountIdAndImportBatchId(UUID accountId, UUID importBatchId);
 }

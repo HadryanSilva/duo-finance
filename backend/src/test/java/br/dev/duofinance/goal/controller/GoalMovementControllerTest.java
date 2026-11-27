@@ -292,19 +292,18 @@ class GoalMovementControllerTest {
     void undo_importedMovement_conflict() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         String goal = createGoal(s, 100000, 10);
-        UUID bank = fixtures.bankAccount(s, "Conta", 0);
-        Map<String, Object> tx = new LinkedHashMap<>();
-        tx.put("kind", "EXPENSE");
-        tx.put("amountCents", 3000);
-        tx.put("date", "2027-03-10");
-        tx.put("categoryId", fixtures.category(s, "Poupar", CategoryKind.EXPENSE));
-        tx.put("bankAccountId", bank);
-        UUID transactionId = fixtures.transaction(s, tx);
+        UUID batch = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO import_batches (id, account_id, source, row_count, created_at)"
+                        + " VALUES (?, ?, 'REVOLUT', 1, now())",
+                batch,
+                s.accountId());
         jdbc.update(
                 "INSERT INTO goal_movements (id, goal_id, account_id, type, amount_cents, month, occurred_on,"
-                        + " transaction_id, created_at) SELECT gen_random_uuid(), id, account_id, 'CONTRIBUTION',"
-                        + " 3000, DATE '2027-03-01', DATE '2027-03-10', ?, now() FROM goals WHERE id = ?",
-                transactionId,
+                        + " import_fingerprint, import_batch_id, created_at) SELECT gen_random_uuid(), id, account_id,"
+                        + " 'CONTRIBUTION', 3000, DATE '2027-03-01', DATE '2027-03-10', 'fp-1', ?, now()"
+                        + " FROM goals WHERE id = ?",
+                batch,
                 UUID.fromString(goal));
         JsonNode list = movements(s, goal);
         assertThat(list.get(0).path("imported").asBoolean()).isTrue();

@@ -1,6 +1,5 @@
 package br.dev.duofinance.transaction.service;
 
-import br.dev.duofinance.goal.service.GoalMovementService;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ErrorCode;
 import br.dev.duofinance.shared.finance.FinanceValidation;
@@ -25,19 +24,16 @@ public class TransactionService {
     private final TransactionRepository transactions;
     private final TransactionReferenceValidator validator;
     private final TransactionResponseAssembler assembler;
-    private final GoalMovementService goalMovements;
     private final Clock clock;
 
     public TransactionService(
             TransactionRepository transactions,
             TransactionReferenceValidator validator,
             TransactionResponseAssembler assembler,
-            GoalMovementService goalMovements,
             Clock clock) {
         this.transactions = transactions;
         this.validator = validator;
         this.assembler = assembler;
-        this.goalMovements = goalMovements;
         this.clock = clock;
     }
 
@@ -61,22 +57,13 @@ public class TransactionService {
         ReferenceSnapshot current = new ReferenceSnapshot(
                 transaction.getCategoryId(), transaction.getBankAccountId(), transaction.getDestinationBankAccountId());
         validate(accountId, request, current);
-        // A linked goal movement only follows a change of kind, amount or date: re-evaluating it on any other edit
-        // would re-clamp a withdrawal against today's saved amount.
-        boolean movementInputsChanged = transaction.getKind() != request.kind()
-                || transaction.getAmountCents() != request.amountCents()
-                || !transaction.getDate().equals(request.date());
         apply(transaction, request, Instant.now(clock));
-        if (movementInputsChanged) {
-            goalMovements.followTransaction(accountId, id, request.kind(), request.amountCents(), request.date());
-        }
         return respond(accountId, transactions.saveAndFlush(transaction));
     }
 
     @Transactional
     public void delete(UUID accountId, UUID id) {
         Transaction transaction = requireOwned(accountId, id);
-        goalMovements.beforeTransactionRemoved(accountId, id);
         transactions.delete(transaction);
         transactions.flush();
     }
