@@ -35,6 +35,9 @@
     "GOAL_PERCENT_CAP": "The percentages of active goals would add up to more than 100%. Complete goals already reached or lower the percentages.",
     "GOAL_COMPLETED": "This goal is completed. Reopen it to change it.",
     "GOAL_MONTH_TAKEN": "This month was already confirmed or skipped.",
+    "GOAL_MONTH_HAS_CONTRIBUTIONS": "This month already has contributions, so it cannot be skipped.",
+    "GOAL_MOVEMENT_IMPORTED": "This movement came from an import and cannot be undone here. Undo the import instead.",
+    "GOAL_POCKET_TAKEN": "Another active goal already uses this Revolut pocket.",
     "GOAL_MONTH_INVALID": "Month is outside the goal period.",
     "MONTH_NOT_CLOSED": "That month is not over yet.",
     "GOAL_AMOUNT_INVALID": "Invalid amount for this goal: it would go below zero or above the target.",
@@ -68,6 +71,7 @@
     "Invalid": "Invalid value."
   },
   "common": {
+    "file": { "choose": "Choose file", "none": "No file chosen" },
     "logout": "Sign out",
     "signIn": "Sign in",
     "cancel": "Cancel",
@@ -436,7 +440,9 @@
       "help": "In the Revolut app: Account → Statement → Excel/CSV → choose the period → Generate",
       "mappingTitle": "Other products in the statement",
       "mappingHint": "Choose the account for each product or ignore its rows.",
-      "ignore": "Ignore"
+      "ignore": "Ignore",
+      "pocketsAccount": "Pockets account",
+      "pocketsHint": "The statement has pocket moves: choose the account that holds the pockets."
     },
     "review": {
       "title": "Review transactions",
@@ -444,6 +450,8 @@
         "CATEGORY_ARCHIVED": "This category was archived. Choose another one.",
         "CATEGORY_REQUIRED": "Choose a category.",
         "ROW_ALREADY_IMPORTED": "This row was already imported. Untick it to continue.",
+        "GOAL_INVALID": "This goal can no longer be used. Choose another one.",
+        "GOAL_NOT_ALLOWED": "Only pocket moves can go to a goal.",
         "invalid": "This category can't be used here. Choose another one."
       },
       "tabs": {
@@ -474,7 +482,20 @@
       "OTHER_CURRENCY": "Other currency",
       "EXCHANGE": "Exchange",
       "PRODUCT_IGNORED": "Product ignored",
-      "ZERO_AMOUNT": "Zero amount"
+      "ZERO_AMOUNT": "Zero amount",
+      "POCKET_NO_ACCOUNT": "Pocket move with no pockets account set",
+      "POCKET_SAME_ACCOUNT": "Pocket move within the same account: no balance change"
+    },
+    "pocket": {
+      "goal": "Goal for {description}",
+      "none": "No goal",
+      "create": "+ Create goal \"{name}\"",
+      "createUnnamed": "+ Create goal",
+      "into": "→ contribution to {goal}",
+      "outOf": "← withdrawal from {goal}",
+      "noGoal": "No goal: this amount stays in the free balance",
+      "aboveSaved": "Only {saved} is saved in this goal; the withdrawal is capped at {saved}",
+      "nothingLeft": "Nothing is left in this goal by this withdrawal; it will not be recorded against the goal"
     },
     "result": {
       "title": "Import finished",
@@ -609,7 +630,7 @@
       "archivedWarning": "The salary category is archived. Choose another one to calculate suggestions."
     },
     "actions": {
-      "deposit": "Add money",
+      "contribute": "Add contribution",
       "withdraw": "Withdraw",
       "history": "History",
       "edit": "Edit",
@@ -618,7 +639,7 @@
       "reopen": "Reopen"
     },
     "actionLabel": {
-      "deposit": "Add money to {name}",
+      "contribute": "Add contribution to {name}",
       "withdraw": "Withdraw from {name}",
       "history": "History of {name}",
       "edit": "Edit {name}",
@@ -634,6 +655,9 @@
       "targetDatePast": "Choose today or a later date.",
       "percent": "Share of salary",
       "percentHint": "0 = no monthly suggestion",
+      "pocket": "Revolut pocket",
+      "pocketHint": "The pocket's name in the Revolut app, to link imports",
+      "pocketMax": "Use at most 100 characters.",
       "percentRange": "Enter a whole number from 0 to 100."
     },
     "amount": {
@@ -642,19 +666,22 @@
       "note": "Note (optional)",
       "available": "Available: {amount}",
       "missing": "Remaining: {amount}",
-      "deposit": "Add",
-      "withdraw": "Withdraw"
+      "contribute": "Add",
+      "withdraw": "Withdraw",
+      "date": "Date",
+      "dateFuture": "Choose today or an earlier date."
     },
     "history": {
       "title": "History",
       "empty": "No movements yet.",
       "undo": "Undo",
+      "imported": "Imported",
+      "importedHint": "From an import: delete the transfer or undo the import to remove it",
       "undoTitle": "Undo movement?",
       "undoMessage": "Undo {type} of {amount} on {when}? The amount returns to its previous state.",
       "type": {
-        "CONTRIBUTION": "Monthly contribution",
+        "CONTRIBUTION": "Contribution",
         "SKIP": "Skipped month",
-        "DEPOSIT": "Deposit",
         "WITHDRAWAL": "Withdrawal"
       },
       "undoLabel": "Undo {type} of {amount} on {when}",
@@ -666,20 +693,20 @@
     "deleteTitle": "Delete {name}?",
     "deleteMessage": "The history will be erased and {amount} will no longer be set aside.",
     "deleteCompletedMessage": "The history will be erased.",
-    "suggestions": {
-      "header": "Suggestions for {month} · Salary {salary}",
-      "listLabel": "Monthly suggestions",
-      "confirm": "Confirm",
-      "adjust": "Adjust",
-      "confirmLabel": "Confirm {name}",
-      "failureFor": "{name}: {message}",
-      "adjustLabel": "Adjust {name}",
+    "monthTargets": {
+      "header": "Targets for {month} · Salary {salary}",
+      "listLabel": "Month's targets",
+      "of": "of",
+      "progress": "{percent}% of the month's target",
+      "met": "Month's target met",
+      "skipped": "Skipped this month",
+      "register": "Add",
+      "registerLabel": "Add to {name}",
+      "skip": "Skip",
       "skipLabel": "Skip {name}",
-      "amountFor": "Amount for {name}",
-      "amountTooHigh": "The amount is more than what is left: {amount}.",
-      "noSalary": "No salary in {month} in the {name} category.",
-      "allDone": "All decided for {month}.",
-      "title": "Contributions for {month}"
+      "noSalaryTarget": "No target this month (no salary recorded)",
+      "noTarget": "No target this month",
+      "noSalary": "No salary in {month} in the {name} category."
     },
     "savedTotal": "{amount} saved across {n} goal | {amount} saved across {n} goals"
   },
@@ -782,7 +809,7 @@
       "viewAllLabel": "View all goals",
       "salaryHint": "Choose the salary category to get suggestions",
       "listLabel": "Goal progress",
-      "pending": "{n} contribution to confirm for {month} | {n} contributions to confirm for {month}"
+      "pending": "{n} month target open for {month} | {n} month targets open for {month}"
     },
     "upcoming": {
       "title": "Upcoming",

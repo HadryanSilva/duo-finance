@@ -12,4 +12,4 @@ public record GoalsOverview(
         long totalSavedCents,
         List<GoalResponse> goals,
         List<GoalResponse> completed,
-        List<GoalSuggestion> suggestions) {}
+        List<GoalMonthTarget> monthTargets) {}

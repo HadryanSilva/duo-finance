@@ -108,6 +108,64 @@ class GoalControllerTest {
         assertError(create(s, "videogame NOVO", 5), HttpStatus.CONFLICT, "GOAL_NAME_TAKEN");
     }
 
+    private MvcTestResult createWithPocket(TestSession s, String name, String pocket) {
+        Map<String, Object> body = goal(name, 50000, 0);
+        body.put("revolutPocket", pocket);
+        return send(HttpMethod.POST, s, GOALS, body);
+    }
+
+    @Test
+    void create_withPocket_returnsIt() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+
+        MvcTestResult created = createWithPocket(s, "Reserva", "  Reserva de Emergência ");
+
+        assertThat(created).hasStatus(HttpStatus.CREATED);
+        assertThat(body(created).path("revolutPocket").asString()).isEqualTo("Reserva de Emergência");
+    }
+
+    @Test
+    void create_blankPocket_isStoredAsNull() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+
+        MvcTestResult created = createWithPocket(s, "Reserva", "   ");
+
+        assertThat(created).hasStatus(HttpStatus.CREATED);
+        assertThat(body(created).path("revolutPocket").isNull()).isTrue();
+    }
+
+    @Test
+    void create_pocketTakenByActiveGoal_conflict() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        assertThat(createWithPocket(s, "Reserva", "Reserva de Emergência")).hasStatus(HttpStatus.CREATED);
+
+        assertError(createWithPocket(s, "Outra", "reserva de emergencia"), HttpStatus.CONFLICT, "GOAL_POCKET_TAKEN");
+    }
+
+    @Test
+    void create_pocketOfCompletedGoal_allowed() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        String id = body(createWithPocket(s, "Reserva", "Reserva de Emergência")).path("id").asString();
+        assertThat(send(HttpMethod.POST, s, GOALS + "/" + id + "/complete", null)).hasStatus(HttpStatus.OK);
+
+        assertThat(createWithPocket(s, "Outra", "reserva de emergencia")).hasStatus(HttpStatus.CREATED);
+    }
+
+    @Test
+    void update_keepingOwnPocket_allowed_andCanBeCleared() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        String id = body(createWithPocket(s, "Reserva", "Viagem")).path("id").asString();
+        Map<String, Object> same = goal("Reserva", 60000, 0);
+        same.put("revolutPocket", "viagem");
+
+        MvcTestResult kept = send(HttpMethod.PUT, s, GOALS + "/" + id, same);
+        assertThat(kept).hasStatus(HttpStatus.OK);
+        assertThat(body(kept).path("revolutPocket").asString()).isEqualTo("viagem");
+
+        MvcTestResult cleared = send(HttpMethod.PUT, s, GOALS + "/" + id, goal("Reserva", 60000, 0));
+        assertThat(body(cleared).path("revolutPocket").isNull()).isTrue();
+    }
+
     @Test
     void create_percentOver100_rejected() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");

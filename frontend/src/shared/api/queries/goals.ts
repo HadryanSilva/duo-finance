@@ -17,7 +17,7 @@ import type {
 const KEY = ['goals'] as const
 const enc = encodeURIComponent
 
-/** Goals of a `YYYY-MM` month with suggestions and projections. */
+/** Goals of a `YYYY-MM` month with their month targets and projections. */
 export function useGoals(month: MaybeRefOrGetter<string>) {
   const http = useHttp()
   return useQuery({
@@ -44,7 +44,7 @@ export function useGoalSettings() {
 }
 
 /**
- * Every goal change moves balances, suggestions and the dashboard's free balance. Refreshed on
+ * Every goal change moves balances, month targets and the dashboard's free balance. Refreshed on
  * failure too: a conflict usually means the partner acted first, so what is on screen is stale.
  */
 function useInvalidate() {
@@ -125,16 +125,6 @@ export function useSkipMonth() {
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: SkipRequest }) =>
       http.post<GoalResponse, SkipRequest>(`/goals/${enc(id)}/skips`, body),
-    onSettled: invalidate,
-  })
-}
-
-export function useDeposit() {
-  const http = useHttp()
-  const invalidate = useInvalidate()
-  return useMutation({
-    mutationFn: ({ id, body }: { id: string; body: GoalAmountRequest }) =>
-      http.post<GoalResponse, GoalAmountRequest>(`/goals/${enc(id)}/deposits`, body),
     onSettled: invalidate,
   })
 }

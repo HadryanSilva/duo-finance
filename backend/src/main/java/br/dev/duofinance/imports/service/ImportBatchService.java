@@ -1,5 +1,6 @@
 package br.dev.duofinance.imports.service;
 
+import br.dev.duofinance.goal.service.GoalMovementService;
 import br.dev.duofinance.imports.dto.ImportBatchResponse;
 import br.dev.duofinance.imports.model.ImportBatch;
 import br.dev.duofinance.imports.repository.ImportBatchRepository;
@@ -29,13 +30,19 @@ public class ImportBatchService {
     private final ImportBatchRepository batches;
     private final TransactionRepository transactions;
     private final UserRepository users;
+    private final GoalMovementService goalMovements;
     private final Clock clock;
 
     public ImportBatchService(
-            ImportBatchRepository batches, TransactionRepository transactions, UserRepository users, Clock clock) {
+            ImportBatchRepository batches,
+            TransactionRepository transactions,
+            UserRepository users,
+            GoalMovementService goalMovements,
+            Clock clock) {
         this.batches = batches;
         this.transactions = transactions;
         this.users = users;
+        this.goalMovements = goalMovements;
         this.clock = clock;
     }
 
@@ -57,6 +64,8 @@ public class ImportBatchService {
     /** Deletes every transaction of the batch (edited ones included) and marks it undone; category memory stays. */
     @Transactional
     public void undo(UUID accountId, UUID batchId) {
+        // Lock order: the account row first (taken here), then the batch. An undone or foreign batch has no movements.
+        goalMovements.beforeBatchRemoved(accountId, batchId);
         ImportBatch batch = batches.findByIdAndAccountIdForUpdate(batchId, accountId)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
         if (batch.getUndoneAt() != null) {

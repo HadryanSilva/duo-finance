@@ -4,9 +4,10 @@ import { useI18n } from 'vue-i18n'
 import { useGoalMovements, useUndoMovement } from '@/shared/api/queries/goals'
 import type { GoalMovementResponse } from '@/shared/api/types'
 import { errorMessage } from '@/shared/i18n/error-codes'
-import { formatInstant, formatMonth } from '@/shared/lib/dates'
+import { formatBusinessDate, formatMonth } from '@/shared/lib/dates'
 import type { Locale } from '@/shared/lib/money'
 import AuthorAvatar from '@/shared/ui/AuthorAvatar.vue'
+import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import ConfirmDialog from '@/shared/ui/ConfirmDialog.vue'
 import MoneyText from '@/shared/ui/MoneyText.vue'
@@ -48,14 +49,14 @@ function undoParams(m: GoalMovementResponse) {
   }
 }
 
-/** In English a month reads "in October 2026" and a moment "on <date>". */
+/** In English a skipped month reads "in October 2026" and a dated movement "on <date>". */
 const undoKey = (m: GoalMovementResponse, key: 'undoLabel' | 'undoMessage') =>
-  `goals.history.${key}${m.month ? 'Month' : ''}`
+  `goals.history.${key}${m.type === 'SKIP' ? 'Month' : ''}`
 
 function when(m: GoalMovementResponse): string {
-  return m.month
+  return m.type === 'SKIP' && m.month
     ? formatMonth(m.month, locale.value as Locale)
-    : formatInstant(m.createdAt, locale.value as Locale)
+    : formatBusinessDate(m.occurredOn, locale.value as Locale, 'long')
 }
 </script>
 
@@ -79,9 +80,15 @@ function when(m: GoalMovementResponse): string {
       >
         <AuthorAvatar :author="m.createdBy" />
         <span class="flex min-w-0 flex-1 flex-col text-sm">
-          <span class="font-medium text-foreground">{{ t(`goals.history.type.${m.type}`) }}</span>
+          <span class="flex flex-wrap items-center gap-2 font-medium text-foreground">
+            {{ t(`goals.history.type.${m.type}`) }}
+            <Badge v-if="m.imported" variant="outline">{{ t('goals.history.imported') }}</Badge>
+          </span>
           <span class="text-muted-foreground">{{ when(m) }}</span>
           <span v-if="m.note" class="truncate text-muted-foreground">{{ m.note }}</span>
+          <span v-if="m.imported" class="text-xs text-muted-foreground">
+            {{ t('goals.history.importedHint') }}
+          </span>
         </span>
         <MoneyText
           :cents="m.amountCents"
@@ -89,7 +96,7 @@ function when(m: GoalMovementResponse): string {
           class="shrink-0 font-medium"
         />
         <Button
-          v-if="canUndo"
+          v-if="canUndo && !m.imported"
           variant="ghost"
           size="sm"
           :aria-label="t(undoKey(m, 'undoLabel'), undoParams(m))"

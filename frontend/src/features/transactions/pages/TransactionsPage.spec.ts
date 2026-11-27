@@ -394,9 +394,12 @@ describe('TransactionsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Filtros, 3 ativos' }))
     const sheet = await screen.findByRole('dialog', { name: 'Filtros' })
     const clear = within(sheet).getByRole('button', { name: 'Limpar filtros' })
+    const kind = within(sheet).getByLabelText('Tipo') as HTMLSelectElement
+    expect(kind.value).toBe('INCOME')
     expect(clear.getAttribute('aria-disabled')).toBeNull()
     await user.click(clear)
     await waitFor(() => expect(router.currentRoute.value.query.kind).toBeUndefined())
+    await waitFor(() => expect(kind.value).toBe(''))
     expect(clear.isConnected).toBe(true)
     expect(clear.getAttribute('aria-disabled')).toBe('true')
     expect(document.activeElement).toBe(clear)

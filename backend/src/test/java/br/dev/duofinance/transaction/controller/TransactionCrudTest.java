@@ -413,4 +413,244 @@ class TransactionCrudTest {
                 .extractingPath("$.destinationBankAccount.name")
                 .isEqualTo("B");
     }
+
+    // ---- linked goal movements follow their transfer ----
+
+    private UUID goalWithPocket(TestSession s) {
+        UUID goal = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO goals (id, account_id, name, target_cents, monthly_percent, created_at, updated_at)"
+                        + " VALUES (?, ?, 'Reserva', 100000, 10, now(), now())",
+                goal,
+                s.accountId());
+        return goal;
+    }
+
+    private void movement(TestSession s, UUID goal, String type, long amount, String occurredOn, UUID transactionId) {
+        jdbc.update(
+                "INSERT INTO goal_movements (id, goal_id, account_id, type, amount_cents, month, occurred_on,"
+                        + " transaction_id, created_at) VALUES (?, ?, ?, ?, ?, CASE WHEN ? = 'WITHDRAWAL' THEN NULL"
+                        + " ELSE date_trunc('month', ?::date)::date END, ?::date, ?, now())",
+                UUID.randomUUID(),
+                goal,
+                s.accountId(),
+                type,
+                amount,
+                type,
+                occurredOn,
+                occurredOn,
+                transactionId);
+    }
+
+    private long saved(UUID goal) {
+        return jdbc.queryForObject(
+                "SELECT coalesce(sum(CASE type WHEN 'WITHDRAWAL' THEN -amount_cents WHEN 'SKIP' THEN 0"
+                        + " ELSE amount_cents END), 0) FROM goal_movements WHERE goal_id = ?",
+                Long.class,
+                goal);
+    }
+
+    private Map<String, Object> linkedMovement(UUID goal) {
+        return jdbc.queryForMap(
+                "SELECT amount_cents, month::text AS month, occurred_on::text AS occurred_on FROM goal_movements"
+                        + " WHERE goal_id = ? AND transaction_id IS NOT NULL",
+                goal);
+    }
+
+    private UUID linkedTransfer(TestSession s, UUID goal, String type, long amount, String date) {
+        UUID a = fixtures.bankAccount(s, "A", 0);
+        UUID b = fixtures.bankAccount(s, "B", 0);
+        Map<String, Object> body = transfer(a, b, null);
+        body.remove("categoryId");
+        body.put("amountCents", amount);
+        body.put("date", date);
+        UUID id = fixtures.transaction(s, body);
+        movement(s, goal, type, amount, date, id);
+        return id;
+    }
+
+    private Map<String, Object> editedTransfer(UUID id, long amount, String date) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("kind", "TRANSFER");
+        body.put("amountCents", amount);
+        body.put("date", date);
+        body.put("bankAccountId", jdbc.queryForObject("SELECT bank_account_id FROM transactions WHERE id = ?", UUID.class, id));
+        body.put(
+                "destinationBankAccountId",
+                jdbc.queryForObject("SELECT destination_bank_account_id FROM transactions WHERE id = ?", UUID.class, id));
+        return body;
+    }
+
+    @Test
+    void update_linkedTransfer_movesItsContribution() {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID goal = goalWithPocket(s);
+        UUID id = linkedTransfer(s, goal, "CONTRIBUTION", 250, "2026-11-05");
+
+        assertThat(send(HttpMethod.PUT, s, BASE + "/" + id, editedTransfer(id, 200, "2026-10-20")))
+                .hasStatus(HttpStatus.OK);
+
+        Map<String, Object> m = linkedMovement(goal);
+        assertThat(((Number) m.get("amount_cents")).longValue()).isEqualTo(200);
+        assertThat(m.get("occurred_on")).isEqualTo("2026-10-20");
+        assertThat(m.get("month")).isEqualTo("2026-10-01");
+    }
+
+    @Test
+    void update_linkedTransferToExpense_dropsContribution() {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID goal = goalWithPocket(s);
+        UUID id = linkedTransfer(s, goal, "CONTRIBUTION", 250, "2026-11-05");
+        UUID bank = jdbc.queryForObject("SELECT bank_account_id FROM transactions WHERE id = ?", UUID.class, id);
+
+        assertThat(send(HttpMethod.PUT, s, BASE + "/" + id, expense(seeded(s, "EXPENSE"), bank)))
+                .hasStatus(HttpStatus.OK);
+
+        assertThat(saved(goal)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM goal_movements WHERE goal_id = ?", Long.class, goal))
+                .isZero();
+    }
+
+    @Test
+    void delete_linkedTransfer_dropsContribution() {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID goal = goalWithPocket(s);
+        UUID id = linkedTransfer(s, goal, "CONTRIBUTION", 250, "2026-11-05");
+
+        assertThat(send(HttpMethod.DELETE, s, BASE + "/" + id, null)).hasStatus(HttpStatus.NO_CONTENT);
+
+        assertThat(saved(goal)).isZero();
+    }
+
+    @Test
+    void update_linkedTransferIntoSkippedMonth_dropsSkip() {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID goal = goalWithPocket(s);
+        UUID id = linkedTransfer(s, goal, "CONTRIBUTION", 250, "2026-11-05");
+        jdbc.update(
+                "INSERT INTO goal_movements (id, goal_id, account_id, type, amount_cents, month, occurred_on,"
+                        + " created_at) VALUES (?, ?, ?, 'SKIP', 0, '2026-10-01', '2026-10-01', now())",
+                UUID.randomUUID(),
+                goal,
+                s.accountId());
+
+        assertThat(send(HttpMethod.PUT, s, BASE + "/" + id, editedTransfer(id, 250, "2026-10-20")))
+                .hasStatus(HttpStatus.OK);
+
+        assertThat(jdbc.queryForObject(
+                        "SELECT count(*) FROM goal_movements WHERE goal_id = ? AND type = 'SKIP'", Long.class, goal))
+                .isZero();
+        assertThat(linkedMovement(goal).get("month")).isEqualTo("2026-10-01");
+    }
+
+    @Test
+    void update_linkedTransferOutOfTheMonthItSkipped_restoresSkip_andDeleteToo() {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID goal = goalWithPocket(s);
+        UUID id = linkedTransfer(s, goal, "CONTRIBUTION", 250, "2026-11-05");
+        jdbc.update(
+                "INSERT INTO goal_movements (id, goal_id, account_id, type, amount_cents, month, occurred_on,"
+                        + " created_at) VALUES (?, ?, ?, 'SKIP', 0, '2026-10-01', '2026-10-01', now())",
+                UUID.randomUUID(),
+                goal,
+                s.accountId());
+        String skippedOctober = "SELECT count(*) FROM goal_movements WHERE goal_id = ? AND type = 'SKIP'"
+                + " AND month = '2026-10-01'";
+        assertThat(send(HttpMethod.PUT, s, BASE + "/" + id, editedTransfer(id, 250, "2026-10-20")))
+                .hasStatus(HttpStatus.OK);
+
+        assertThat(send(HttpMethod.PUT, s, BASE + "/" + id, editedTransfer(id, 250, "2026-11-06")))
+                .hasStatus(HttpStatus.OK);
+        assertThat(jdbc.queryForObject(skippedOctober, Long.class, goal)).isEqualTo(1);
+
+        assertThat(send(HttpMethod.PUT, s, BASE + "/" + id, editedTransfer(id, 250, "2026-10-21")))
+                .hasStatus(HttpStatus.OK);
+        assertThat(jdbc.queryForObject(skippedOctober, Long.class, goal)).isZero();
+        assertThat(send(HttpMethod.DELETE, s, BASE + "/" + id, null)).hasStatus(HttpStatus.NO_CONTENT);
+        assertThat(jdbc.queryForObject(skippedOctober, Long.class, goal)).isEqualTo(1);
+    }
+
+    @Test
+    void update_linkedWithdrawalAboveSaved_clamped() {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID goal = goalWithPocket(s);
+        movement(s, goal, "CONTRIBUTION", 1000, "2026-10-01", null);
+        UUID id = linkedTransfer(s, goal, "WITHDRAWAL", 300, "2026-11-05");
+
+        assertThat(send(HttpMethod.PUT, s, BASE + "/" + id, editedTransfer(id, 5000, "2026-11-06")))
+                .hasStatus(HttpStatus.OK);
+
+        assertThat(((Number) linkedMovement(goal).get("amount_cents")).longValue()).isEqualTo(1000);
+        assertThat(saved(goal)).isZero();
+    }
+
+    /** 300 left the pocket but the goal held 100, so 100 was recorded; the goal has since grown to 500. */
+    @Test
+    void update_linkedWithdrawalDescriptionOnly_keepsAmount() {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID goal = goalWithPocket(s);
+        movement(s, goal, "CONTRIBUTION", 100, "2026-10-01", null);
+        UUID id = linkedTransfer(s, goal, "WITHDRAWAL", 300, "2026-11-05");
+        jdbc.update("UPDATE goal_movements SET amount_cents = 100 WHERE transaction_id = ?", id);
+        movement(s, goal, "CONTRIBUTION", 500, "2026-11-10", null);
+        Map<String, Object> body = editedTransfer(id, 300, "2026-11-05");
+        body.put("description", "Pocket renamed");
+
+        assertThat(send(HttpMethod.PUT, s, BASE + "/" + id, body)).hasStatus(HttpStatus.OK);
+
+        assertThat(((Number) linkedMovement(goal).get("amount_cents")).longValue()).isEqualTo(100);
+        assertThat(saved(goal)).isEqualTo(500);
+    }
+
+    /** A linked contribution of 1000 followed by a manual withdrawal of 800: the goal holds 200. */
+    private UUID contributionThenWithdrawal(TestSession s, UUID goal) {
+        UUID id = linkedTransfer(s, goal, "CONTRIBUTION", 1000, "2026-11-05");
+        movement(s, goal, "WITHDRAWAL", 800, "2026-11-10", null);
+        return id;
+    }
+
+    private void assertRefusedAndUntouched(MvcTestResult result, UUID goal, UUID id) {
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("GOAL_AMOUNT_INVALID");
+        assertThat(saved(goal)).isEqualTo(200);
+        assertThat(((Number) linkedMovement(goal).get("amount_cents")).longValue()).isEqualTo(1000);
+        assertThat(jdbc.queryForObject("SELECT amount_cents FROM transactions WHERE id = ?", Long.class, id))
+                .isEqualTo(1000);
+    }
+
+    @Test
+    void update_linkedContributionDownAfterWithdrawal_refused() {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID goal = goalWithPocket(s);
+        UUID id = contributionThenWithdrawal(s, goal);
+
+        var result = send(HttpMethod.PUT, s, BASE + "/" + id, editedTransfer(id, 100, "2026-11-05"));
+
+        assertRefusedAndUntouched(result, goal, id);
+    }
+
+    @Test
+    void update_linkedContributionToExpenseAfterWithdrawal_refused() {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID goal = goalWithPocket(s);
+        UUID id = contributionThenWithdrawal(s, goal);
+        UUID bank = jdbc.queryForObject("SELECT bank_account_id FROM transactions WHERE id = ?", UUID.class, id);
+        Map<String, Object> body = expense(seeded(s, "EXPENSE"), bank);
+        body.put("amountCents", 1000);
+
+        var result = send(HttpMethod.PUT, s, BASE + "/" + id, body);
+
+        assertRefusedAndUntouched(result, goal, id);
+    }
+
+    @Test
+    void delete_linkedContributionAfterWithdrawal_refused() {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID goal = goalWithPocket(s);
+        UUID id = contributionThenWithdrawal(s, goal);
+
+        var result = send(HttpMethod.DELETE, s, BASE + "/" + id, null);
+
+        assertRefusedAndUntouched(result, goal, id);
+    }
 }

@@ -2,6 +2,7 @@ package br.dev.duofinance.imports.service;
 
 import br.dev.duofinance.imports.repository.CategoryMemoryRepository;
 import br.dev.duofinance.imports.service.PlanContext.DuplicateKey;
+import br.dev.duofinance.imports.service.PlanContext.GoalRef;
 import br.dev.duofinance.transaction.model.TransactionKind;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -9,10 +10,12 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -30,8 +33,15 @@ public class ImportContextLoader {
         this.memory = memory;
     }
 
-    /** The effective product mapping: the given one, plus {@code Current -> bankAccountId} unless given. */
-    public static Map<String, UUID> effectiveMapping(UUID bankAccountId, Map<String, UUID> productMapping) {
+    /**
+     * The effective product mapping: the given one, plus {@code Current -> bankAccountId} unless given, plus
+     * {@code pocketsAccount} for each savings product of the file left unmapped.
+     */
+    public static Map<String, UUID> effectiveMapping(
+            UUID bankAccountId,
+            Map<String, UUID> productMapping,
+            @Nullable UUID pocketsAccount,
+            Set<String> productsInFile) {
         Map<String, UUID> mapping = new LinkedHashMap<>();
         if (productMapping != null) {
             mapping.putAll(productMapping);
@@ -39,16 +49,33 @@ public class ImportContextLoader {
         if (!mapping.containsKey(DEFAULT_PRODUCT)) {
             mapping.put(DEFAULT_PRODUCT, bankAccountId);
         }
+        if (pocketsAccount != null) {
+            for (String product : productsInFile) {
+                if (PocketRows.isSavingsProduct(product) && mapping.get(product) == null) {
+                    mapping.put(product, pocketsAccount);
+                }
+            }
+        }
         return mapping;
     }
 
+    /**
+     * {@code pocketsBankAccountId} is the pockets account chosen for this import, already validated by the caller;
+     * without one, the account's remembered pockets account is used while it is still active.
+     */
     public PlanContext load(
             UUID accountId,
             UUID userId,
             UUID bankAccountId,
             Map<String, UUID> productMapping,
+            @Nullable UUID pocketsBankAccountId,
             List<RevolutRow> rows) {
-        Map<String, UUID> mapping = effectiveMapping(bankAccountId, productMapping);
+        UUID pockets = pocketsBankAccountId != null ? pocketsBankAccountId : rememberedPockets(accountId);
+        Set<String> products = new LinkedHashSet<>();
+        for (RevolutRow row : rows) {
+            products.add(row.product());
+        }
+        Map<String, UUID> mapping = effectiveMapping(bankAccountId, productMapping, pockets, products);
         String currency = jdbc.queryForObject("SELECT currency FROM accounts WHERE id = ?", String.class, accountId)
                 .trim();
         String locale = jdbc.queryForObject("SELECT locale FROM users WHERE id = ?", String.class, userId);
@@ -71,7 +98,30 @@ public class ImportContextLoader {
                 memory.findActive(accountId),
                 defaultCategories(accountId),
                 manualTransactions(accountId, mapping.values(), rows),
-                feeDescription);
+                feeDescription,
+                pockets,
+                activeGoals(accountId));
+    }
+
+    private @Nullable UUID rememberedPockets(UUID accountId) {
+        List<UUID> found = jdbc.queryForList(
+                """
+                SELECT a.pockets_bank_account_id FROM accounts a
+                JOIN bank_accounts b ON b.id = a.pockets_bank_account_id AND b.account_id = a.id
+                WHERE a.id = ? AND b.archived_at IS NULL
+                """,
+                UUID.class,
+                accountId);
+        return found.isEmpty() ? null : found.get(0);
+    }
+
+    private List<GoalRef> activeGoals(UUID accountId) {
+        return jdbc.query(
+                "SELECT id, name, revolut_pocket FROM goals WHERE account_id = ? AND completed_at IS NULL"
+                        + " ORDER BY created_at, id",
+                (rs, n) -> new GoalRef(
+                        rs.getObject("id", UUID.class), rs.getString("name"), rs.getString("revolut_pocket")),
+                accountId);
     }
 
     private Map<TransactionKind, UUID> defaultCategories(UUID accountId) {

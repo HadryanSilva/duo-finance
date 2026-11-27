@@ -2,9 +2,9 @@ package br.dev.duofinance.goal.service;
 
 import br.dev.duofinance.account.repository.AccountRepository;
 import br.dev.duofinance.goal.dto.CreateGoalRequest;
+import br.dev.duofinance.goal.dto.GoalMonthTarget;
 import br.dev.duofinance.goal.dto.GoalResponse;
 import br.dev.duofinance.goal.dto.GoalStatus;
-import br.dev.duofinance.goal.dto.GoalSuggestion;
 import br.dev.duofinance.goal.dto.GoalsOverview;
 import br.dev.duofinance.goal.dto.UpdateGoalRequest;
 import br.dev.duofinance.goal.model.Goal;
@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,14 +66,24 @@ public class GoalService {
     public GoalsOverview overview(UUID accountId, YearMonth month) {
         LocalDate today = LocalDate.now(clock);
         YearMonth current = YearMonth.from(today);
-        Set<UUID> decidedThisMonth = saved.goalsDecidedIn(accountId, current);
+        // Read once: an archived salary category is still shown (with a warning) but targets nothing.
+        CategoryRef salaryCategory = settings.get(accountId).salaryCategory();
+        long salary = salaryOf(accountId, salaryCategory, month);
+        long currentSalary = month.equals(current) ? salary : salaryOf(accountId, salaryCategory, current);
         Map<UUID, Long> savedByGoal = saved.savedByGoal(accountId);
-        Map<UUID, List<Long>> lastContributions = saved.lastContributionsByGoal(accountId);
+        Map<UUID, List<Long>> lastMonthlyTotals = saved.lastMonthlyTotals(accountId);
+        Map<UUID, Long> contributedThisMonth = saved.contributedIn(accountId, current);
+        Set<UUID> skippedThisMonth = saved.skippedIn(accountId, current);
         List<Goal> all = goals.findByAccountIdOrderByCreatedAtAscIdAsc(accountId);
         List<GoalResponse> active = all.stream()
                 .filter(g -> !g.isCompleted())
                 .map(g -> {
                     long savedCents = savedByGoal.getOrDefault(g.getId(), 0L);
+                    long contributed = contributedThisMonth.getOrDefault(g.getId(), 0L);
+                    long target = targetCents(
+                            currentSalary, g.getMonthlyPercent(), g.getTargetCents() - savedCents, contributed);
+                    boolean decided = skippedThisMonth.contains(g.getId())
+                            || (target > 0 ? contributed >= target : contributed > 0);
                     return GoalResponse.of(
                             g,
                             savedCents,
@@ -80,9 +91,9 @@ public class GoalService {
                                     g.getTargetCents(),
                                     savedCents,
                                     g.getTargetDate(),
-                                    lastContributions.getOrDefault(g.getId(), List.of()),
+                                    lastMonthlyTotals.getOrDefault(g.getId(), List.of()),
                                     today,
-                                    decidedThisMonth.contains(g.getId())));
+                                    decided));
                 })
                 .toList();
         List<GoalResponse> completed = all.stream()
@@ -91,11 +102,6 @@ public class GoalService {
                 .map(g -> respond(g, savedByGoal))
                 .toList();
         long totalSaved = active.stream().mapToLong(GoalResponse::savedCents).sum();
-        // Read once: an archived salary category is still shown (with a warning) but suggests nothing.
-        CategoryRef salaryCategory = settings.get(accountId).salaryCategory();
-        long salary = salaryCategory == null || salaryCategory.archived()
-                ? 0L
-                : salaries.salary(accountId, salaryCategory.id(), month);
         return new GoalsOverview(
                 month,
                 salaryCategory,
@@ -103,36 +109,66 @@ public class GoalService {
                 totalSaved,
                 active,
                 completed,
-                suggestions(
-                        accountId, month, salary, active, month.equals(current) ? decidedThisMonth : null));
+                monthTargets(
+                        accountId,
+                        month,
+                        salary,
+                        all,
+                        active,
+                        month.equals(current) ? contributedThisMonth : saved.contributedIn(accountId, month),
+                        month.equals(current) ? skippedThisMonth : saved.skippedIn(accountId, month)));
     }
 
-    /** Only the usable-salary case reaches here with salary > 0; past months stay open until decided, and a month
-     * already begun in the couple's time zone counts as begun (see {@link RunningMonths}). */
-    private List<GoalSuggestion> suggestions(
+    private long salaryOf(UUID accountId, @Nullable CategoryRef salaryCategory, YearMonth month) {
+        return salaryCategory == null || salaryCategory.archived()
+                ? 0L
+                : salaries.salary(accountId, salaryCategory.id(), month);
+    }
+
+    /**
+     * Every active goal with a monthly percentage that already existed in the month, with what was put towards it.
+     * Past months are listed too; a future one, or one yet to begin in the couple's time zone, is not (see
+     * {@link RunningMonths}).
+     */
+    private List<GoalMonthTarget> monthTargets(
             UUID accountId,
             YearMonth month,
             long salary,
+            List<Goal> all,
             List<GoalResponse> active,
-            @Nullable Set<UUID> decidedInCurrentMonth) {
-        if (salary <= 0 || RunningMonths.isFuture(month, clock)) {
+            Map<UUID, Long> contributed,
+            Set<UUID> skipped) {
+        if (RunningMonths.isFuture(month, clock)) {
             return List.of();
         }
-        Set<UUID> decided =
-                decidedInCurrentMonth != null ? decidedInCurrentMonth : saved.goalsDecidedIn(accountId, month);
-        return active.stream()
+        List<GoalResponse> candidates = active.stream()
                 .filter(g -> g.status() == GoalStatus.ACTIVE && g.monthlyPercent() > 0)
-                .filter(g ->
-                        !RunningMonths.earliestOf(g.createdAt()).isAfter(month))
-                .filter(g -> !decided.contains(g.id()))
-                .map(g -> new GoalSuggestion(
-                        g.id(),
-                        g.name(),
-                        month,
-                        g.monthlyPercent(),
-                        suggestedCents(salary, g.monthlyPercent(), g.remainingCents())))
-                .filter(s -> s.suggestedCents() > 0)
                 .toList();
+        Set<UUID> ids = candidates.stream().map(GoalResponse::id).collect(Collectors.toSet());
+        Map<UUID, YearMonth> firstMonths = saved.firstMonthsByGoal(
+                accountId, all.stream().filter(g -> ids.contains(g.getId())).toList());
+        return candidates.stream()
+                .filter(g -> !firstMonths.get(g.id()).isAfter(month))
+                .map(g -> {
+                    long done = contributed.getOrDefault(g.id(), 0L);
+                    return new GoalMonthTarget(
+                            g.id(),
+                            g.name(),
+                            month,
+                            g.monthlyPercent(),
+                            targetCents(salary, g.monthlyPercent(), g.remainingCents(), done),
+                            done,
+                            skipped.contains(g.id()));
+                })
+                .toList();
+    }
+
+    /** The share of the salary, capped at what the goal still needed before this month's contributions. */
+    private static long targetCents(long salary, int percent, long remainingCents, long contributedCents) {
+        if (salary <= 0 || percent <= 0) {
+            return 0;
+        }
+        return Math.max(0, suggestedCents(salary, percent, remainingCents + contributedCents));
     }
 
     @Transactional
@@ -140,14 +176,18 @@ public class GoalService {
         lockAccount(accountId);
         String name = request.name().strip();
         requireNameFree(accountId, name, null);
+        String pocket = PocketNames.clean(request.revolutPocket());
+        requirePocketFree(accountId, pocket, null);
         requirePercentFits(accountId, null, request.monthlyPercent());
-        Goal goal = goals.saveAndFlush(new Goal(
+        Goal goal = new Goal(
                 accountId,
                 name,
                 request.targetCents(),
                 request.targetDate(),
                 request.monthlyPercent(),
-                Instant.now(clock)));
+                Instant.now(clock));
+        goal.setRevolutPocket(pocket);
+        goals.saveAndFlush(goal);
         return single(goal);
     }
 
@@ -160,11 +200,14 @@ public class GoalService {
         }
         String name = request.name().strip();
         requireNameFree(accountId, name, id);
+        String pocket = PocketNames.clean(request.revolutPocket());
+        requirePocketFree(accountId, pocket, id);
         requirePercentFits(accountId, id, request.monthlyPercent());
         goal.setName(name);
         goal.setTargetCents(request.targetCents());
         goal.setTargetDate(request.targetDate());
         goal.setMonthlyPercent(request.monthlyPercent());
+        goal.setRevolutPocket(pocket);
         goal.setUpdatedAt(Instant.now(clock));
         return single(goals.saveAndFlush(goal));
     }
@@ -197,6 +240,7 @@ public class GoalService {
             throw new ApiException(ErrorCode.GOAL_COMPLETED);
         }
         requireNameFree(accountId, goal.getName(), id);
+        requirePocketFree(accountId, goal.getRevolutPocket(), id);
         requirePercentFits(accountId, id, goal.getMonthlyPercent());
         goal.setCompletedAt(null);
         goal.setUpdatedAt(Instant.now(clock));
@@ -224,6 +268,21 @@ public class GoalService {
                         && g.getName().equalsIgnoreCase(name));
         if (taken) {
             throw new ApiException(ErrorCode.GOAL_NAME_TAKEN);
+        }
+    }
+
+    void requirePocketFree(UUID accountId, @Nullable String pocket, @Nullable UUID exceptId) {
+        if (pocket == null) {
+            return;
+        }
+        String wanted = PocketNames.normalise(pocket);
+        boolean taken = goals.findByAccountIdOrderByCreatedAtAscIdAsc(accountId).stream()
+                .anyMatch(g -> !g.isCompleted()
+                        && !g.getId().equals(exceptId)
+                        && g.getRevolutPocket() != null
+                        && PocketNames.normalise(g.getRevolutPocket()).equals(wanted));
+        if (taken) {
+            throw new ApiException(ErrorCode.GOAL_POCKET_TAKEN);
         }
     }
 

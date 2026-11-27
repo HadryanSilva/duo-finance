@@ -6,9 +6,9 @@ import { useBankAccounts } from '@/shared/api/queries/bank-accounts'
 import { useCategories } from '@/shared/api/queries/categories'
 import type { TransactionKind } from '@/shared/api/types'
 import { Label } from '@/shared/ui/label'
-import { nativeSelectClass } from '@/shared/ui/native-select'
 import TextField from '@/shared/ui/TextField.vue'
 import type { TransactionFilter } from '../api/transactions-api'
+import NativeSelect from '@/shared/ui/NativeSelect.vue'
 
 type Patch = Partial<Record<keyof TransactionFilter, string | undefined>>
 
@@ -43,8 +43,6 @@ function onKind(value: string) {
   }
   emit('change', patch)
 }
-
-const selectValue = (e: Event) => (e.target as HTMLSelectElement).value || undefined
 </script>
 
 <template>
@@ -64,56 +62,52 @@ const selectValue = (e: Event) => (e.target as HTMLSelectElement).value || undef
   />
   <div class="grid gap-2">
     <Label :for="ids.kind">{{ t('transactions.filters.kind') }}</Label>
-    <select
+    <NativeSelect
       :id="ids.kind"
-      :value="filter.kind ?? ''"
-      :class="nativeSelectClass"
-      @change="onKind(($event.target as HTMLSelectElement).value)"
+      :model-value="filter.kind ?? ''"
+      @update:model-value="onKind($event ?? '')"
     >
       <option value="">{{ t('transactions.filters.allKinds') }}</option>
       <option v-for="k in KINDS" :key="k" :value="k">{{ t(`transactions.kind.${k}`) }}</option>
-    </select>
+    </NativeSelect>
   </div>
   <div v-if="filter.kind !== 'TRANSFER'" class="grid gap-2">
     <Label :for="ids.category">{{ t('transactions.filters.category') }}</Label>
-    <select
+    <NativeSelect
       :id="ids.category"
-      :value="filter.categoryId ?? ''"
-      :class="nativeSelectClass"
-      @change="emit('change', { categoryId: selectValue($event) })"
+      :model-value="filter.categoryId ?? ''"
+      @update:model-value="emit('change', { categoryId: $event || undefined })"
     >
       <option value="">{{ t('transactions.filters.allCategories') }}</option>
       <option v-for="c in categories.data.value ?? []" :key="c.id" :value="c.id">
         {{ optionName(c) }}
       </option>
-    </select>
+    </NativeSelect>
   </div>
   <div class="grid gap-2">
     <Label :for="ids.account">{{ t('transactions.filters.bankAccount') }}</Label>
-    <select
+    <NativeSelect
       :id="ids.account"
-      :value="filter.bankAccountId ?? ''"
-      :class="nativeSelectClass"
-      @change="emit('change', { bankAccountId: selectValue($event) })"
+      :model-value="filter.bankAccountId ?? ''"
+      @update:model-value="emit('change', { bankAccountId: $event || undefined })"
     >
       <option value="">{{ t('transactions.filters.allBankAccounts') }}</option>
       <option v-for="b in bankAccounts.data.value ?? []" :key="b.id" :value="b.id">
         {{ optionName(b) }}
       </option>
-    </select>
+    </NativeSelect>
   </div>
   <div class="grid gap-2">
     <Label :for="ids.author">{{ t('transactions.filters.author') }}</Label>
-    <select
+    <NativeSelect
       :id="ids.author"
-      :value="filter.createdBy ?? ''"
-      :class="nativeSelectClass"
-      @change="emit('change', { createdBy: selectValue($event) })"
+      :model-value="filter.createdBy ?? ''"
+      @update:model-value="emit('change', { createdBy: $event || undefined })"
     >
       <option value="">{{ t('transactions.filters.allAuthors') }}</option>
       <option v-for="m in members" :key="m.userId" :value="m.userId">
         {{ m.displayName }}
       </option>
-    </select>
+    </NativeSelect>
   </div>
 </template>

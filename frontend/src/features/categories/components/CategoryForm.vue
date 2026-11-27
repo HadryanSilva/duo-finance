@@ -14,6 +14,7 @@ import { applyFieldErrors } from '@/shared/ui/FormErrors'
 import TextField from '@/shared/ui/TextField.vue'
 import ColorPicker from './ColorPicker.vue'
 import IconPicker from './IconPicker.vue'
+import NativeSelect from '@/shared/ui/NativeSelect.vue'
 
 const props = defineProps<{
   /** Category being edited; absent when creating. */
@@ -98,14 +99,9 @@ const submit = handleSubmit(async (values) => {
     />
     <div v-if="!category" class="grid gap-2">
       <Label for="category-kind">{{ t('categories.form.kind') }}</Label>
-      <select
-        id="category-kind"
-        v-model="kind"
-        v-bind="kindAttrs"
-        class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
+      <NativeSelect id="category-kind" v-model="kind" v-bind="kindAttrs">
         <option v-for="k in KINDS" :key="k" :value="k">{{ t(`categories.kind.${k}`) }}</option>
-      </select>
+      </NativeSelect>
     </div>
     <IconPicker v-model="icon" :label="t('categories.form.icon')" />
     <ColorPicker v-model="color" :label="t('categories.form.color')" />

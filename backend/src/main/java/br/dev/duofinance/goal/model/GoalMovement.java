@@ -33,9 +33,21 @@ public class GoalMovement {
     @Column(name = "amount_cents", nullable = false)
     private long amountCents;
 
-    /** First day of the month a CONTRIBUTION or SKIP refers to; null for DEPOSIT and WITHDRAWAL. */
+    /** First day of the month a CONTRIBUTION or SKIP refers to; null for WITHDRAWAL. */
     @Column
     private @Nullable LocalDate month;
+
+    /** The day the money was set aside (or taken out). */
+    @Column(name = "occurred_on", nullable = false)
+    private LocalDate occurredOn;
+
+    /** The imported transaction this movement mirrors, if any. */
+    @Column(name = "transaction_id")
+    private @Nullable UUID transactionId;
+
+    /** A CONTRIBUTION that superseded its month's SKIP: removing the month's last contribution puts the skip back. */
+    @Column(name = "replaced_skip", nullable = false)
+    private boolean replacedSkip;
 
     @Column(length = 200)
     private @Nullable String note;
@@ -54,9 +66,13 @@ public class GoalMovement {
             GoalMovementType type,
             long amountCents,
             @Nullable LocalDate month,
+            LocalDate occurredOn,
+            @Nullable UUID transactionId,
             @Nullable String note,
             @Nullable UUID createdBy,
             Instant now) {
+        this.occurredOn = occurredOn;
+        this.transactionId = transactionId;
         this.goalId = goalId;
         this.accountId = accountId;
         this.type = type;
@@ -65,6 +81,23 @@ public class GoalMovement {
         this.note = note;
         this.createdBy = createdBy;
         this.createdAt = now;
+    }
+
+    /** The mirrored transaction changed: take its amount and date, and count a contribution in the new month. */
+    public void followTransaction(long amountCents, LocalDate occurredOn) {
+        this.amountCents = amountCents;
+        this.occurredOn = occurredOn;
+        if (type == GoalMovementType.CONTRIBUTION) {
+            this.month = occurredOn.withDayOfMonth(1);
+        }
+    }
+
+    public void setReplacedSkip(boolean replacedSkip) {
+        this.replacedSkip = replacedSkip;
+    }
+
+    public boolean replacedSkip() {
+        return replacedSkip;
     }
 
     public UUID getId() {
@@ -89,6 +122,14 @@ public class GoalMovement {
 
     public @Nullable LocalDate getMonth() {
         return month;
+    }
+
+    public LocalDate getOccurredOn() {
+        return occurredOn;
+    }
+
+    public @Nullable UUID getTransactionId() {
+        return transactionId;
     }
 
     public @Nullable String getNote() {

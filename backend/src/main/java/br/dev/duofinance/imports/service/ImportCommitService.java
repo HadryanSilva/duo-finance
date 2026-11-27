@@ -1,6 +1,15 @@
 package br.dev.duofinance.imports.service;
 
+import br.dev.duofinance.account.model.Account;
+import br.dev.duofinance.account.repository.AccountRepository;
+import br.dev.duofinance.goal.model.Goal;
+import br.dev.duofinance.goal.model.GoalMovementType;
+import br.dev.duofinance.goal.repository.GoalRepository;
+import br.dev.duofinance.goal.repository.GoalSavedQuery;
+import br.dev.duofinance.goal.service.GoalMovementService;
+import br.dev.duofinance.goal.service.PocketNames;
 import br.dev.duofinance.imports.dto.CommitResponse;
+import br.dev.duofinance.imports.dto.PocketInfo;
 import br.dev.duofinance.imports.dto.RowDecision;
 import br.dev.duofinance.imports.model.ImportBatch;
 import br.dev.duofinance.imports.model.ImportSource;
@@ -8,12 +17,14 @@ import br.dev.duofinance.imports.repository.CategoryMemoryRepository;
 import br.dev.duofinance.imports.repository.ImportBatchRepository;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ApiException.FieldError;
+import br.dev.duofinance.shared.error.ErrorCode;
 import br.dev.duofinance.transaction.model.TransactionKind;
 import br.dev.duofinance.transaction.service.TransactionReferenceValidator;
 import br.dev.duofinance.transaction.service.TransactionReferenceValidator.ReferenceSnapshot;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -21,12 +32,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Re-parses and re-plans the statement, applies the user's decisions to the recomputed rows (so values always come
- * from the file) and writes the batch, transactions and category memory in one transaction.
+ * from the file) and writes the batch, transactions, goal movements and category memory in one transaction.
  */
 @Service
 public class ImportCommitService {
@@ -36,6 +50,10 @@ public class ImportCommitService {
     private final ImportBatchRepository batches;
     private final ImportedTransactionWriter writer;
     private final CategoryMemoryRepository memory;
+    private final AccountRepository accounts;
+    private final GoalRepository goals;
+    private final GoalSavedQuery saved;
+    private final GoalMovementService goalMovements;
     private final Clock clock;
 
     public ImportCommitService(
@@ -44,12 +62,20 @@ public class ImportCommitService {
             ImportBatchRepository batches,
             ImportedTransactionWriter writer,
             CategoryMemoryRepository memory,
+            AccountRepository accounts,
+            GoalRepository goals,
+            GoalSavedQuery saved,
+            GoalMovementService goalMovements,
             Clock clock) {
         this.references = references;
         this.contexts = contexts;
         this.batches = batches;
         this.writer = writer;
         this.memory = memory;
+        this.accounts = accounts;
+        this.goals = goals;
+        this.saved = saved;
+        this.goalMovements = goalMovements;
         this.clock = clock;
     }
 
@@ -60,7 +86,12 @@ public class ImportCommitService {
             byte[] file,
             UUID bankAccountId,
             Map<String, UUID> productMapping,
+            @Nullable UUID pocketsBankAccountId,
             List<RowDecision> decisions) {
+        // Lock order of every goal write: the account row first. Held for the whole commit, so imports serialise with
+        // each other and with manual goal movements, and the plan and saved amounts read below cannot go stale.
+        Account account =
+                accounts.findByIdForUpdate(accountId).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
         references.validateBankAccount(accountId, bankAccountId);
         if (productMapping != null) {
             productMapping.values().stream()
@@ -68,9 +99,16 @@ public class ImportCommitService {
                     .distinct()
                     .forEach(id -> references.validateBankAccount(accountId, id));
         }
+        if (pocketsBankAccountId != null) {
+            references.validateBankAccount(accountId, pocketsBankAccountId);
+        }
         List<RevolutRow> rows = RevolutCsvParser.parse(file);
-        PlanContext ctx = contexts.load(accountId, userId, bankAccountId, productMapping, rows);
+        PlanContext ctx = contexts.load(accountId, userId, bankAccountId, productMapping, pocketsBankAccountId, rows);
         ImportPlan plan = ImportPlanner.plan(rows, ctx);
+        Map<UUID, Goal> goalsById = decisions.stream().anyMatch(d -> d != null && d.goalId() != null)
+                ? goals.findByAccountIdOrderByCreatedAtAscIdAsc(accountId).stream()
+                        .collect(Collectors.toMap(Goal::getId, Function.identity()))
+                : Map.of();
 
         Map<String, PlannedRow> byId = new HashMap<>();
         for (PlannedRow row : plan.rows()) {
@@ -96,7 +134,9 @@ public class ImportCommitService {
             }
             if (row.status() == RowStatus.ALREADY_IMPORTED) {
                 errors.add(new FieldError(field, "ROW_ALREADY_IMPORTED"));
-            } else if (row.kind() == TransactionKind.TRANSFER) {
+                continue;
+            }
+            if (row.kind() == TransactionKind.TRANSFER) {
                 if (d.categoryId() != null) {
                     errors.add(new FieldError(field, "CATEGORY_NOT_ALLOWED"));
                 }
@@ -109,12 +149,21 @@ public class ImportCommitService {
                     errors.add(new FieldError(field, error));
                 }
             }
+            if (d.goalId() != null) {
+                Goal goal = goalsById.get(d.goalId());
+                if (row.pocket() == null) {
+                    errors.add(new FieldError(field, "GOAL_NOT_ALLOWED"));
+                } else if (goal == null || goal.isCompleted()) {
+                    errors.add(new FieldError(field, "GOAL_INVALID"));
+                }
+            }
         }
         if (!errors.isEmpty()) {
             throw ApiException.invalidFields(errors);
         }
 
         Instant now = Instant.now(clock);
+        rememberPocketsAccount(account, ctx.productMapping(), pocketsBankAccountId);
         ImportBatch batch =
                 batches.saveAndFlush(new ImportBatch(accountId, ImportSource.REVOLUT, bankAccountId, userId, 0, now));
         List<PlannedRow> toInsert = new ArrayList<>();
@@ -133,10 +182,23 @@ public class ImportCommitService {
         // the same order and cannot deadlock. The category memory keeps file order (the last choice wins).
         toInsert.sort(Comparator.comparing(PlannedRow::rowId));
         int included = toInsert.size();
-        int created = 0;
+        Map<String, UUID> inserted = new HashMap<>();
         for (PlannedRow row : toInsert) {
-            created += writer.insert(
-                    accountId, userId, batch.getId(), row, chosen.get(row.rowId()).categoryId(), now);
+            UUID id = writer.insert(accountId, userId, batch.getId(), row, chosen.get(row.rowId()).categoryId(), now);
+            if (id != null) {
+                inserted.put(row.rowId(), id);
+            }
+        }
+        int created = inserted.size();
+        // In statement order (started time, then file line): a withdrawal is clamped to what the goal held by then.
+        List<PlannedRow> goalRows = toInsert.stream()
+                .filter(row -> inserted.containsKey(row.rowId()) && chosen.get(row.rowId()).goalId() != null)
+                .sorted(PlannedRow.APPLY_ORDER)
+                .toList();
+        for (PlannedRow row : goalRows) {
+            Goal goal = goalsById.get(chosen.get(row.rowId()).goalId());
+            recordGoalMovement(goal, userId, row, inserted.get(row.rowId()));
+            linkPocket(goal, row.pocket().name(), goalsById.values(), now);
         }
         remembered.forEach((t, category) -> memory.upsert(accountId, t.key(), t.kind(), category, now));
 
@@ -151,6 +213,51 @@ public class ImportCommitService {
     }
 
     private record MemoryTarget(String key, TransactionKind kind) {}
+
+    /** The pockets account this import used (a mapped savings product, else the one chosen) becomes the default. */
+    private static void rememberPocketsAccount(
+            Account account, Map<String, UUID> mapping, @Nullable UUID pocketsBankAccountId) {
+        UUID used = mapping.entrySet().stream()
+                .filter(e -> PocketRows.isSavingsProduct(e.getKey()) && e.getValue() != null)
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse(pocketsBankAccountId);
+        if (used != null && !used.equals(account.getPocketsBankAccountId())) {
+            account.setPocketsBankAccountId(used);
+        }
+    }
+
+    /** Money into the pocket is a contribution of any size; money out is a withdrawal of at most what is saved. */
+    private void recordGoalMovement(Goal goal, UUID userId, PlannedRow row, UUID transactionId) {
+        if (row.pocket().direction() == PocketInfo.Direction.INTO) {
+            goalMovements.recordImported(
+                    goal, userId, GoalMovementType.CONTRIBUTION, row.amountCents(), row.date(), transactionId);
+            return;
+        }
+        long amount = Math.min(row.amountCents(), saved.savedOf(goal.getId()));
+        if (amount > 0) {
+            goalMovements.recordImported(goal, userId, GoalMovementType.WITHDRAWAL, amount, row.date(), transactionId);
+        }
+    }
+
+    /** A goal without a pocket takes the row's pocket name, unless another active goal already has it. */
+    private void linkPocket(Goal goal, @Nullable String pocket, Collection<Goal> all, Instant now) {
+        String name = PocketNames.clean(pocket);
+        if (goal.getRevolutPocket() != null || name == null) {
+            return;
+        }
+        String key = PocketNames.normalise(name);
+        boolean taken = all.stream()
+                .anyMatch(g -> !g.isCompleted()
+                        && !g.getId().equals(goal.getId())
+                        && g.getRevolutPocket() != null
+                        && PocketNames.normalise(g.getRevolutPocket()).equals(key));
+        if (!taken) {
+            goal.setRevolutPocket(name);
+            goal.setUpdatedAt(now);
+            goals.saveAndFlush(goal);
+        }
+    }
 
     /** Empty when the category is valid for the kind; otherwise the error code. */
     private String categoryError(UUID accountId, TransactionKind kind, UUID categoryId) {

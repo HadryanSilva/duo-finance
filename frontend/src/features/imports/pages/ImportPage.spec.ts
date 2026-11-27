@@ -38,6 +38,22 @@ const cofre = { ...revolut, id: 'b2', name: 'Cofre' }
 const velha = { ...revolut, id: 'b3', name: 'Velha', archived: true }
 const banks = [revolut, cofre, velha]
 
+const goal = (over: Record<string, unknown> & { id: string; name: string }) => ({
+  targetCents: 100000,
+  targetDate: null,
+  monthlyPercent: 0,
+  status: 'ACTIVE',
+  savedCents: 40000,
+  remainingCents: 60000,
+  completedAt: null,
+  createdAt: '2026-01-01T00:00:00Z',
+  revolutPocket: null,
+  projection: null,
+  ...over,
+})
+const setupGoal = goal({ id: 'g1', name: 'Setup', revolutPocket: 'Setup' })
+const viagem = goal({ id: 'g2', name: 'Viagem' })
+
 const row = (r: Partial<PreviewRow> & Pick<PreviewRow, 'rowId' | 'description'>): PreviewRow => ({
   date: '2026-11-05',
   kind: 'EXPENSE',
@@ -47,6 +63,8 @@ const row = (r: Partial<PreviewRow> & Pick<PreviewRow, 'rowId' | 'description'>)
   destinationBankAccountId: null,
   suggestedCategoryId: 'c1',
   status: 'NEW',
+  pocket: null,
+  applyOrder: 0,
   ...r,
 })
 const PINGO = 'Mercado Pingo Doce'
@@ -117,6 +135,7 @@ interface Sent {
   fileName: string | null
   fileText: string | null
   productMapping: unknown
+  pocketsBankAccountId: string | null
   decisions: unknown
 }
 
@@ -132,6 +151,7 @@ async function readForm(request: Request): Promise<Sent> {
     fileName: file?.name ?? null,
     fileText: file ? await file.text() : null,
     productMapping: await json('productMapping'),
+    pocketsBankAccountId: form.get('pocketsBankAccountId') as string | null,
     decisions: await json('decisions'),
   }
 }
@@ -146,13 +166,35 @@ function setup(
     previewGate?: (n: number) => Promise<void> | undefined
     /** Holds the commit response until it settles. */
     commitGate?: Promise<void>
+    /** Active goals of the current month. */
+    goals?: object[]
   } = {},
 ) {
   const previews: Sent[] = []
   const commits: Sent[] = []
   const undone: string[] = []
+  const createdGoals: unknown[] = []
+  const goals = [...(opts.goals ?? [])]
   const handlers = [
     ...(opts.extra ?? []),
+    http.get(`${api}/goals`, ({ request }) =>
+      HttpResponse.json({
+        month: new URL(request.url).searchParams.get('month'),
+        salaryCategory: null,
+        salaryCents: 0,
+        totalSavedCents: 0,
+        goals,
+        completed: [],
+        monthTargets: [],
+      }),
+    ),
+    http.post(`${api}/goals`, async ({ request }) => {
+      const body = (await request.json()) as Record<string, unknown>
+      createdGoals.push(body)
+      const created = goal({ id: 'g-new', name: body.name as string, savedCents: 0 })
+      goals.push({ ...created, revolutPocket: body.revolutPocket ?? null })
+      return HttpResponse.json(created, { status: 201 })
+    }),
     http.get(`${api}/account`, () => HttpResponse.json(account)),
     http.get(`${api}/categories`, ({ request }) => {
       const p = new URL(request.url).searchParams
@@ -199,6 +241,7 @@ function setup(
     previews,
     commits,
     undone,
+    createdGoals,
     render: (route = '/transactions/import') => renderRoute({ route, session: {}, handlers }),
   }
 }
@@ -241,6 +284,11 @@ async function upload(
   return r
 }
 
+const descriptionOf = (el: HTMLElement) =>
+  (el.getAttribute('aria-describedby') ?? '')
+    .split(' ')
+    .map((id) => document.getElementById(id)?.textContent?.trim() ?? '')
+    .join(' ')
 const panel = () => screen.getByRole('tabpanel')
 const rowsIn = (el: HTMLElement) => within(el).getAllByRole('listitem')
 const submitButton = () => screen.getByRole('button', { name: /^Importar \d+ lançamentos?$/ })
@@ -526,11 +574,6 @@ describe('ImportPage', () => {
     http.post(`${api}/imports/revolut/commit`, () =>
       problem(400, 'VALIDATION_FAILED', [{ field: `decisions[${rowId}]`, code }]),
     )
-  const descriptionOf = (el: HTMLElement) =>
-    (el.getAttribute('aria-describedby') ?? '')
-      .split(' ')
-      .map((id) => document.getElementById(id)?.textContent?.trim() ?? '')
-      .join(' ')
 
   it('commit_categoryArchived_marksRowAndKeepsReview', async () => {
     const s = setup({ extra: [rowCommitError('r1', 'CATEGORY_ARCHIVED')] })
@@ -789,6 +832,278 @@ describe('ImportPage', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Desfazer esta importação?' })
     await user.click(within(dialog).getByRole('button', { name: 'Desfazer' }))
     await waitFor(() => expect(s.undone).toEqual(['bA']))
+  })
+})
+
+describe('ImportPage pockets', () => {
+  const pocketRow = (
+    rowId: string,
+    name: string | null,
+    over: Partial<PreviewRow> & { goalId?: string | null; direction?: 'INTO' | 'OUT_OF' } = {},
+  ) => {
+    const { goalId = null, direction = 'INTO', ...rest } = over
+    return row({
+      rowId,
+      description: `Carregamento de subconta EUR ${name ?? '?'} de EUR`,
+      kind: 'TRANSFER',
+      amountCents: 5000,
+      destinationBankAccountId: 'b2',
+      suggestedCategoryId: null,
+      pocket: { name, direction, goalId, match: goalId ? 'LINKED' : 'NONE' },
+      ...rest,
+    })
+  }
+  const pocketPreview = (...rows: PreviewRow[]) =>
+    preview({ rows, skipped: { counts: {}, rows: [] } })
+  const goalSelect = (li: HTMLElement) =>
+    within(li).getByRole('combobox', { name: /^Objetivo de / }) as HTMLSelectElement
+  const decisionsOf = (sent: Sent) =>
+    sent.decisions as { rowId: string; include: boolean; goalId?: string | null }[]
+
+  it('import_pocketRow_showsLinkedGoal', async () => {
+    const s = setup({
+      goals: [setupGoal, viagem],
+      preview: pocketPreview(pocketRow('p1', 'Setup', { goalId: 'g1' })),
+    })
+    await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    const [li] = rowsIn(panel())
+    await waitFor(() => expect(norm(li!.textContent)).toContain('→ contribuição para Setup'))
+    expect(goalSelect(li!).value).toBe('g1')
+    expect(optionTexts(goalSelect(li!))).toEqual([
+      'Sem objetivo',
+      'Setup',
+      'Viagem',
+      '+ Criar objetivo "Setup"',
+    ])
+    expect(li!.textContent).not.toContain('Sem objetivo: este valor continua no saldo livre')
+  })
+
+  it('import_pocketRow_pickGoal_sentInCommit', async () => {
+    const s = setup({
+      goals: [setupGoal, viagem],
+      preview: pocketPreview(
+        pocketRow('p1', 'Viagem'),
+        pocketRow('p2', 'viagem', { direction: 'OUT_OF', amountCents: 1000 }),
+        pocketRow('p3', 'Outro'),
+      ),
+    })
+    const { user } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    const [first, second, third] = rowsIn(panel())
+    await waitFor(() => expect(optionTexts(goalSelect(first!))).toContain('Viagem'))
+    await user.selectOptions(goalSelect(first!), 'g2')
+    // the same pocket follows; another pocket does not
+    expect(goalSelect(second!).value).toBe('g2')
+    expect(norm(second!.textContent)).toContain('← retirada de Viagem')
+    expect(goalSelect(third!).value).toBe('')
+
+    await user.click(submitButton())
+    await waitFor(() => expect(s.commits).toHaveLength(1))
+    expect(decisionsOf(s.commits[0]!)).toEqual([
+      { rowId: 'p1', include: true, categoryId: null, goalId: 'g2' },
+      { rowId: 'p2', include: true, categoryId: null, goalId: 'g2' },
+      { rowId: 'p3', include: true, categoryId: null, goalId: null },
+    ])
+  })
+
+  it('import_pocketRow_createGoal_selectsIt', async () => {
+    const s = setup({
+      goals: [setupGoal],
+      preview: pocketPreview(pocketRow('p1', 'Fundo'), row({ rowId: 'r1', description: PINGO })),
+    })
+    const { user } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    const [li, other] = rowsIn(panel())
+    // an edit made before the dialog survives it
+    await user.click(within(other!).getByRole('checkbox', { name: `Incluir ${PINGO}` }))
+    await waitFor(() => expect(optionTexts(goalSelect(li!))).toContain('+ Criar objetivo "Fundo"'))
+    await user.selectOptions(goalSelect(li!), '+ Criar objetivo "Fundo"')
+
+    const dialog = await screen.findByRole('dialog', { name: 'Novo objetivo' })
+    expect((within(dialog).getByLabelText('Nome') as HTMLInputElement).value).toBe('Fundo')
+    expect((within(dialog).getByLabelText('Pocket da Revolut') as HTMLInputElement).value).toBe(
+      'Fundo',
+    )
+    await user.type(within(dialog).getByLabelText('Valor alvo'), '500')
+    await user.click(within(dialog).getByRole('button', { name: 'Salvar' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(s.createdGoals).toEqual([
+      expect.objectContaining({ name: 'Fundo', revolutPocket: 'Fundo', targetCents: 50000 }),
+    ])
+    const [row1, row2] = rowsIn(panel())
+    await waitFor(() => expect(goalSelect(row1!).value).toBe('g-new'))
+    expect(norm(row1!.textContent)).toContain('→ contribuição para Fundo')
+    expect((within(row2!).getByRole('checkbox') as HTMLInputElement).checked).toBe(false)
+
+    await user.click(submitButton())
+    await waitFor(() => expect(s.commits).toHaveLength(1))
+    expect(decisionsOf(s.commits[0]!)).toEqual([
+      { rowId: 'p1', include: true, categoryId: null, goalId: 'g-new' },
+    ])
+  })
+
+  it('import_pocketRow_noGoal_warns', async () => {
+    const s = setup({ goals: [setupGoal], preview: pocketPreview(pocketRow('p1', 'Viagem')) })
+    const { user } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    const [li] = rowsIn(panel())
+    expect(li!.textContent).toContain('Sem objetivo: este valor continua no saldo livre')
+    // no goal is allowed: the row still imports, as a plain transfer
+    expect(submitButton().hasAttribute('disabled')).toBe(false)
+    await waitFor(() => expect(optionTexts(goalSelect(li!))).toContain('Setup'))
+    await user.selectOptions(goalSelect(li!), 'g1')
+    expect(li!.textContent).not.toContain('Sem objetivo: este valor continua no saldo livre')
+  })
+
+  it('import_withdrawalAboveSaved_warns', async () => {
+    const s = setup({
+      goals: [{ ...setupGoal, savedCents: 2000 }],
+      preview: pocketPreview(
+        pocketRow('p1', 'Setup', { goalId: 'g1', direction: 'OUT_OF', amountCents: 5000 }),
+        pocketRow('p2', 'Setup', { goalId: 'g1', direction: 'OUT_OF', amountCents: 1500 }),
+      ),
+    })
+    await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    const [above, within2] = rowsIn(panel())
+    const warning = 'Só € 20,00 estão guardados neste objetivo; a retirada fica em € 20,00'
+    await waitFor(() => expect(norm(above!.textContent)).toContain(warning))
+    expect(norm(above!.textContent)).toContain('← retirada de Setup')
+    expect(norm(within2!.textContent)).not.toContain('Só € 20,00')
+  })
+
+  it('import_withdrawals_warnOnTheRunningTotal_inStatementOrder', async () => {
+    const out = (rowId: string, amountCents: number, applyOrder: number) =>
+      pocketRow(rowId, 'Setup', { goalId: 'g1', direction: 'OUT_OF', amountCents, applyOrder })
+    const s = setup({
+      goals: [{ ...setupGoal, savedCents: 2000 }],
+      // file order differs from statement order: p2 happens first, then p1, then p3
+      preview: pocketPreview(out('p1', 1500, 1), out('p2', 1500, 0), out('p3', 1000, 2)),
+    })
+    const { user } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    const [p1, p2, p3] = rowsIn(panel())
+    await waitFor(() =>
+      expect(norm(p1!.textContent)).toContain(
+        'Só € 5,00 estão guardados neste objetivo; a retirada fica em € 5,00',
+      ),
+    )
+    expect(norm(p2!.textContent)).not.toContain('Só ')
+    expect(norm(p3!.textContent)).toContain(
+      'Nada resta neste objetivo antes desta retirada; ela não será registrada no objetivo',
+    )
+
+    // leaving the first withdrawal out frees the money for the next ones
+    await user.click(within(p2!).getByRole('checkbox'))
+    expect(norm(p1!.textContent)).not.toContain('Só ')
+    expect(norm(p3!.textContent)).toContain(
+      'Só € 5,00 estão guardados neste objetivo; a retirada fica em € 5,00',
+    )
+  })
+
+  it('import_noPocketsAccount_asksAndRepreviews', async () => {
+    const s = setup({
+      goals: [setupGoal],
+      preview: (n) =>
+        n === 1
+          ? preview({
+              rows: [row({ rowId: 'r1', description: PINGO })],
+              skipped: {
+                counts: { POCKET_NO_ACCOUNT: 1 },
+                rows: [
+                  {
+                    lineNumber: 3,
+                    date: '2026-11-05',
+                    description: 'Carregamento de subconta EUR Setup de EUR',
+                    amountRaw: '-50.00',
+                    currency: 'EUR',
+                    reason: 'POCKET_NO_ACCOUNT',
+                  },
+                ],
+              },
+            })
+          : pocketPreview(row({ rowId: 'r1', description: PINGO }), pocketRow('p1', 'Setup')),
+    })
+    const { user } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    await user.click(screen.getByRole('tab', { name: /Puladas/ }))
+    expect(rowsIn(panel())[0]!.textContent).toContain('Pocket sem conta de pockets definida')
+
+    const pockets = screen.getByLabelText('Conta dos pockets') as HTMLSelectElement
+    expect(s.previews[0]!.pocketsBankAccountId).toBeNull()
+    await user.selectOptions(pockets, 'b2')
+    await waitFor(() => expect(s.previews).toHaveLength(2))
+    expect(s.previews[1]).toMatchObject({ bankAccountId: 'b1', pocketsBankAccountId: 'b2' })
+    // the choice stays on screen once the skips are gone
+    await waitFor(() =>
+      expect((screen.getByLabelText('Conta dos pockets') as HTMLSelectElement).value).toBe('b2'),
+    )
+
+    await user.click(submitButton())
+    await waitFor(() => expect(s.commits).toHaveLength(1))
+    expect(s.commits[0]!.pocketsBankAccountId).toBe('b2')
+  })
+
+  it('import_pocketsSameAccount_asksAgainWithoutStatementAccount', async () => {
+    const s = setup({
+      goals: [setupGoal],
+      preview: preview({
+        rows: [row({ rowId: 'r1', description: PINGO })],
+        skipped: {
+          counts: { POCKET_SAME_ACCOUNT: 1 },
+          rows: [
+            {
+              lineNumber: 3,
+              date: '2026-11-05',
+              description: 'Carregamento de subconta EUR Setup de EUR',
+              amountRaw: '-50.00',
+              currency: 'EUR',
+              reason: 'POCKET_SAME_ACCOUNT',
+            },
+          ],
+        },
+      }),
+    })
+    const { user } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+
+    const pockets = screen.getByLabelText('Conta dos pockets') as HTMLSelectElement
+    const values = Array.from(pockets.options).map((o) => o.value)
+    expect(values).toContain('b2')
+    expect(values).not.toContain('b1')
+    await user.selectOptions(pockets, 'b2')
+    await waitFor(() => expect(s.previews).toHaveLength(2))
+    expect(s.previews[1]).toMatchObject({ bankAccountId: 'b1', pocketsBankAccountId: 'b2' })
+  })
+
+  it('import_pocketsAccountAbsent_withoutPocketSkips', async () => {
+    const s = setup()
+    await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    expect(screen.queryByLabelText('Conta dos pockets')).toBeNull()
+    expect(s.previews[0]!.pocketsBankAccountId).toBeNull()
+  })
+
+  it('commit_goalInvalid_marksGoalPicker', async () => {
+    const s = setup({
+      goals: [setupGoal],
+      preview: pocketPreview(pocketRow('p1', 'Setup', { goalId: 'g1' })),
+      extra: [
+        http.post(`${api}/imports/revolut/commit`, () =>
+          problem(400, 'VALIDATION_FAILED', [{ field: 'decisions[p1]', code: 'GOAL_INVALID' }]),
+        ),
+      ],
+    })
+    const { user } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    await user.click(submitButton())
+    const message = 'Este objetivo não pode mais ser usado. Escolha outro.'
+    await screen.findByText(message)
+    const select = goalSelect(rowsIn(panel())[0]!)
+    expect(select.getAttribute('aria-invalid')).toBe('true')
+    expect(descriptionOf(select)).toBe(message)
   })
 })
 

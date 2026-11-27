@@ -15,6 +15,7 @@ import {
   unscannedFiles,
   pagesMissingHeader,
   pagesRequiringHeader,
+  rawControls,
   staticStyleAttributes,
 } from './design-guard'
 
@@ -274,5 +275,50 @@ describe('design guard checkers', () => {
         ])
       },
     )
+  })
+})
+
+describe('raw native controls', () => {
+  it('has no raw native controls outside their shared components', () => {
+    expect(rawControls()).toEqual([])
+  })
+
+  it('rawControls flags a raw select outside NativeSelect', () => {
+    const root = mkdtempSync(join(tmpdir(), 'guard-'))
+    try {
+      for (const [path, content] of Object.entries({
+        'features/x/A.vue': '<template>\n  <select v-model="x"></select>\n</template>',
+        'shared/ui/NativeSelect.vue': '<template><select /></template>',
+      })) {
+        mkdirSync(dirname(join(root, path)), { recursive: true })
+        writeFileSync(join(root, path), content)
+      }
+      expect(rawControls(root)).toEqual(['features/x/A.vue:2: <select v-model="x"></select>'])
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it('rawControls catches single quotes and bound literal types', () => {
+    const root = mkdtempSync(join(tmpdir(), 'guard-'))
+    try {
+      mkdirSync(join(root, 'features/x'), { recursive: true })
+      writeFileSync(
+        join(root, 'features/x/B.vue'),
+        [
+          `<input type='checkbox' />`,
+          `<input :type="'file'" />`,
+          `<input type="checkbox" />`,
+          `<input type="text" />`,
+        ].join('\n'),
+      )
+      expect(
+        rawControls(root)
+          .map((o) => o.split(':')[1])
+          .sort(),
+      ).toEqual(['1', '2', '3'])
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 })

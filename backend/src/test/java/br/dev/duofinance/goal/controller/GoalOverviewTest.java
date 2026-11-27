@@ -3,11 +3,15 @@ package br.dev.duofinance.goal.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import br.dev.duofinance.IntegrationTest;
+import br.dev.duofinance.goal.model.GoalMovement;
+import br.dev.duofinance.goal.model.GoalMovementType;
+import br.dev.duofinance.goal.repository.GoalMovementRepository;
 import br.dev.duofinance.support.FinanceFixtures;
 import br.dev.duofinance.support.MutableClock;
 import br.dev.duofinance.support.TestUsers;
 import br.dev.duofinance.support.TestUsers.TestSession;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -41,6 +45,9 @@ class GoalOverviewTest {
 
     @Autowired
     MutableClock clock;
+
+    @Autowired
+    GoalMovementRepository movements;
 
     private final JsonMapper json = JsonMapper.builder().build();
 
@@ -121,17 +128,15 @@ class GoalOverviewTest {
         return goal(s, name, target, percent, null);
     }
 
-    private MvcTestResult contribute(TestSession s, String goal, String month, Long amount) {
+    private MvcTestResult contribute(TestSession s, String goal, String date, long amount) {
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("month", month);
-        if (amount != null) {
-            m.put("amountCents", amount);
-        }
+        m.put("amountCents", amount);
+        m.put("date", date);
         return send(HttpMethod.POST, s, GOALS + "/" + goal + "/contributions", m);
     }
 
     @Test
-    void suggestions_percentOfCombinedSalary_cappedAtRemaining() throws Exception {
+    void monthTargets_percentOfCombinedSalary_cappedAtRemaining() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         withSalary(s);
         String a = goal(s, "A", 100000, 10);
@@ -140,16 +145,16 @@ class GoalOverviewTest {
         JsonNode o = overview(s, "2027-03");
 
         assertThat(o.path("salaryCents").asLong()).isEqualTo(350000);
-        assertThat(o.path("suggestions")).hasSize(2);
-        assertThat(o.path("suggestions").get(0).path("goalId").asString()).isEqualTo(a);
-        assertThat(o.path("suggestions").get(0).path("suggestedCents").asLong()).isEqualTo(35000);
-        assertThat(o.path("suggestions").get(0).path("month").asString()).isEqualTo("2027-03");
-        assertThat(o.path("suggestions").get(1).path("goalId").asString()).isEqualTo(b);
-        assertThat(o.path("suggestions").get(1).path("suggestedCents").asLong()).isEqualTo(10000);
+        assertThat(o.path("monthTargets")).hasSize(2);
+        assertThat(o.path("monthTargets").get(0).path("goalId").asString()).isEqualTo(a);
+        assertThat(o.path("monthTargets").get(0).path("targetCents").asLong()).isEqualTo(35000);
+        assertThat(o.path("monthTargets").get(0).path("month").asString()).isEqualTo("2027-03");
+        assertThat(o.path("monthTargets").get(1).path("goalId").asString()).isEqualTo(b);
+        assertThat(o.path("monthTargets").get(1).path("targetCents").asLong()).isEqualTo(10000);
     }
 
     @Test
-    void suggestions_roundHalfUp() throws Exception {
+    void monthTargets_roundHalfUp() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         UUID category = salaryCategory(s);
         income(s, fixtures.bankAccount(s, "Conta", 0), category, "2027-03-05", 333335);
@@ -157,26 +162,94 @@ class GoalOverviewTest {
 
         JsonNode o = overview(s, "2027-03");
 
-        assertThat(o.path("suggestions").get(0).path("suggestedCents").asLong()).isEqualTo(33334);
+        assertThat(o.path("monthTargets").get(0).path("targetCents").asLong()).isEqualTo(33334);
     }
 
     @Test
-    void suggestions_disappearAfterConfirmOrSkip() throws Exception {
+    void overview_monthTarget_tracksProgress() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID category = salaryCategory(s);
+        income(s, fixtures.bankAccount(s, "Conta", 0), category, "2027-03-05", 300000);
+        String a = goal(s, "A", 100000, 10);
+        assertThat(contribute(s, a, "2027-03-10", 10000L)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, a, "2027-03-12", 5000L)).hasStatus(HttpStatus.CREATED);
+
+        JsonNode targets = overview(s, "2027-03").path("monthTargets");
+
+        assertThat(targets).hasSize(1);
+        assertThat(targets.get(0).path("goalId").asString()).isEqualTo(a);
+        assertThat(targets.get(0).path("targetCents").asLong()).isEqualTo(30000);
+        assertThat(targets.get(0).path("contributedCents").asLong()).isEqualTo(15000);
+        assertThat(targets.get(0).path("skipped").asBoolean()).isFalse();
+    }
+
+    @Test
+    void overview_monthTarget_metStaysListed() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID category = salaryCategory(s);
+        income(s, fixtures.bankAccount(s, "Conta", 0), category, "2027-03-05", 300000);
+        String a = goal(s, "A", 100000, 10);
+        assertThat(contribute(s, a, "2027-03-10", 30000L)).hasStatus(HttpStatus.CREATED);
+
+        JsonNode targets = overview(s, "2027-03").path("monthTargets");
+
+        assertThat(targets).hasSize(1);
+        assertThat(targets.get(0).path("targetCents").asLong()).isEqualTo(30000);
+        assertThat(targets.get(0).path("contributedCents").asLong()).isGreaterThanOrEqualTo(30000);
+    }
+
+    @Test
+    void overview_skippedMonth_flagged() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         withSalary(s);
         String a = goal(s, "A", 100000, 10);
-        String b = goal(s, "B", 10000, 5);
-
-        assertThat(overview(s, "2027-03").path("suggestions")).hasSize(2);
-        assertThat(contribute(s, a, "2027-03", null)).hasStatus(HttpStatus.CREATED);
-        assertThat(send(HttpMethod.POST, s, GOALS + "/" + b + "/skips", Map.of("month", "2027-03")))
+        assertThat(send(HttpMethod.POST, s, GOALS + "/" + a + "/skips", Map.of("month", "2027-03")))
                 .hasStatus(HttpStatus.CREATED);
 
-        assertThat(overview(s, "2027-03").path("suggestions")).isEmpty();
+        JsonNode targets = overview(s, "2027-03").path("monthTargets");
+
+        assertThat(targets).hasSize(1);
+        assertThat(targets.get(0).path("skipped").asBoolean()).isTrue();
+        assertThat(targets.get(0).path("contributedCents").asLong()).isZero();
     }
 
     @Test
-    void suggestions_pastMonthStillOffered() throws Exception {
+    void overview_noSalary_targetZero() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        String a = goal(s, "A", 100000, 10);
+
+        JsonNode targets = overview(s, "2027-03").path("monthTargets");
+
+        assertThat(targets).hasSize(1);
+        assertThat(targets.get(0).path("goalId").asString()).isEqualTo(a);
+        assertThat(targets.get(0).path("targetCents").asLong()).isZero();
+    }
+
+    @Test
+    void overview_monthTarget_listedFromTheMonthOfAnEarlierMovement() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID category = salaryCategory(s);
+        income(s, fixtures.bankAccount(s, "Conta", 0), category, "2027-02-05", 200000);
+        String a = goal(s, "A", 100000, 10);
+        // An import may place a movement before the goal existed; that month then counts as its first.
+        movements.save(new GoalMovement(
+                UUID.fromString(a),
+                s.accountId(),
+                GoalMovementType.CONTRIBUTION,
+                1000L,
+                LocalDate.of(2027, 2, 1),
+                LocalDate.of(2027, 2, 10),
+                null,
+                null,
+                s.userId(),
+                MARCH));
+
+        assertThat(overview(s, "2027-02").path("monthTargets")).hasSize(1);
+        assertThat(overview(s, "2027-01").path("monthTargets")).isEmpty();
+    }
+
+    @Test
+    void monthTargets_pastMonthStillOffered() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         UUID category = salaryCategory(s);
         clock.setInstant(Instant.parse("2027-02-01T10:00:00Z"));
@@ -186,12 +259,12 @@ class GoalOverviewTest {
 
         JsonNode o = overview(s, "2027-02");
 
-        assertThat(o.path("suggestions")).hasSize(1);
-        assertThat(o.path("suggestions").get(0).path("suggestedCents").asLong()).isEqualTo(20000);
+        assertThat(o.path("monthTargets")).hasSize(1);
+        assertThat(o.path("monthTargets").get(0).path("targetCents").asLong()).isEqualTo(20000);
     }
 
     @Test
-    void suggestions_none_beforeCreationOrInFuture() throws Exception {
+    void monthTargets_none_beforeCreationOrInFuture() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         UUID category = salaryCategory(s);
         UUID bank = fixtures.bankAccount(s, "Conta", 0);
@@ -200,40 +273,40 @@ class GoalOverviewTest {
         income(s, bank, category, "2027-04-05", 200000);
         goal(s, "A", 100000, 10);
 
-        assertThat(overview(s, "2027-02").path("suggestions")).isEmpty();
-        assertThat(overview(s, "2027-04").path("suggestions")).isEmpty();
-        assertThat(overview(s, "2027-03").path("suggestions")).hasSize(1);
+        assertThat(overview(s, "2027-02").path("monthTargets")).isEmpty();
+        assertThat(overview(s, "2027-04").path("monthTargets")).isEmpty();
+        assertThat(overview(s, "2027-03").path("monthTargets")).hasSize(1);
     }
 
     @Test
-    void suggestions_none_whenZeroPercentOrReached() throws Exception {
+    void monthTargets_none_whenZeroPercentOrReached() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         withSalary(s);
         goal(s, "Zero", 100000, 0);
         String control = goal(s, "Control", 100000, 10);
         String reached = goal(s, "Reached", 5000, 10);
-        assertThat(send(HttpMethod.POST, s, GOALS + "/" + reached + "/deposits", Map.of("amountCents", 5000)))
-                .hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, reached, "2027-03-10", 5000L)).hasStatus(HttpStatus.CREATED);
 
-        JsonNode suggestions = overview(s, "2027-03").path("suggestions");
+        JsonNode suggestions = overview(s, "2027-03").path("monthTargets");
         assertThat(suggestions).hasSize(1);
         assertThat(suggestions.get(0).path("goalId").asString()).isEqualTo(control);
     }
 
     @Test
-    void suggestions_none_whenSalaryCategoryArchived() throws Exception {
+    void monthTargets_none_whenSalaryCategoryArchived() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         UUID category = salaryCategory(s);
         income(s, fixtures.bankAccount(s, "Conta", 0), category, "2027-03-05", 200000);
         goal(s, "A", 100000, 10);
-        assertThat(overview(s, "2027-03").path("suggestions")).hasSize(1);
+        assertThat(overview(s, "2027-03").path("monthTargets")).hasSize(1);
         assertThat(send(HttpMethod.POST, s, "/api/v1/categories/" + category + "/archive", null))
                 .hasStatus(HttpStatus.OK);
 
         JsonNode o = overview(s, "2027-03");
 
         assertThat(o.path("salaryCategory").path("archived").asBoolean()).isTrue();
-        assertThat(o.path("suggestions")).isEmpty();
+        assertThat(o.path("monthTargets")).hasSize(1);
+        assertThat(o.path("monthTargets").get(0).path("targetCents").asLong()).isZero();
         assertThat(o.path("salaryCents").asLong()).isZero();
     }
 
@@ -249,7 +322,7 @@ class GoalOverviewTest {
         JsonNode o = overview(s, "2027-03");
 
         assertThat(o.path("salaryCategory").isNull()).isTrue();
-        assertThat(o.path("suggestions")).isEmpty();
+        assertThat(o.path("monthTargets").get(0).path("targetCents").asLong()).isZero();
     }
 
     @Test
@@ -265,11 +338,11 @@ class GoalOverviewTest {
         String open = goal(s, "Open", 120000, 10);
         String done = goal(s, "Done", 50000, 10);
         clock.setInstant(MARCH);
-        assertThat(contribute(s, dated, "2027-03", 40000L)).hasStatus(HttpStatus.CREATED);
-        assertThat(contribute(s, open, "2027-03", 30000L)).hasStatus(HttpStatus.CREATED);
-        assertThat(contribute(s, open, "2027-02", 20000L)).hasStatus(HttpStatus.CREATED);
-        assertThat(contribute(s, open, "2027-01", 10000L)).hasStatus(HttpStatus.CREATED);
-        assertThat(contribute(s, done, "2027-03", 7000L)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, dated, "2027-03-10", 40000L)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, open, "2027-03-10", 30000L)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, open, "2027-02-10", 20000L)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, open, "2027-01-10", 10000L)).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, done, "2027-03-10", 7000L)).hasStatus(HttpStatus.CREATED);
         assertThat(send(HttpMethod.POST, s, GOALS + "/" + done + "/complete", null))
                 .hasStatus(HttpStatus.OK);
 

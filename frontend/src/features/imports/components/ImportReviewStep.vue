@@ -2,14 +2,18 @@
 import { computed, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useCategories } from '@/shared/api/queries/categories'
+import { useGoals } from '@/shared/api/queries/goals'
 import type { PreviewResponse } from '@/shared/api/types'
+import { currentMonth } from '@/shared/lib/dates'
 import { Button } from '@/shared/ui/button'
 import MoneyText from '@/shared/ui/MoneyText.vue'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 import {
   canSubmit,
+  goalBalances,
   sameGroup,
   setCategory,
+  setGoal,
   setInclude,
   totals,
   type ReviewRow,
@@ -45,6 +49,9 @@ const expenseOptions = computed(() => options(expense.data.value))
 const incomeOptions = computed(() => options(income.data.value))
 const categoriesFor = (row: ReviewRow) =>
   row.kind === 'INCOME' ? incomeOptions.value : expenseOptions.value
+const goalsOverview = useGoals(currentMonth())
+const activeGoals = computed(() => goalsOverview.data.value?.goals ?? [])
+const held = computed(() => goalBalances(rows.value, activeGoals.value))
 
 // ALREADY_IMPORTED rows stay in "New", locked, so the file's rows are all accounted for.
 const newRows = computed(() => rows.value.filter((r) => r.status !== 'POSSIBLE_DUPLICATE'))
@@ -81,6 +88,14 @@ function applyToGroup() {
   prompt.value = null
 }
 
+function onGoal(rowId: string, goalId: string | null) {
+  const before = rows.value
+  rows.value = setGoal(before, rowId, goalId)
+  rows.value.forEach((r, i) => {
+    if (r !== before[i]) clearError(r.rowId)
+  })
+}
+
 const onInclude = (rowId: string, include: boolean) => {
   clearError(rowId)
   rows.value = setInclude(rows.value, rowId, include)
@@ -91,15 +106,20 @@ const ROW_ERROR_MESSAGES = new Set([
   'CATEGORY_ARCHIVED',
   'CATEGORY_REQUIRED',
   'ROW_ALREADY_IMPORTED',
+  'GOAL_INVALID',
+  'GOAL_NOT_ALLOWED',
 ])
 
-function rowError(row: ReviewRow): { message: string; onInclude: boolean } | undefined {
+function rowError(
+  row: ReviewRow,
+): { message: string; onInclude: boolean; onGoal: boolean } | undefined {
   const code = props.rowErrors[row.rowId]
   if (!code) return undefined
   const key = ROW_ERROR_MESSAGES.has(code) ? code : 'invalid'
   return {
     message: t(`imports.review.rowErrors.${key}`),
     onInclude: code === 'ROW_ALREADY_IMPORTED',
+    onGoal: code === 'GOAL_INVALID',
   }
 }
 
@@ -141,11 +161,14 @@ const tabLabel = (key: 'new' | 'duplicates' | 'skipped', n: number) =>
             :key="row.rowId"
             :row="row"
             :categories="categoriesFor(row)"
+            :goals="activeGoals"
+            :held-cents="held[row.rowId]"
             :account-name="accountName"
             :apply-count="prompt?.rowId === row.rowId ? prompt.count : undefined"
             :error="rowError(row)"
             @include="onInclude(row.rowId, $event)"
             @category="onCategory(row.rowId, $event)"
+            @goal="onGoal(row.rowId, $event)"
             @apply="applyToGroup"
             @dismiss="prompt = null"
           />
