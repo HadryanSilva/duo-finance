@@ -45,6 +45,10 @@ public class GoalMovement {
     @Column(name = "transaction_id")
     private @Nullable UUID transactionId;
 
+    /** A CONTRIBUTION that superseded its month's SKIP: removing the month's last contribution puts the skip back. */
+    @Column(name = "replaced_skip", nullable = false)
+    private boolean replacedSkip;
+
     @Column(length = 200)
     private @Nullable String note;
 
@@ -86,6 +90,14 @@ public class GoalMovement {
         if (type == GoalMovementType.CONTRIBUTION) {
             this.month = occurredOn.withDayOfMonth(1);
         }
+    }
+
+    public void setReplacedSkip(boolean replacedSkip) {
+        this.replacedSkip = replacedSkip;
+    }
+
+    public boolean replacedSkip() {
+        return replacedSkip;
     }
 
     public UUID getId() {

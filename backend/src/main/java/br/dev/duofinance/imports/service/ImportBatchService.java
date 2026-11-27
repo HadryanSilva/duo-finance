@@ -64,12 +64,13 @@ public class ImportBatchService {
     /** Deletes every transaction of the batch (edited ones included) and marks it undone; category memory stays. */
     @Transactional
     public void undo(UUID accountId, UUID batchId) {
+        // Lock order: the account row first (taken here), then the batch. An undone or foreign batch has no movements.
+        goalMovements.beforeBatchRemoved(accountId, batchId);
         ImportBatch batch = batches.findByIdAndAccountIdForUpdate(batchId, accountId)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
         if (batch.getUndoneAt() != null) {
             throw new ApiException(ErrorCode.IMPORT_ALREADY_UNDONE);
         }
-        goalMovements.requireBatchRemovable(accountId, batchId);
         // marked first: the bulk delete flushes this change and then clears the persistence context
         batch.markUndone(clock.instant());
         transactions.deleteByImportBatch(accountId, batchId);

@@ -239,6 +239,73 @@ class ImportBatchTest {
     }
 
     @Test
+    void undo_batch_restoresTheSkipItsContributionReplaced() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID cafes = fixtures.category(s, "Cafes", CategoryKind.EXPENSE);
+        UUID batch = importRows(s, bank, cafes, "Cafe Aurora");
+        UUID imported = jdbc.queryForObject("SELECT id FROM transactions WHERE import_batch_id = ?", UUID.class, batch);
+        UUID goal = insertGoal(s);
+        insertImportedContribution(s, goal, imported);
+
+        assertThat(undo(s, batch)).hasStatus(HttpStatus.NO_CONTENT);
+
+        assertThat(count(
+                        "SELECT count(*) FROM goal_movements WHERE goal_id = ? AND type = 'SKIP'"
+                                + " AND month = '2026-11-01'",
+                        goal))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void undo_batch_keepsTheMonthOpenWhileAnotherContributionStays() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID cafes = fixtures.category(s, "Cafes", CategoryKind.EXPENSE);
+        UUID batch = importRows(s, bank, cafes, "Cafe Aurora");
+        UUID imported = jdbc.queryForObject("SELECT id FROM transactions WHERE import_batch_id = ?", UUID.class, batch);
+        UUID goal = insertGoal(s);
+        insertImportedContribution(s, goal, imported);
+        UUID manual = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO goal_movements (id, goal_id, account_id, type, amount_cents, month, occurred_on,"
+                        + " created_at) VALUES (?, ?, ?, 'CONTRIBUTION', 500, '2026-11-01', '2026-11-21', now())",
+                manual,
+                goal,
+                s.accountId());
+
+        assertThat(undo(s, batch)).hasStatus(HttpStatus.NO_CONTENT);
+
+        assertThat(count("SELECT count(*) FROM goal_movements WHERE goal_id = ? AND type = 'SKIP'", goal))
+                .isZero();
+        // The remaining contribution inherits the claim, so removing it later brings the skip back.
+        assertThat(jdbc.queryForObject("SELECT replaced_skip FROM goal_movements WHERE id = ?", Boolean.class, manual))
+                .isTrue();
+    }
+
+    private UUID insertGoal(TestSession s) {
+        UUID goal = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO goals (id, account_id, name, target_cents, monthly_percent, created_at, updated_at)"
+                        + " VALUES (?, ?, 'Reserva', 100000, 10, now(), now())",
+                goal,
+                s.accountId());
+        return goal;
+    }
+
+    /** An imported 250 € contribution for November 2026 that replaced the month's skip. */
+    private void insertImportedContribution(TestSession s, UUID goal, UUID transaction) {
+        jdbc.update(
+                "INSERT INTO goal_movements (id, goal_id, account_id, type, amount_cents, month, occurred_on,"
+                        + " transaction_id, replaced_skip, created_at) VALUES (?, ?, ?, 'CONTRIBUTION', 25000,"
+                        + " '2026-11-01', '2026-11-20', ?, true, now())",
+                UUID.randomUUID(),
+                goal,
+                s.accountId(),
+                transaction);
+    }
+
+    @Test
     void undo_batch_wouldMakeGoalNegative_refused() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         UUID bank = fixtures.bankAccount(s, "Revolut", 0);

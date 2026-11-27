@@ -101,8 +101,9 @@ public class GoalMovementService {
         requireMonthNotBeforeFirst(goal, month);
         long amount = request.amountCents();
         requireAmount(amount, remainingOf(goal, savedOf(goal)));
-        removeSkip(goal, month);
-        return record(goal, userId, GoalMovementType.CONTRIBUTION, amount, month, date, request.note());
+        GoalMovement movement = contribution(goal, amount, month, date, null, request.note(), userId);
+        movements.saveAndFlush(movement);
+        return GoalResponse.of(goal, savedOf(goal), null);
     }
 
     @Transactional
@@ -141,21 +142,44 @@ public class GoalMovementService {
         if (goal.isCompleted()) {
             throw new ApiException(ErrorCode.GOAL_COMPLETED);
         }
-        YearMonth month = type == GoalMovementType.CONTRIBUTION ? YearMonth.from(date) : null;
-        if (month != null) {
-            removeSkip(goal, month);
-        }
-        movements.saveAndFlush(new GoalMovement(
+        GoalMovement movement = type == GoalMovementType.CONTRIBUTION
+                ? contribution(goal, amountCents, YearMonth.from(date), date, transactionId, null, userId)
+                : new GoalMovement(
+                        goal.getId(),
+                        goal.getAccountId(),
+                        type,
+                        amountCents,
+                        null,
+                        date,
+                        transactionId,
+                        null,
+                        userId,
+                        Instant.now(clock));
+        movements.saveAndFlush(movement);
+    }
+
+    /** A new contribution supersedes its month's skip, and remembers it did so the skip can come back. */
+    private GoalMovement contribution(
+            Goal goal,
+            long amountCents,
+            YearMonth month,
+            LocalDate date,
+            @Nullable UUID transactionId,
+            @Nullable String note,
+            UUID userId) {
+        GoalMovement movement = new GoalMovement(
                 goal.getId(),
                 goal.getAccountId(),
-                type,
+                GoalMovementType.CONTRIBUTION,
                 amountCents,
-                month == null ? null : month.atDay(1),
+                month.atDay(1),
                 date,
                 transactionId,
-                null,
+                note == null || note.isBlank() ? null : note.strip(),
                 userId,
-                Instant.now(clock)));
+                Instant.now(clock));
+        movement.setReplacedSkip(removeSkip(goal.getId(), month.atDay(1)));
+        return movement;
     }
 
     /**
@@ -180,40 +204,85 @@ public class GoalMovementService {
             long newAmount = isWithdrawal ? Math.min(amountCents, withoutIt) : amountCents;
             if (kind != TransactionKind.TRANSFER || newAmount <= 0) {
                 requireNotNegative(withoutIt);
+                restoreSkips(List.of(movement));
                 movements.delete(movement);
             } else {
                 requireNotNegative(isWithdrawal ? withoutIt - newAmount : withoutIt + newAmount);
+                boolean monthMoves = !isWithdrawal && !date.withDayOfMonth(1).equals(movement.getMonth());
+                if (monthMoves) {
+                    restoreSkips(List.of(movement));
+                }
                 movement.followTransaction(newAmount, date);
-                if (!isWithdrawal) {
-                    movements.deleteByGoalIdAndMonthAndType(
-                            movement.getGoalId(), movement.getMonth(), GoalMovementType.SKIP);
+                if (monthMoves) {
+                    movement.setReplacedSkip(removeSkip(movement.getGoalId(), movement.getMonth()));
                 }
             }
             movements.flush();
         });
     }
 
-    /** A transaction is about to be deleted: refuse if its linked movement is a contribution the goal has spent. */
+    /**
+     * A transaction is about to be deleted (its linked movement goes with it, by cascade): refuse if that movement is
+     * a contribution the goal has spent, else put back the skip it replaced.
+     */
     @Transactional
-    public void requireTransactionRemovable(UUID accountId, UUID transactionId) {
+    public void beforeTransactionRemoved(UUID accountId, UUID transactionId) {
         if (movements.findByTransactionId(transactionId).isEmpty()) {
             return;
         }
         accounts.findByIdForUpdate(accountId).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
-        requireRemovable(movements.findByTransactionId(transactionId).stream().toList());
+        beforeRemoved(movements.findByTransactionId(transactionId).stream().toList());
     }
 
-    /** An import batch is about to be undone: refuse if any goal would end below zero without its linked movements. */
+    /**
+     * An import batch is about to be undone: refuse if any goal would end below zero without its linked movements,
+     * else put back the skips they replaced. Takes the account lock, so the caller locks the batch after it.
+     */
     @Transactional
-    public void requireBatchRemovable(UUID accountId, UUID batchId) {
+    public void beforeBatchRemoved(UUID accountId, UUID batchId) {
         accounts.findByIdForUpdate(accountId).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
-        requireRemovable(movements.findByImportBatch(batchId));
+        beforeRemoved(movements.findByImportBatch(accountId, batchId));
     }
 
-    private void requireRemovable(List<GoalMovement> removed) {
+    private void beforeRemoved(List<GoalMovement> removed) {
         Map<UUID, Long> effectByGoal = removed.stream()
                 .collect(Collectors.groupingBy(GoalMovement::getGoalId, Collectors.summingLong(m -> effectOf(m))));
         effectByGoal.forEach((goalId, effect) -> requireNotNegative(saved.savedOf(goalId) - effect));
+        restoreSkips(removed);
+    }
+
+    /**
+     * {@code leaving} contributions are about to be removed or moved out of their month. A month whose skip one of
+     * them replaced gets the skip back when no other contribution stays in it; when one stays, it takes over the claim.
+     */
+    private void restoreSkips(List<GoalMovement> leaving) {
+        Set<UUID> leavingIds = leaving.stream().map(GoalMovement::getId).collect(Collectors.toSet());
+        for (GoalMovement gone : leaving) {
+            LocalDate month = gone.getMonth();
+            if (!gone.replacedSkip() || month == null) continue;
+            List<GoalMovement> staying =
+                    movements
+                            .findByGoalIdAndMonthAndType(gone.getGoalId(), month, GoalMovementType.CONTRIBUTION)
+                            .stream()
+                            .filter(m -> !leavingIds.contains(m.getId()))
+                            .toList();
+            if (!staying.isEmpty()) {
+                staying.getFirst().setReplacedSkip(true);
+            } else if (!movements.existsByGoalIdAndMonthAndType(gone.getGoalId(), month, GoalMovementType.SKIP)) {
+                movements.save(new GoalMovement(
+                        gone.getGoalId(),
+                        gone.getAccountId(),
+                        GoalMovementType.SKIP,
+                        0L,
+                        month,
+                        month,
+                        null,
+                        null,
+                        gone.getCreatedBy(),
+                        Instant.now(clock)));
+            }
+        }
+        movements.flush();
     }
 
     private static long effectOf(GoalMovement movement) {
@@ -249,6 +318,7 @@ public class GoalMovementService {
         if (after < 0 || (after > before && after > goal.getTargetCents())) {
             throw new ApiException(ErrorCode.GOAL_AMOUNT_INVALID);
         }
+        restoreSkips(List.of(movement));
         movements.delete(movement);
         movements.flush();
         return GoalResponse.of(goal, after, null);
@@ -274,9 +344,9 @@ public class GoalMovementService {
         }
     }
 
-    /** A contribution supersedes the month's skip. */
-    private void removeSkip(Goal goal, YearMonth month) {
-        movements.deleteByGoalIdAndMonthAndType(goal.getId(), month.atDay(1), GoalMovementType.SKIP);
+    /** A contribution supersedes the month's skip; true when there was one. */
+    private boolean removeSkip(UUID goalId, @Nullable LocalDate month) {
+        return month != null && movements.deleteByGoalIdAndMonthAndType(goalId, month, GoalMovementType.SKIP) > 0;
     }
 
     private long savedOf(Goal goal) {

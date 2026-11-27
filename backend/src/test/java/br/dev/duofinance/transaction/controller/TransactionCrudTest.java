@@ -544,6 +544,33 @@ class TransactionCrudTest {
     }
 
     @Test
+    void update_linkedTransferOutOfTheMonthItSkipped_restoresSkip_andDeleteToo() {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID goal = goalWithPocket(s);
+        UUID id = linkedTransfer(s, goal, "CONTRIBUTION", 250, "2026-11-05");
+        jdbc.update(
+                "INSERT INTO goal_movements (id, goal_id, account_id, type, amount_cents, month, occurred_on,"
+                        + " created_at) VALUES (?, ?, ?, 'SKIP', 0, '2026-10-01', '2026-10-01', now())",
+                UUID.randomUUID(),
+                goal,
+                s.accountId());
+        String skippedOctober = "SELECT count(*) FROM goal_movements WHERE goal_id = ? AND type = 'SKIP'"
+                + " AND month = '2026-10-01'";
+        assertThat(send(HttpMethod.PUT, s, BASE + "/" + id, editedTransfer(id, 250, "2026-10-20")))
+                .hasStatus(HttpStatus.OK);
+
+        assertThat(send(HttpMethod.PUT, s, BASE + "/" + id, editedTransfer(id, 250, "2026-11-06")))
+                .hasStatus(HttpStatus.OK);
+        assertThat(jdbc.queryForObject(skippedOctober, Long.class, goal)).isEqualTo(1);
+
+        assertThat(send(HttpMethod.PUT, s, BASE + "/" + id, editedTransfer(id, 250, "2026-10-21")))
+                .hasStatus(HttpStatus.OK);
+        assertThat(jdbc.queryForObject(skippedOctober, Long.class, goal)).isZero();
+        assertThat(send(HttpMethod.DELETE, s, BASE + "/" + id, null)).hasStatus(HttpStatus.NO_CONTENT);
+        assertThat(jdbc.queryForObject(skippedOctober, Long.class, goal)).isEqualTo(1);
+    }
+
+    @Test
     void update_linkedWithdrawalAboveSaved_clamped() {
         TestSession s = testUsers.verified("ana@mail.com");
         UUID goal = goalWithPocket(s);

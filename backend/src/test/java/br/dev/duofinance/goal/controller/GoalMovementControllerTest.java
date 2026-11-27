@@ -383,6 +383,24 @@ class GoalMovementControllerTest {
     }
 
     @Test
+    void undo_contributionThatReplacedASkip_restoresTheSkip() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        String goal = createGoal(s, 100000, 10);
+        assertThat(skip(s, goal, "2027-03")).hasStatus(HttpStatus.CREATED);
+        assertThat(contribute(s, goal, "2027-03-10", 5000L)).hasStatus(HttpStatus.CREATED);
+        assertThat(movements(s, goal)).hasSize(1);
+        String movementId = movements(s, goal).get(0).path("id").asString();
+
+        MvcTestResult undone = send(HttpMethod.DELETE, s, GOALS + "/" + goal + "/movements/" + movementId, null);
+
+        assertThat(undone).hasStatus(HttpStatus.OK);
+        JsonNode list = movements(s, goal);
+        assertThat(list).hasSize(1);
+        assertThat(list.get(0).path("type").asString()).isEqualTo("SKIP");
+        assertThat(list.get(0).path("month").asString()).isEqualTo("2027-03");
+    }
+
+    @Test
     void undo_skip_bringsMonthBack() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         String goal = createGoal(s, 100000, 10);
