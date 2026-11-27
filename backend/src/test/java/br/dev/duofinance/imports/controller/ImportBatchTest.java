@@ -209,14 +209,13 @@ class ImportBatchTest {
         assertThat(listed.get(0).path("undoneAt").isNull()).isFalse();
     }
 
-    /** Pin: the V10 cascade takes a linked movement with its transaction, so an undo leaves nothing behind. */
+    /** An undo removes the goal movements the batch recorded. */
     @Test
     void undo_batch_dropsLinkedGoalMovements() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");
         UUID bank = fixtures.bankAccount(s, "Revolut", 0);
         UUID cafes = fixtures.category(s, "Cafes", CategoryKind.EXPENSE);
         UUID batch = importRows(s, bank, cafes, "Cafe Aurora");
-        UUID imported = jdbc.queryForObject("SELECT id FROM transactions WHERE import_batch_id = ?", UUID.class, batch);
         UUID goal = UUID.randomUUID();
         jdbc.update(
                 "INSERT INTO goals (id, account_id, name, target_cents, monthly_percent, created_at, updated_at)"
@@ -225,12 +224,12 @@ class ImportBatchTest {
                 s.accountId());
         jdbc.update(
                 "INSERT INTO goal_movements (id, goal_id, account_id, type, amount_cents, month, occurred_on,"
-                        + " transaction_id, created_at) VALUES (?, ?, ?, 'CONTRIBUTION', 25000, '2026-11-01',"
-                        + " '2026-11-20', ?, now())",
+                        + " import_fingerprint, import_batch_id, created_at) VALUES (?, ?, ?, 'CONTRIBUTION', 25000, '2026-11-01',"
+                        + " '2026-11-20', gen_random_uuid()::text, ?, now())",
                 UUID.randomUUID(),
                 goal,
                 s.accountId(),
-                imported);
+                batch);
 
         assertThat(undo(s, batch)).hasStatus(HttpStatus.NO_CONTENT);
 
@@ -244,9 +243,8 @@ class ImportBatchTest {
         UUID bank = fixtures.bankAccount(s, "Revolut", 0);
         UUID cafes = fixtures.category(s, "Cafes", CategoryKind.EXPENSE);
         UUID batch = importRows(s, bank, cafes, "Cafe Aurora");
-        UUID imported = jdbc.queryForObject("SELECT id FROM transactions WHERE import_batch_id = ?", UUID.class, batch);
         UUID goal = insertGoal(s);
-        insertImportedContribution(s, goal, imported);
+        insertImportedContribution(s, goal, batch);
 
         assertThat(undo(s, batch)).hasStatus(HttpStatus.NO_CONTENT);
 
@@ -263,9 +261,8 @@ class ImportBatchTest {
         UUID bank = fixtures.bankAccount(s, "Revolut", 0);
         UUID cafes = fixtures.category(s, "Cafes", CategoryKind.EXPENSE);
         UUID batch = importRows(s, bank, cafes, "Cafe Aurora");
-        UUID imported = jdbc.queryForObject("SELECT id FROM transactions WHERE import_batch_id = ?", UUID.class, batch);
         UUID goal = insertGoal(s);
-        insertImportedContribution(s, goal, imported);
+        insertImportedContribution(s, goal, batch);
         UUID manual = UUID.randomUUID();
         jdbc.update(
                 "INSERT INTO goal_movements (id, goal_id, account_id, type, amount_cents, month, occurred_on,"
@@ -283,6 +280,36 @@ class ImportBatchTest {
                 .isTrue();
     }
 
+    /** A file with only pocket moves makes a batch with goal movements and no transactions. */
+    @Test
+    void undo_batchWithOnlyGoalMovements_removesThem() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID batch = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO import_batches (id, account_id, source, bank_account_id, row_count, created_at)"
+                        + " VALUES (?, ?, 'REVOLUT', ?, 1, now())",
+                batch,
+                s.accountId(),
+                bank);
+        UUID goal = insertGoal(s);
+        jdbc.update(
+                "INSERT INTO goal_movements (id, goal_id, account_id, type, amount_cents, month, occurred_on,"
+                        + " import_fingerprint, import_batch_id, created_at) VALUES (?, ?, ?, 'CONTRIBUTION', 25000,"
+                        + " '2026-11-01', '2026-11-26', 'fp-pocket', ?, now())",
+                UUID.randomUUID(),
+                goal,
+                s.accountId(),
+                batch);
+
+        assertThat(undo(s, batch)).hasStatus(HttpStatus.NO_CONTENT);
+
+        assertThat(count("SELECT coalesce(sum(amount_cents), 0) FROM goal_movements WHERE goal_id = ?", goal))
+                .isZero();
+        assertThat(count("SELECT count(*) FROM import_batches WHERE id = ? AND undone_at IS NOT NULL", batch))
+                .isEqualTo(1);
+    }
+
     private UUID insertGoal(TestSession s) {
         UUID goal = UUID.randomUUID();
         jdbc.update(
@@ -294,15 +321,15 @@ class ImportBatchTest {
     }
 
     /** An imported 250 € contribution for November 2026 that replaced the month's skip. */
-    private void insertImportedContribution(TestSession s, UUID goal, UUID transaction) {
+    private void insertImportedContribution(TestSession s, UUID goal, UUID batch) {
         jdbc.update(
                 "INSERT INTO goal_movements (id, goal_id, account_id, type, amount_cents, month, occurred_on,"
-                        + " transaction_id, replaced_skip, created_at) VALUES (?, ?, ?, 'CONTRIBUTION', 25000,"
-                        + " '2026-11-01', '2026-11-20', ?, true, now())",
+                        + " import_fingerprint, import_batch_id, replaced_skip, created_at) VALUES (?, ?, ?, 'CONTRIBUTION', 25000,"
+                        + " '2026-11-01', '2026-11-20', gen_random_uuid()::text, ?, true, now())",
                 UUID.randomUUID(),
                 goal,
                 s.accountId(),
-                transaction);
+                batch);
     }
 
     @Test
@@ -320,12 +347,12 @@ class ImportBatchTest {
                 s.accountId());
         jdbc.update(
                 "INSERT INTO goal_movements (id, goal_id, account_id, type, amount_cents, month, occurred_on,"
-                        + " transaction_id, created_at) VALUES (?, ?, ?, 'CONTRIBUTION', 1000, '2026-11-01',"
-                        + " '2026-11-20', ?, now())",
+                        + " import_fingerprint, import_batch_id, created_at) VALUES (?, ?, ?, 'CONTRIBUTION', 1000, '2026-11-01',"
+                        + " '2026-11-20', gen_random_uuid()::text, ?, now())",
                 UUID.randomUUID(),
                 goal,
                 s.accountId(),
-                imported);
+                batch);
         jdbc.update(
                 "INSERT INTO goal_movements (id, goal_id, account_id, type, amount_cents, occurred_on, created_at)"
                         + " VALUES (?, ?, ?, 'WITHDRAWAL', 800, '2026-11-21', now())",

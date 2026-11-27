@@ -440,9 +440,7 @@
       "help": "No app da Revolut: Conta → Extrato → Excel/CSV → escolha o período → Gerar",
       "mappingTitle": "Outros produtos do extrato",
       "mappingHint": "Escolha a conta de cada produto ou ignore as linhas dele.",
-      "ignore": "Ignorar",
-      "pocketsAccount": "Conta dos pockets",
-      "pocketsHint": "O extrato tem movimentos de pockets: escolha a conta onde eles ficam."
+      "ignore": "Ignorar"
     },
     "review": {
       "title": "Revisar lançamentos",
@@ -482,9 +480,7 @@
       "OTHER_CURRENCY": "Outra moeda",
       "EXCHANGE": "Câmbio",
       "PRODUCT_IGNORED": "Produto ignorado",
-      "ZERO_AMOUNT": "Valor zero",
-      "POCKET_NO_ACCOUNT": "Pocket sem conta de pockets definida",
-      "POCKET_SAME_ACCOUNT": "Pocket na mesma conta do extrato: não altera o saldo"
+      "ZERO_AMOUNT": "Valor zero"
     },
     "pocket": {
       "goal": "Objetivo de {description}",
@@ -493,7 +489,9 @@
       "createUnnamed": "+ Criar objetivo",
       "into": "→ contribuição para {goal}",
       "outOf": "← retirada de {goal}",
-      "noGoal": "Sem objetivo: este valor continua no saldo livre",
+      "noGoal": "Sem objetivo: nada será registrado",
+      "route": "Pocket {name}",
+      "routeUnnamed": "Pocket",
       "aboveSaved": "Só {saved} estão guardados neste objetivo; a retirada fica em {saved}",
       "nothingLeft": "Nada resta neste objetivo antes desta retirada; ela não será registrada no objetivo"
     },
@@ -676,7 +674,7 @@
       "empty": "Nenhuma movimentação ainda.",
       "undo": "Desfazer",
       "imported": "Importado",
-      "importedHint": "Veio da importação: exclua a transferência ou desfaça a importação para remover",
+      "importedHint": "Veio da importação: desfaça a importação para remover",
       "undoTitle": "Desfazer movimentação?",
       "undoMessage": "Desfazer {type} de {amount} em {when}? O valor volta ao estado anterior.",
       "type": {

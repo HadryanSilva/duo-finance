@@ -240,7 +240,6 @@ class GoalOverviewTest {
                 LocalDate.of(2027, 2, 1),
                 LocalDate.of(2027, 2, 10),
                 null,
-                null,
                 s.userId(),
                 MARCH));
 

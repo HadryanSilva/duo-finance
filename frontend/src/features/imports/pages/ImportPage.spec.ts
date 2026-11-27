@@ -847,7 +847,7 @@ describe('ImportPage pockets', () => {
       description: `Carregamento de subconta EUR ${name ?? '?'} de EUR`,
       kind: 'TRANSFER',
       amountCents: 5000,
-      destinationBankAccountId: 'b2',
+      destinationBankAccountId: null,
       suggestedCategoryId: null,
       pocket: { name, direction, goalId, match: goalId ? 'LINKED' : 'NONE' },
       ...rest,
@@ -876,7 +876,7 @@ describe('ImportPage pockets', () => {
       'Viagem',
       '+ Criar objetivo "Setup"',
     ])
-    expect(li!.textContent).not.toContain('Sem objetivo: este valor continua no saldo livre')
+    expect(li!.textContent).not.toContain('Sem objetivo: nada será registrado')
   })
 
   it('import_pocketRow_pickGoal_sentInCommit', async () => {
@@ -949,12 +949,12 @@ describe('ImportPage pockets', () => {
     const { user } = await upload(s)
     await screen.findByRole('tab', { name: /Novas/ })
     const [li] = rowsIn(panel())
-    expect(li!.textContent).toContain('Sem objetivo: este valor continua no saldo livre')
+    expect(li!.textContent).toContain('Sem objetivo: nada será registrado')
     // no goal is allowed: the row still imports, as a plain transfer
     expect(submitButton().hasAttribute('disabled')).toBe(false)
     await waitFor(() => expect(optionTexts(goalSelect(li!))).toContain('Setup'))
     await user.selectOptions(goalSelect(li!), 'g1')
-    expect(li!.textContent).not.toContain('Sem objetivo: este valor continua no saldo livre')
+    expect(li!.textContent).not.toContain('Sem objetivo: nada será registrado')
   })
 
   it('import_withdrawalAboveSaved_warns', async () => {
@@ -1003,83 +1003,21 @@ describe('ImportPage pockets', () => {
     )
   })
 
-  it('import_noPocketsAccount_asksAndRepreviews', async () => {
+  it('import_pocketRow_showsPocketNotRoute', async () => {
     const s = setup({
       goals: [setupGoal],
-      preview: (n) =>
-        n === 1
-          ? preview({
-              rows: [row({ rowId: 'r1', description: PINGO })],
-              skipped: {
-                counts: { POCKET_NO_ACCOUNT: 1 },
-                rows: [
-                  {
-                    lineNumber: 3,
-                    date: '2026-11-05',
-                    description: 'Carregamento de subconta EUR Setup de EUR',
-                    amountRaw: '-50.00',
-                    currency: 'EUR',
-                    reason: 'POCKET_NO_ACCOUNT',
-                  },
-                ],
-              },
-            })
-          : pocketPreview(row({ rowId: 'r1', description: PINGO }), pocketRow('p1', 'Setup')),
+      preview: pocketPreview(pocketRow('p1', 'Setup'), pocketRow('p2', null)),
     })
-    const { user } = await upload(s)
+    await upload(s)
     await screen.findByRole('tab', { name: /Novas/ })
-    await user.click(screen.getByRole('tab', { name: /Puladas/ }))
-    expect(rowsIn(panel())[0]!.textContent).toContain('Pocket sem conta de pockets definida')
-
-    const pockets = screen.getByLabelText('Conta dos pockets') as HTMLSelectElement
-    expect(s.previews[0]!.pocketsBankAccountId).toBeNull()
-    await user.selectOptions(pockets, 'b2')
-    await waitFor(() => expect(s.previews).toHaveLength(2))
-    expect(s.previews[1]).toMatchObject({ bankAccountId: 'b1', pocketsBankAccountId: 'b2' })
-    // the choice stays on screen once the skips are gone
-    await waitFor(() =>
-      expect((screen.getByLabelText('Conta dos pockets') as HTMLSelectElement).value).toBe('b2'),
-    )
-
-    await user.click(submitButton())
-    await waitFor(() => expect(s.commits).toHaveLength(1))
-    expect(s.commits[0]!.pocketsBankAccountId).toBe('b2')
+    const [named, unnamed] = rowsIn(panel())
+    expect(norm(named!.textContent)).toContain('Pocket Setup')
+    expect(named!.textContent).not.toContain('Revolut →')
+    expect(norm(unnamed!.textContent)).toMatch(/· Pocket(?! \w)/)
   })
 
-  it('import_pocketsSameAccount_asksAgainWithoutStatementAccount', async () => {
-    const s = setup({
-      goals: [setupGoal],
-      preview: preview({
-        rows: [row({ rowId: 'r1', description: PINGO })],
-        skipped: {
-          counts: { POCKET_SAME_ACCOUNT: 1 },
-          rows: [
-            {
-              lineNumber: 3,
-              date: '2026-11-05',
-              description: 'Carregamento de subconta EUR Setup de EUR',
-              amountRaw: '-50.00',
-              currency: 'EUR',
-              reason: 'POCKET_SAME_ACCOUNT',
-            },
-          ],
-        },
-      }),
-    })
-    const { user } = await upload(s)
-    await screen.findByRole('tab', { name: /Novas/ })
-
-    const pockets = screen.getByLabelText('Conta dos pockets') as HTMLSelectElement
-    const values = Array.from(pockets.options).map((o) => o.value)
-    expect(values).toContain('b2')
-    expect(values).not.toContain('b1')
-    await user.selectOptions(pockets, 'b2')
-    await waitFor(() => expect(s.previews).toHaveLength(2))
-    expect(s.previews[1]).toMatchObject({ bankAccountId: 'b1', pocketsBankAccountId: 'b2' })
-  })
-
-  it('import_pocketsAccountAbsent_withoutPocketSkips', async () => {
-    const s = setup()
+  it('import_upload_neverAsksForPocketsAccount', async () => {
+    const s = setup({ goals: [setupGoal], preview: pocketPreview(pocketRow('p1', 'Setup')) })
     await upload(s)
     await screen.findByRole('tab', { name: /Novas/ })
     expect(screen.queryByLabelText('Conta dos pockets')).toBeNull()

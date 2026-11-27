@@ -55,13 +55,11 @@ public class ImportController {
             CurrentUser current,
             @RequestPart("file") MultipartFile file,
             @RequestPart("bankAccountId") String bankAccountId,
-            @RequestPart(name = "productMapping", required = false) String productMapping,
-            @RequestPart(name = "pocketsBankAccountId", required = false) String pocketsBankAccountId)
+            @RequestPart(name = "productMapping", required = false) String productMapping)
             throws IOException {
         UUID bank = parseUuid(bankAccountId);
         Map<String, UUID> mapping = parseMapping(productMapping);
-        UUID pockets = parseOptionalUuid(pocketsBankAccountId, "pocketsBankAccountId");
-        return previews.preview(current.accountId(), current.userId(), file.getBytes(), bank, mapping, pockets);
+        return previews.preview(current.accountId(), current.userId(), file.getBytes(), bank, mapping);
     }
 
     @PostMapping(path = "/revolut/commit", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -71,15 +69,12 @@ public class ImportController {
             @RequestPart("file") MultipartFile file,
             @RequestPart("bankAccountId") String bankAccountId,
             @RequestPart(name = "productMapping", required = false) String productMapping,
-            @RequestPart(name = "pocketsBankAccountId", required = false) String pocketsBankAccountId,
             @RequestPart("decisions") String decisions)
             throws IOException {
         UUID bank = parseUuid(bankAccountId);
         Map<String, UUID> mapping = parseMapping(productMapping);
-        UUID pockets = parseOptionalUuid(pocketsBankAccountId, "pocketsBankAccountId");
         List<RowDecision> parsed = parseDecisions(decisions);
-        return commits.commit(
-                current.accountId(), current.userId(), file.getBytes(), bank, mapping, pockets, parsed);
+        return commits.commit(current.accountId(), current.userId(), file.getBytes(), bank, mapping, parsed);
     }
 
     @GetMapping
@@ -113,17 +108,6 @@ public class ImportController {
             return UUID.fromString(value.trim());
         } catch (IllegalArgumentException e) {
             throw ApiException.invalidField("bankAccountId", "Invalid");
-        }
-    }
-
-    private static UUID parseOptionalUuid(String value, String field) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        try {
-            return UUID.fromString(value.trim());
-        } catch (IllegalArgumentException e) {
-            throw ApiException.invalidField(field, "Invalid");
         }
     }
 

@@ -440,9 +440,7 @@
       "help": "In the Revolut app: Account → Statement → Excel/CSV → choose the period → Generate",
       "mappingTitle": "Other products in the statement",
       "mappingHint": "Choose the account for each product or ignore its rows.",
-      "ignore": "Ignore",
-      "pocketsAccount": "Pockets account",
-      "pocketsHint": "The statement has pocket moves: choose the account that holds the pockets."
+      "ignore": "Ignore"
     },
     "review": {
       "title": "Review transactions",
@@ -482,9 +480,7 @@
       "OTHER_CURRENCY": "Other currency",
       "EXCHANGE": "Exchange",
       "PRODUCT_IGNORED": "Product ignored",
-      "ZERO_AMOUNT": "Zero amount",
-      "POCKET_NO_ACCOUNT": "Pocket move with no pockets account set",
-      "POCKET_SAME_ACCOUNT": "Pocket move within the same account: no balance change"
+      "ZERO_AMOUNT": "Zero amount"
     },
     "pocket": {
       "goal": "Goal for {description}",
@@ -493,7 +489,9 @@
       "createUnnamed": "+ Create goal",
       "into": "→ contribution to {goal}",
       "outOf": "← withdrawal from {goal}",
-      "noGoal": "No goal: this amount stays in the free balance",
+      "noGoal": "No goal: nothing will be recorded",
+      "route": "Pocket {name}",
+      "routeUnnamed": "Pocket",
       "aboveSaved": "Only {saved} is saved in this goal; the withdrawal is capped at {saved}",
       "nothingLeft": "Nothing is left in this goal by this withdrawal; it will not be recorded against the goal"
     },
@@ -676,7 +674,7 @@
       "empty": "No movements yet.",
       "undo": "Undo",
       "imported": "Imported",
-      "importedHint": "From an import: delete the transfer or undo the import to remove it",
+      "importedHint": "From an import: undo the import to remove it",
       "undoTitle": "Undo movement?",
       "undoMessage": "Undo {type} of {amount} on {when}? The amount returns to its previous state.",
       "type": {

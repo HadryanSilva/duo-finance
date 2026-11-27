@@ -41,9 +41,13 @@ public class GoalMovement {
     @Column(name = "occurred_on", nullable = false)
     private LocalDate occurredOn;
 
-    /** The imported transaction this movement mirrors, if any. */
-    @Column(name = "transaction_id")
-    private @Nullable UUID transactionId;
+    /** The statement row this movement was imported from (its fingerprint), if any. */
+    @Column(name = "import_fingerprint")
+    private @Nullable String importFingerprint;
+
+    /** The import batch that recorded this movement, if any; undoing the batch removes it. */
+    @Column(name = "import_batch_id")
+    private @Nullable UUID importBatchId;
 
     /** A CONTRIBUTION that superseded its month's SKIP: removing the month's last contribution puts the skip back. */
     @Column(name = "replaced_skip", nullable = false)
@@ -67,12 +71,10 @@ public class GoalMovement {
             long amountCents,
             @Nullable LocalDate month,
             LocalDate occurredOn,
-            @Nullable UUID transactionId,
             @Nullable String note,
             @Nullable UUID createdBy,
             Instant now) {
         this.occurredOn = occurredOn;
-        this.transactionId = transactionId;
         this.goalId = goalId;
         this.accountId = accountId;
         this.type = type;
@@ -81,15 +83,6 @@ public class GoalMovement {
         this.note = note;
         this.createdBy = createdBy;
         this.createdAt = now;
-    }
-
-    /** The mirrored transaction changed: take its amount and date, and count a contribution in the new month. */
-    public void followTransaction(long amountCents, LocalDate occurredOn) {
-        this.amountCents = amountCents;
-        this.occurredOn = occurredOn;
-        if (type == GoalMovementType.CONTRIBUTION) {
-            this.month = occurredOn.withDayOfMonth(1);
-        }
     }
 
     public void setReplacedSkip(boolean replacedSkip) {
@@ -128,8 +121,18 @@ public class GoalMovement {
         return occurredOn;
     }
 
-    public @Nullable UUID getTransactionId() {
-        return transactionId;
+    /** Marks the movement as imported from {@code fingerprint} by {@code batchId}. */
+    public void importedFrom(String fingerprint, UUID batchId) {
+        this.importFingerprint = fingerprint;
+        this.importBatchId = batchId;
+    }
+
+    public @Nullable String getImportFingerprint() {
+        return importFingerprint;
+    }
+
+    public @Nullable UUID getImportBatchId() {
+        return importBatchId;
     }
 
     public @Nullable String getNote() {
