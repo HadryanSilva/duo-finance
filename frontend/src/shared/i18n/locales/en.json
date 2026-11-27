@@ -675,6 +675,7 @@
       "empty": "No movements yet.",
       "undo": "Undo",
       "imported": "Imported",
+      "importedHint": "From an import: delete the transfer or undo the import to remove it",
       "undoTitle": "Undo movement?",
       "undoMessage": "Undo {type} of {amount} on {when}? The amount returns to its previous state.",
       "type": {
@@ -702,7 +703,8 @@
       "registerLabel": "Add to {name}",
       "skip": "Skip",
       "skipLabel": "Skip {name}",
-      "noSalaryTarget": "No salary this month",
+      "noSalaryTarget": "No target this month (no salary recorded)",
+      "noTarget": "No target this month",
       "noSalary": "No salary in {month} in the {name} category."
     },
     "savedTotal": "{amount} saved across {n} goal | {amount} saved across {n} goals"

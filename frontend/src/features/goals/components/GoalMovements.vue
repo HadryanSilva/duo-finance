@@ -86,6 +86,9 @@ function when(m: GoalMovementResponse): string {
           </span>
           <span class="text-muted-foreground">{{ when(m) }}</span>
           <span v-if="m.note" class="truncate text-muted-foreground">{{ m.note }}</span>
+          <span v-if="m.imported" class="text-xs text-muted-foreground">
+            {{ t('goals.history.importedHint') }}
+          </span>
         </span>
         <MoneyText
           :cents="m.amountCents"

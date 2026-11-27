@@ -23,6 +23,7 @@ const goal = (over: Partial<GoalResponse> = {}): GoalResponse => ({
   completedAt: null,
   createdAt: '2026-01-01T00:00:00Z',
   projection: { requiredMonthlyCents: null, projectedMonth: null, targetDatePassed: false },
+  revolutPocket: null,
   ...over,
 })
 
@@ -147,6 +148,44 @@ describe('GoalMonthTargets', () => {
       overview({ month: addMonths(currentMonth(), 1), salaryCents: 0, monthTargets: [] }),
     )
     expect(screen.queryByText(/^Nenhum salário em/)).toBeNull()
+  })
+
+  it('zeroTarget_noContribution_showsNoTargetWithoutBar', async () => {
+    await mountTargets(
+      overview({
+        salaryCents: 0,
+        monthTargets: [target({ targetCents: 0, contributedCents: 0 })],
+      }),
+    )
+    const item = screen.getByText('Videogame novo').closest('li') as HTMLElement
+    expect(within(item).queryByRole('progressbar')).toBeNull()
+    expect(norm(item.textContent)).not.toContain(' de ')
+    expect(within(item).getByText('Sem meta este mês (sem salário registrado)')).toBeTruthy()
+    expect(within(item).getByRole('button', { name: 'Registrar Videogame novo' })).toBeTruthy()
+    expect(within(item).getByRole('button', { name: 'Pular Videogame novo' })).toBeTruthy()
+  })
+
+  it('zeroTarget_withContribution_showsAmountAsDone', async () => {
+    await mountTargets(
+      overview({
+        salaryCents: 0,
+        monthTargets: [target({ targetCents: 0, contributedCents: 125000 })],
+      }),
+    )
+    const item = screen.getByText('Videogame novo').closest('li') as HTMLElement
+    expect(within(item).queryByRole('progressbar')).toBeNull()
+    expect(norm(item.textContent)).toContain('1.250,00')
+    expect(norm(item.textContent)).not.toContain(' de ')
+    expect(within(item).getByText('Sem meta este mês (sem salário registrado)')).toBeTruthy()
+    expect(within(item).queryByText('Meta do mês atingida')).toBeNull()
+    expect(within(item).queryByRole('button', { name: 'Pular Videogame novo' })).toBeNull()
+  })
+
+  it('zeroTarget_withSalary_saysNoTarget', async () => {
+    await mountTargets(
+      overview({ monthTargets: [target({ targetCents: 0, contributedCents: 0 })] }),
+    )
+    expect(screen.getByText('Sem meta este mês')).toBeTruthy()
   })
 
   it('noTargets_rendersNothing', async () => {

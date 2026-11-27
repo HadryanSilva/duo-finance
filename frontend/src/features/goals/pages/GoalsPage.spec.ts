@@ -646,8 +646,14 @@ describe('GoalsPage', () => {
     expect(within(imported).getByText('Importado')).toBeTruthy()
     expect(norm(imported.textContent)).toContain('9 de outubro de 2026')
     expect(within(imported).queryByRole('button', { name: /Desfazer/ })).toBeNull()
+    expect(
+      within(imported).getByText(
+        'Veio da importação: exclua a transferência ou desfaça a importação para remover',
+      ),
+    ).toBeTruthy()
     expect(within(items[0] as HTMLElement).getByRole('button', { name: /Desfazer/ })).toBeTruthy()
     expect(within(items[0] as HTMLElement).queryByText('Importado')).toBeNull()
+    expect(within(items[0] as HTMLElement).queryByText(/Veio da importação/)).toBeNull()
   })
 })
 

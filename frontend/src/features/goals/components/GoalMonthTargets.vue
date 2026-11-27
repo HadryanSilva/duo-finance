@@ -38,6 +38,7 @@ const emptySalaryCategory = computed(() => {
 const shown = computed(() => targets.value.length > 0 || emptySalaryCategory.value !== null)
 
 const isMet = (x: GoalMonthTarget) => x.targetCents > 0 && x.contributedCents >= x.targetCents
+// With no target (no salary yet) any contribution decides the month: Pular hides, Registrar stays.
 const percentOf = (x: GoalMonthTarget) => goalPercent(x.contributedCents, x.targetCents)
 
 // The contribute form opens in a panel, pre-filled with what is left of the target.
@@ -94,11 +95,21 @@ async function skipMonth(x: GoalMonthTarget) {
           <span class="min-w-0 truncate font-medium text-foreground">{{ x.goalName }}</span>
           <span class="text-muted-foreground">
             <MoneyText :cents="x.contributedCents" class="font-medium text-foreground" />
-            {{ t('goals.monthTargets.of') }}
-            <MoneyText :cents="x.targetCents" />
+            <template v-if="x.targetCents > 0">
+              {{ t('goals.monthTargets.of') }}
+              <MoneyText :cents="x.targetCents" />
+            </template>
           </span>
         </div>
+        <p v-if="x.targetCents === 0" class="text-sm text-muted-foreground">
+          {{
+            overview.salaryCents === 0
+              ? t('goals.monthTargets.noSalaryTarget')
+              : t('goals.monthTargets.noTarget')
+          }}
+        </p>
         <div
+          v-else
           role="progressbar"
           :aria-label="x.goalName"
           :aria-valuenow="percentOf(x)"

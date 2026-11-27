@@ -675,6 +675,7 @@
       "empty": "Nenhuma movimentação ainda.",
       "undo": "Desfazer",
       "imported": "Importado",
+      "importedHint": "Veio da importação: exclua a transferência ou desfaça a importação para remover",
       "undoTitle": "Desfazer movimentação?",
       "undoMessage": "Desfazer {type} de {amount} em {when}? O valor volta ao estado anterior.",
       "type": {
@@ -702,7 +703,8 @@
       "registerLabel": "Registrar {name}",
       "skip": "Pular",
       "skipLabel": "Pular {name}",
-      "noSalaryTarget": "Sem salário neste mês",
+      "noSalaryTarget": "Sem meta este mês (sem salário registrado)",
+      "noTarget": "Sem meta este mês",
       "noSalary": "Nenhum salário em {month} na categoria {name}."
     },
     "savedTotal": "{amount} guardados em {n} objetivo | {amount} guardados em {n} objetivos"
