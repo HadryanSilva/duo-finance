@@ -1090,7 +1090,7 @@ export interface components {
             targetDate?: string;
             /** Format: int32 */
             monthlyPercent: number;
-            revolutPocket?: string | null;
+            revolutPocket?: string;
         };
         GoalProjection: {
             requiredMonthlyCents: number | null;
@@ -1115,8 +1115,8 @@ export interface components {
             completedAt: string | null;
             /** Format: date-time */
             createdAt: string;
-            revolutPocket?: string | null;
             projection: components["schemas"]["GoalProjection"] | null;
+            revolutPocket: string | null;
         };
         UpdateGoalSettingsRequest: {
             /** Format: uuid */
@@ -1209,6 +1209,14 @@ export interface components {
             email: string;
             locale: string;
         };
+        PocketInfo: {
+            name: string | null;
+            /** @enum {string} */
+            direction: "INTO" | "OUT_OF";
+            goalId: string | null;
+            /** @enum {string} */
+            match: "LINKED" | "NAME_MATCH" | "NONE";
+        };
         PreviewResponse: {
             products: components["schemas"]["ProductMapping"][];
             rows: components["schemas"]["PreviewRow"][];
@@ -1231,14 +1239,6 @@ export interface components {
             /** @enum {string} */
             status: "NEW" | "ALREADY_IMPORTED" | "POSSIBLE_DUPLICATE";
             pocket: components["schemas"]["PocketInfo"] | null;
-        };
-        PocketInfo: {
-            name: string | null;
-            /** @enum {string} */
-            direction: "INTO" | "OUT_OF";
-            goalId: string | null;
-            /** @enum {string} */
-            match: "LINKED" | "NAME_MATCH" | "NONE";
         };
         PreviewSkippedRow: {
             /** Format: int32 */
@@ -1276,7 +1276,7 @@ export interface components {
             targetDate?: string;
             /** Format: int32 */
             monthlyPercent: number;
-            revolutPocket?: string | null;
+            revolutPocket?: string;
         };
         GoalAmountRequest: {
             /** Format: int64 */

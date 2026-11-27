@@ -1,6 +1,7 @@
 package br.dev.duofinance.imports.service;
 
 import br.dev.duofinance.goal.service.PocketNames;
+import br.dev.duofinance.imports.dto.PocketInfo;
 import br.dev.duofinance.imports.service.PlanContext.DuplicateKey;
 import br.dev.duofinance.imports.service.PlanContext.GoalRef;
 import br.dev.duofinance.imports.service.PlanContext.MemoryKey;

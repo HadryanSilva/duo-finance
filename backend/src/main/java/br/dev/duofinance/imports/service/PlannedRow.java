@@ -1,5 +1,6 @@
 package br.dev.duofinance.imports.service;
 
+import br.dev.duofinance.imports.dto.PocketInfo;
 import br.dev.duofinance.transaction.model.TransactionKind;
 import java.time.LocalDate;
 import java.time.LocalDateTime;

@@ -19,6 +19,7 @@ const goal = (over: Partial<GoalResponse> = {}): GoalResponse => ({
   completedAt: null,
   createdAt: '2026-01-01T00:00:00Z',
   projection: { requiredMonthlyCents: null, projectedMonth: null, targetDatePassed: false },
+  revolutPocket: null,
   ...over,
 })
 

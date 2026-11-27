@@ -2,6 +2,7 @@ package br.dev.duofinance.imports.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import br.dev.duofinance.imports.dto.PocketInfo;
 import br.dev.duofinance.imports.service.PlanContext.DuplicateKey;
 import br.dev.duofinance.imports.service.PlanContext.MemoryKey;
 import br.dev.duofinance.transaction.model.TransactionKind;

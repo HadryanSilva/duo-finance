@@ -107,6 +107,8 @@ class ResponseNullabilityTest {
             "MonthReviewResponse.left",
             "MonthReviewResponse.month",
             "PageResponse.content",
+            "PocketInfo.direction",
+            "PocketInfo.match",
             "PreviewResponse.products",
             "PreviewResponse.rows",
             "PreviewResponse.skipped",
@@ -182,7 +184,7 @@ class ResponseNullabilityTest {
     @Test
     void responseRecordsAreDiscovered() {
         assertThat(ResponseRecords.all().stream().map(Class::getSimpleName))
-                .contains("TransactionResponse", "AuthorRef", "PageResponse", "AccountBalance")
+                .contains("TransactionResponse", "AuthorRef", "PageResponse", "AccountBalance", "PocketInfo")
                 .doesNotContain("TransactionRequest", "TransactionFilter");
     }
 }

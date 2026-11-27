@@ -1,4 +1,4 @@
-package br.dev.duofinance.imports.service;
+package br.dev.duofinance.imports.dto;
 
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;

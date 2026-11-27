@@ -2,7 +2,6 @@ package br.dev.duofinance.imports.dto;
 
 import br.dev.duofinance.imports.service.ImportPlan;
 import br.dev.duofinance.imports.service.PlannedRow;
-import br.dev.duofinance.imports.service.PocketInfo;
 import br.dev.duofinance.imports.service.RowStatus;
 import br.dev.duofinance.imports.service.SkipReason;
 import br.dev.duofinance.imports.service.SkippedRow;

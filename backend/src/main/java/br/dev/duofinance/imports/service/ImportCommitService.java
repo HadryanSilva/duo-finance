@@ -9,6 +9,7 @@ import br.dev.duofinance.goal.repository.GoalSavedQuery;
 import br.dev.duofinance.goal.service.GoalMovementService;
 import br.dev.duofinance.goal.service.PocketNames;
 import br.dev.duofinance.imports.dto.CommitResponse;
+import br.dev.duofinance.imports.dto.PocketInfo;
 import br.dev.duofinance.imports.dto.RowDecision;
 import br.dev.duofinance.imports.model.ImportBatch;
 import br.dev.duofinance.imports.model.ImportSource;
