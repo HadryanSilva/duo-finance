@@ -440,7 +440,9 @@
       "help": "No app da Revolut: Conta → Extrato → Excel/CSV → escolha o período → Gerar",
       "mappingTitle": "Outros produtos do extrato",
       "mappingHint": "Escolha a conta de cada produto ou ignore as linhas dele.",
-      "ignore": "Ignorar"
+      "ignore": "Ignorar",
+      "pocketsAccount": "Conta dos pockets",
+      "pocketsHint": "O extrato tem movimentos de pockets: escolha a conta onde eles ficam."
     },
     "review": {
       "title": "Revisar lançamentos",
@@ -448,6 +450,8 @@
         "CATEGORY_ARCHIVED": "Esta categoria foi arquivada. Escolha outra.",
         "CATEGORY_REQUIRED": "Escolha uma categoria.",
         "ROW_ALREADY_IMPORTED": "Esta linha já foi importada. Desmarque-a para continuar.",
+        "GOAL_INVALID": "Este objetivo não pode mais ser usado. Escolha outro.",
+        "GOAL_NOT_ALLOWED": "Só movimentos de pockets podem ir para um objetivo.",
         "invalid": "Esta categoria não pode ser usada aqui. Escolha outra."
       },
       "tabs": {
@@ -478,7 +482,19 @@
       "OTHER_CURRENCY": "Outra moeda",
       "EXCHANGE": "Câmbio",
       "PRODUCT_IGNORED": "Produto ignorado",
-      "ZERO_AMOUNT": "Valor zero"
+      "ZERO_AMOUNT": "Valor zero",
+      "POCKET_NO_ACCOUNT": "Pocket sem conta de pockets definida",
+      "POCKET_SAME_ACCOUNT": "Pocket na mesma conta do extrato: não altera o saldo"
+    },
+    "pocket": {
+      "goal": "Objetivo de {description}",
+      "none": "Sem objetivo",
+      "create": "+ Criar objetivo \"{name}\"",
+      "createUnnamed": "+ Criar objetivo",
+      "into": "→ contribuição para {goal}",
+      "outOf": "← retirada de {goal}",
+      "noGoal": "Sem objetivo: este valor continua no saldo livre",
+      "aboveSaved": "Só {saved} estão guardados neste objetivo; a retirada fica em {saved}"
     },
     "result": {
       "title": "Importação concluída",

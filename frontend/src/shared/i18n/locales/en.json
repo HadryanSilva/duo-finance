@@ -440,7 +440,9 @@
       "help": "In the Revolut app: Account → Statement → Excel/CSV → choose the period → Generate",
       "mappingTitle": "Other products in the statement",
       "mappingHint": "Choose the account for each product or ignore its rows.",
-      "ignore": "Ignore"
+      "ignore": "Ignore",
+      "pocketsAccount": "Pockets account",
+      "pocketsHint": "The statement has pocket moves: choose the account that holds the pockets."
     },
     "review": {
       "title": "Review transactions",
@@ -448,6 +450,8 @@
         "CATEGORY_ARCHIVED": "This category was archived. Choose another one.",
         "CATEGORY_REQUIRED": "Choose a category.",
         "ROW_ALREADY_IMPORTED": "This row was already imported. Untick it to continue.",
+        "GOAL_INVALID": "This goal can no longer be used. Choose another one.",
+        "GOAL_NOT_ALLOWED": "Only pocket moves can go to a goal.",
         "invalid": "This category can't be used here. Choose another one."
       },
       "tabs": {
@@ -478,7 +482,19 @@
       "OTHER_CURRENCY": "Other currency",
       "EXCHANGE": "Exchange",
       "PRODUCT_IGNORED": "Product ignored",
-      "ZERO_AMOUNT": "Zero amount"
+      "ZERO_AMOUNT": "Zero amount",
+      "POCKET_NO_ACCOUNT": "Pocket move with no pockets account set",
+      "POCKET_SAME_ACCOUNT": "Pocket move within the same account: no balance change"
+    },
+    "pocket": {
+      "goal": "Goal for {description}",
+      "none": "No goal",
+      "create": "+ Create goal \"{name}\"",
+      "createUnnamed": "+ Create goal",
+      "into": "→ contribution to {goal}",
+      "outOf": "← withdrawal from {goal}",
+      "noGoal": "No goal: this amount stays in the free balance",
+      "aboveSaved": "Only {saved} is saved in this goal; the withdrawal is capped at {saved}"
     },
     "result": {
       "title": "Import finished",

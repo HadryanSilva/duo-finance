@@ -2,7 +2,12 @@ import type { FieldError } from '@/shared/api/problem'
 import type { PlannedRow } from '@/shared/api/types'
 import type { RowDecision } from '../api/imports-api'
 
-export type ReviewRow = PlannedRow & { include: boolean; categoryId: string | null }
+export type ReviewRow = PlannedRow & {
+  include: boolean
+  categoryId: string | null
+  /** Pocket rows: the goal the move goes to (null: none, the money stays in the free balance). */
+  goalId: string | null
+}
 
 const locked = (r: ReviewRow) => r.status === 'ALREADY_IMPORTED'
 
@@ -11,6 +16,7 @@ export function initReview(rows: PlannedRow[]): ReviewRow[] {
     ...r,
     include: r.status === 'NEW',
     categoryId: r.suggestedCategoryId,
+    goalId: r.pocket?.goalId ?? null,
   }))
 }
 
@@ -36,6 +42,21 @@ export function setCategory(
   if (!target || target.kind === 'TRANSFER' || locked(target)) return rows
   const ids = new Set([rowId, ...(applyToGroup ? sameGroup(rows, rowId) : [])])
   return rows.map((r) => (ids.has(r.rowId) && !locked(r) ? { ...r, categoryId } : r))
+}
+
+/** Mirrors the backend's pocket matching: lower-cased, accents stripped, trimmed. */
+const normalisePocket = (name: string) =>
+  name.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim()
+
+/** Sets a pocket row's goal, and the other unlocked rows of the same (named) pocket. */
+export function setGoal(rows: ReviewRow[], rowId: string, goalId: string | null): ReviewRow[] {
+  const target = rows.find((r) => r.rowId === rowId)
+  if (!target?.pocket || locked(target)) return rows
+  const name = target.pocket.name === null ? null : normalisePocket(target.pocket.name)
+  const samePocket = (r: ReviewRow) =>
+    r.rowId === rowId ||
+    (name !== null && r.pocket?.name != null && normalisePocket(r.pocket.name) === name)
+  return rows.map((r) => (samePocket(r) && !locked(r) ? { ...r, goalId } : r))
 }
 
 export function setInclude(rows: ReviewRow[], rowId: string, include: boolean): ReviewRow[] {
@@ -76,6 +97,8 @@ export function toDecisions(rows: ReviewRow[]): RowDecision[] {
       rowId: r.rowId,
       include: true,
       categoryId: r.kind === 'TRANSFER' ? null : r.categoryId,
+      // the backend refuses a goal on any other row, so the field is left out there
+      ...(r.pocket ? { goalId: r.goalId } : {}),
     }))
 }
 

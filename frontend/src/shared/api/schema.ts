@@ -1230,6 +1230,15 @@ export interface components {
             suggestedCategoryId: string | null;
             /** @enum {string} */
             status: "NEW" | "ALREADY_IMPORTED" | "POSSIBLE_DUPLICATE";
+            pocket: components["schemas"]["PocketInfo"] | null;
+        };
+        PocketInfo: {
+            name: string | null;
+            /** @enum {string} */
+            direction: "INTO" | "OUT_OF";
+            goalId: string | null;
+            /** @enum {string} */
+            match: "LINKED" | "NAME_MATCH" | "NONE";
         };
         PreviewSkippedRow: {
             /** Format: int32 */
@@ -1240,7 +1249,7 @@ export interface components {
             amountRaw: string;
             currency: string;
             /** @enum {string} */
-            reason: "PENDING" | "REVERTED" | "OTHER_CURRENCY" | "EXCHANGE" | "PRODUCT_IGNORED" | "ZERO_AMOUNT";
+            reason: "PENDING" | "REVERTED" | "OTHER_CURRENCY" | "EXCHANGE" | "PRODUCT_IGNORED" | "ZERO_AMOUNT" | "POCKET_NO_ACCOUNT" | "POCKET_SAME_ACCOUNT";
         };
         ProductMapping: {
             product: string;
@@ -2299,6 +2308,7 @@ export interface operations {
                     file: string;
                     bankAccountId: string;
                     productMapping?: string;
+                    pocketsBankAccountId?: string;
                 };
             };
         };
@@ -2328,6 +2338,7 @@ export interface operations {
                     file: string;
                     bankAccountId: string;
                     productMapping?: string;
+                    pocketsBankAccountId?: string;
                     decisions: string;
                 };
             };

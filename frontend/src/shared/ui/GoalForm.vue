@@ -14,8 +14,13 @@ import { applyFieldErrors } from '@/shared/ui/FormErrors'
 import MoneyInput from '@/shared/ui/MoneyInput.vue'
 import TextField from '@/shared/ui/TextField.vue'
 
-const props = defineProps<{ goal?: GoalResponse }>()
-const emit = defineEmits<{ done: [] }>()
+const props = defineProps<{
+  goal?: GoalResponse
+  /** Prefill for a new goal, such as one created for a pocket from the import review. */
+  initial?: { name: string; revolutPocket: string | null }
+}>()
+/** Hands back the saved goal, so a caller that created it can select it. */
+const emit = defineEmits<{ done: [goal: GoalResponse] }>()
 
 const { t } = useI18n()
 const create = useCreateGoal()
@@ -52,11 +57,11 @@ const goal = props.goal
 const { defineField, handleSubmit, errors, isSubmitting, setFieldError } = useForm({
   validationSchema: schema,
   initialValues: {
-    name: goal?.name ?? '',
+    name: goal?.name ?? props.initial?.name ?? '',
     targetCents: (goal?.targetCents ?? null) as number | null,
     targetDate: goal?.targetDate ?? '',
     monthlyPercent: String(goal?.monthlyPercent ?? 0),
-    revolutPocket: goal?.revolutPocket ?? '',
+    revolutPocket: goal?.revolutPocket ?? props.initial?.revolutPocket ?? '',
   },
 })
 const [name] = defineField('name')
@@ -82,9 +87,9 @@ const submit = handleSubmit(async (values) => {
     monthlyPercent: Number(values.monthlyPercent),
     revolutPocket: values.revolutPocket || undefined,
   }
+  let saved: GoalResponse
   try {
-    if (goal) await update.mutateAsync({ id: goal.id, body })
-    else await create.mutateAsync(body)
+    saved = goal ? await update.mutateAsync({ id: goal.id, body }) : await create.mutateAsync(body)
   } catch (e) {
     const shown = applyFieldErrors(e, (field, message) => {
       if (
@@ -104,7 +109,7 @@ const submit = handleSubmit(async (values) => {
     else formError.value = errorMessage(e)
     return
   }
-  emit('done')
+  emit('done', saved)
 })
 </script>
 

@@ -6,6 +6,7 @@ import {
   rowErrorsFrom,
   sameGroup,
   setCategory,
+  setGoal,
   setInclude,
   toDecisions,
   totals,
@@ -22,6 +23,7 @@ function row(over: Partial<PlannedRow> & { rowId: string }): PlannedRow {
     destinationBankAccountId: null,
     suggestedCategoryId: null,
     status: 'NEW',
+    pocket: null,
     ...over,
   }
 }
@@ -38,6 +40,83 @@ describe('initReview', () => {
       [false, 'cat-2'],
       [false, null],
     ])
+  })
+})
+
+describe('pockets', () => {
+  const pocket = (
+    name: string | null,
+    goalId: string | null = null,
+    direction: 'INTO' | 'OUT_OF' = 'INTO',
+  ): PlannedRow['pocket'] => ({
+    name,
+    direction,
+    goalId,
+    match: goalId ? 'LINKED' : 'NONE',
+  })
+  const transfer = (rowId: string, p: PlannedRow['pocket'], over: Partial<PlannedRow> = {}) =>
+    row({ rowId, kind: 'TRANSFER', destinationBankAccountId: 'acc-2', pocket: p, ...over })
+
+  it('initReview_takesPocketGoal', () => {
+    const rows = initReview([
+      transfer('a', pocket('Setup', 'g1')),
+      transfer('b', pocket('Viagem')),
+      row({ rowId: 'c' }),
+    ])
+    expect(rows.map((r) => r.goalId)).toEqual(['g1', null, null])
+  })
+
+  it('setGoal_appliesToSamePocket', () => {
+    const rows = initReview([
+      transfer('a', pocket('Fundo de emergência')),
+      transfer('b', pocket('  fundo de EMERGENCIA ', null, 'OUT_OF')),
+      transfer('c', pocket('Fundo de emergência'), { status: 'ALREADY_IMPORTED' }),
+      transfer('d', pocket('Setup')),
+      transfer('e', pocket(null)),
+      transfer('f', pocket(null)),
+      row({ rowId: 'g' }),
+    ])
+    expect(setGoal(rows, 'a', 'g1').map((r) => r.goalId)).toEqual([
+      'g1',
+      'g1',
+      null,
+      null,
+      null,
+      null,
+      null,
+    ])
+    // a pocket without a name only sets its own row
+    expect(setGoal(rows, 'e', 'g2').map((r) => r.goalId)).toEqual([
+      null,
+      null,
+      null,
+      null,
+      'g2',
+      null,
+      null,
+    ])
+    // not a pocket row, or locked: nothing changes
+    expect(setGoal(rows, 'g', 'g1')).toBe(rows)
+    expect(setGoal(rows, 'c', 'g1')).toBe(rows)
+    expect(rows[0]?.goalId).toBeNull()
+  })
+
+  it('toDecisions_sendsGoalOnlyForPocketRows', () => {
+    const rows = initReview([
+      transfer('a', pocket('Setup', 'g1')),
+      transfer('b', pocket('Viagem')),
+      row({ rowId: 't', kind: 'TRANSFER', destinationBankAccountId: 'acc-2' }),
+      row({ rowId: 'x', suggestedCategoryId: 'c' }),
+    ])
+    const decisions = toDecisions(rows)
+    expect(decisions).toEqual([
+      { rowId: 'a', include: true, categoryId: null, goalId: 'g1' },
+      { rowId: 'b', include: true, categoryId: null, goalId: null },
+      { rowId: 't', include: true, categoryId: null },
+      { rowId: 'x', include: true, categoryId: 'c' },
+    ])
+    expect('goalId' in decisions[2]!).toBe(false)
+    expect('goalId' in decisions[3]!).toBe(false)
   })
 })
 
