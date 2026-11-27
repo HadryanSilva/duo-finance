@@ -774,6 +774,52 @@ class ImportCommitTest {
         assertThat(count("SELECT count(*) FROM goal_movements WHERE goal_id = ?", goal)).isZero();
     }
 
+    /**
+     * A withdrawal from an empty goal records no movement, but the row is still known: a later overlapping import
+     * must not take it from money saved since.
+     */
+    @Test
+    void commit_withdrawalCappedToZero_reimportAfterFunding_alreadyImported() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID goal = goal(s, "Emergência", 500000, 0, "Reserva de Emergência");
+        byte[] file = withdrawal("2026-11-21 09:00:00", RESERVA, "300.00");
+        var first = commitPocket(s, file, bank, goal);
+        assertThat(first).hasStatus(HttpStatus.CREATED);
+        var funding = mvc.post()
+                .uri("/api/v1/goals/" + goal + "/contributions")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"amountCents\":50000}")
+                .exchange();
+        assertThat(funding).hasStatus(HttpStatus.CREATED);
+
+        JsonNode again = pocketRow(pocketPreview(s, file, bank));
+
+        assertThat(again.path("status").asString()).isEqualTo("ALREADY_IMPORTED");
+        assertThat(saved(goal)).isEqualTo(50000);
+    }
+
+    /** Undoing the import forgets the rows it saw, so the file can be imported again. */
+    @Test
+    void undo_batchWithCappedWithdrawal_forgetsTheRow() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID goal = goal(s, "Emergência", 500000, 0, "Reserva de Emergência");
+        byte[] file = withdrawal("2026-11-21 09:00:00", RESERVA, "300.00");
+        var first = commitPocket(s, file, bank, goal);
+        String batch = body(first).path("batchId").asString();
+        assertThat(batch).isNotBlank();
+
+        var undo = mvc.post()
+                .uri("/api/v1/imports/" + batch + "/undo")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                .exchange();
+
+        assertThat(undo).hasStatus(HttpStatus.NO_CONTENT);
+        assertThat(pocketRow(pocketPreview(s, file, bank)).path("status").asString()).isEqualTo("NEW");
+    }
+
     @Test
     void commit_nameMatch_savesPocketOnGoal() throws Exception {
         TestSession s = testUsers.verified("ana@mail.com");

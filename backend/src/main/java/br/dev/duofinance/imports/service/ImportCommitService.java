@@ -53,6 +53,7 @@ public class ImportCommitService {
     private final GoalRepository goals;
     private final GoalSavedQuery saved;
     private final GoalMovementService goalMovements;
+    private final ImportSeenRows seenRows;
     private final Clock clock;
 
     public ImportCommitService(
@@ -65,6 +66,7 @@ public class ImportCommitService {
             GoalRepository goals,
             GoalSavedQuery saved,
             GoalMovementService goalMovements,
+            ImportSeenRows seenRows,
             Clock clock) {
         this.references = references;
         this.contexts = contexts;
@@ -75,6 +77,7 @@ public class ImportCommitService {
         this.goals = goals;
         this.saved = saved;
         this.goalMovements = goalMovements;
+        this.seenRows = seenRows;
         this.clock = clock;
     }
 
@@ -182,6 +185,7 @@ public class ImportCommitService {
         toInsert.sort(Comparator.comparing(PlannedRow::rowId));
         int included = toInsert.size() + pocketMoves.size();
         int created = 0;
+        int seen = 0;
         for (PlannedRow row : toInsert) {
             if (writer.insert(accountId, userId, batch.getId(), row, chosen.get(row.rowId()).categoryId(), now) != null) {
                 created++;
@@ -197,12 +201,16 @@ public class ImportCommitService {
             Goal goal = goalsById.get(chosen.get(row.rowId()).goalId());
             if (recordGoalMovement(goal, userId, row, batch.getId())) {
                 created++;
+            } else {
+                // Nothing to take from an empty goal: remember the row so a later import does not apply it.
+                seenRows.remember(accountId, row.rowId(), batch.getId());
+                seen++;
             }
             linkPocket(goal, row.pocket().name(), goalsById.values(), now);
         }
         remembered.forEach((t, category) -> memory.upsert(accountId, t.key(), t.kind(), category, now));
 
-        if (created == 0) {
+        if (created == 0 && seen == 0) {
             batches.delete(batch);
             batches.flush();
             return new CommitResponse(null, 0, included);

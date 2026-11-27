@@ -80,6 +80,13 @@ public class ImportContextLoader {
                     fingerprints.put(rs.getString("import_fingerprint"), TransactionKind.TRANSFER);
                 },
                 accountId);
+        // Rows an import saw without recording anything (a withdrawal from an empty goal) are known too.
+        jdbc.query(
+                "SELECT fingerprint FROM import_seen_rows WHERE account_id = ?",
+                rs -> {
+                    fingerprints.put(rs.getString("fingerprint"), TransactionKind.TRANSFER);
+                },
+                accountId);
 
         return new PlanContext(
                 currency,
