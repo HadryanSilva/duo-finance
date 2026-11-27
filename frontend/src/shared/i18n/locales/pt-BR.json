@@ -507,7 +507,7 @@
     },
     "undo": {
       "title": "Desfazer esta importação?",
-      "message": "Os lançamentos dela serão excluídos, inclusive os que você editou depois.",
+      "message": "Os lançamentos e as movimentações de objetivos dela serão excluídos, inclusive os que você editou depois.",
       "confirm": "Desfazer"
     },
     "history": {
