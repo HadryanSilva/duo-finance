@@ -1239,6 +1239,8 @@ export interface components {
             /** @enum {string} */
             status: "NEW" | "ALREADY_IMPORTED" | "POSSIBLE_DUPLICATE";
             pocket: components["schemas"]["PocketInfo"] | null;
+            /** Format: int32 */
+            applyOrder: number;
         };
         PreviewSkippedRow: {
             /** Format: int32 */

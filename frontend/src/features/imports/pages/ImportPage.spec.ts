@@ -64,6 +64,7 @@ const row = (r: Partial<PreviewRow> & Pick<PreviewRow, 'rowId' | 'description'>)
   suggestedCategoryId: 'c1',
   status: 'NEW',
   pocket: null,
+  applyOrder: 0,
   ...r,
 })
 const PINGO = 'Mercado Pingo Doce'
@@ -971,6 +972,35 @@ describe('ImportPage pockets', () => {
     await waitFor(() => expect(norm(above!.textContent)).toContain(warning))
     expect(norm(above!.textContent)).toContain('← retirada de Setup')
     expect(norm(within2!.textContent)).not.toContain('Só € 20,00')
+  })
+
+  it('import_withdrawals_warnOnTheRunningTotal_inStatementOrder', async () => {
+    const out = (rowId: string, amountCents: number, applyOrder: number) =>
+      pocketRow(rowId, 'Setup', { goalId: 'g1', direction: 'OUT_OF', amountCents, applyOrder })
+    const s = setup({
+      goals: [{ ...setupGoal, savedCents: 2000 }],
+      // file order differs from statement order: p2 happens first, then p1, then p3
+      preview: pocketPreview(out('p1', 1500, 1), out('p2', 1500, 0), out('p3', 1000, 2)),
+    })
+    const { user } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    const [p1, p2, p3] = rowsIn(panel())
+    await waitFor(() =>
+      expect(norm(p1!.textContent)).toContain(
+        'Só € 5,00 estão guardados neste objetivo; a retirada fica em € 5,00',
+      ),
+    )
+    expect(norm(p2!.textContent)).not.toContain('Só ')
+    expect(norm(p3!.textContent)).toContain(
+      'Nada resta neste objetivo antes desta retirada; ela não será registrada no objetivo',
+    )
+
+    // leaving the first withdrawal out frees the money for the next ones
+    await user.click(within(p2!).getByRole('checkbox'))
+    expect(norm(p1!.textContent)).not.toContain('Só ')
+    expect(norm(p3!.textContent)).toContain(
+      'Só € 5,00 estão guardados neste objetivo; a retirada fica em € 5,00',
+    )
   })
 
   it('import_noPocketsAccount_asksAndRepreviews', async () => {

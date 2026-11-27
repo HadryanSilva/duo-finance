@@ -10,6 +10,7 @@ import MoneyText from '@/shared/ui/MoneyText.vue'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 import {
   canSubmit,
+  goalBalances,
   sameGroup,
   setCategory,
   setGoal,
@@ -50,6 +51,7 @@ const categoriesFor = (row: ReviewRow) =>
   row.kind === 'INCOME' ? incomeOptions.value : expenseOptions.value
 const goalsOverview = useGoals(currentMonth())
 const activeGoals = computed(() => goalsOverview.data.value?.goals ?? [])
+const held = computed(() => goalBalances(rows.value, activeGoals.value))
 
 // ALREADY_IMPORTED rows stay in "New", locked, so the file's rows are all accounted for.
 const newRows = computed(() => rows.value.filter((r) => r.status !== 'POSSIBLE_DUPLICATE'))
@@ -160,6 +162,7 @@ const tabLabel = (key: 'new' | 'duplicates' | 'skipped', n: number) =>
             :row="row"
             :categories="categoriesFor(row)"
             :goals="activeGoals"
+            :held-cents="held[row.rowId]"
             :account-name="accountName"
             :apply-count="prompt?.rowId === row.rowId ? prompt.count : undefined"
             :error="rowError(row)"

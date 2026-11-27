@@ -494,7 +494,8 @@
       "into": "→ contribuição para {goal}",
       "outOf": "← retirada de {goal}",
       "noGoal": "Sem objetivo: este valor continua no saldo livre",
-      "aboveSaved": "Só {saved} estão guardados neste objetivo; a retirada fica em {saved}"
+      "aboveSaved": "Só {saved} estão guardados neste objetivo; a retirada fica em {saved}",
+      "nothingLeft": "Nada resta neste objetivo antes desta retirada; ela não será registrada no objetivo"
     },
     "result": {
       "title": "Importação concluída",

@@ -116,3 +116,31 @@ export function rowErrorsFrom(errors: FieldError[]): Record<string, string> {
   }
   return byRow
 }
+
+/**
+ * What each pocket row's goal holds just before the row, walking the moves the commit will record in
+ * its order (`applyOrder`: statement time, then file line). Deposits add, withdrawals take out at
+ * most what is there, as the backend caps them. Excluded rows get a balance but change nothing;
+ * already imported rows are in `savedCents` already. Rows without a goal are left out.
+ */
+export function goalBalances(
+  rows: ReviewRow[],
+  goals: { id: string; savedCents: number }[],
+): Record<string, number> {
+  const held = new Map(goals.map((g) => [g.id, g.savedCents]))
+  const balances: Record<string, number> = {}
+  const moves = rows
+    .filter((r) => r.pocket && r.goalId && !locked(r))
+    .sort((a, b) => a.applyOrder - b.applyOrder)
+  for (const r of moves) {
+    const goalId = r.goalId!
+    const before = held.get(goalId) ?? 0
+    balances[r.rowId] = before
+    if (!r.include) continue
+    held.set(
+      goalId,
+      r.pocket!.direction === 'INTO' ? before + r.amountCents : Math.max(0, before - r.amountCents),
+    )
+  }
+  return balances
+}

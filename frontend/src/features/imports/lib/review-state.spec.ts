@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { PlannedRow } from '@/shared/api/types'
 import {
   canSubmit,
+  goalBalances,
   initReview,
   rowErrorsFrom,
   sameGroup,
@@ -24,6 +25,7 @@ function row(over: Partial<PlannedRow> & { rowId: string }): PlannedRow {
     suggestedCategoryId: null,
     status: 'NEW',
     pocket: null,
+    applyOrder: 0,
     ...over,
   }
 }
@@ -251,5 +253,58 @@ describe('rowErrorsFrom', () => {
         { field: 'decisions[r1]', code: 'CATEGORY_REQUIRED' },
       ]),
     ).toEqual({ r1: 'CATEGORY_ARCHIVED' })
+  })
+})
+
+describe('goalBalances', () => {
+  const goals = [
+    { id: 'g1', savedCents: 2000 },
+    { id: 'g2', savedCents: 0 },
+  ]
+  const move = (
+    rowId: string,
+    goalId: string | null,
+    direction: 'INTO' | 'OUT_OF',
+    amountCents: number,
+    applyOrder: number,
+    over: Partial<PlannedRow> = {},
+  ): PlannedRow =>
+    row({
+      rowId,
+      kind: 'TRANSFER',
+      amountCents,
+      applyOrder,
+      pocket: { name: 'Setup', direction, goalId, match: goalId ? 'LINKED' : 'NONE' },
+      ...over,
+    })
+
+  it('walks included moves in statement order, per goal', () => {
+    const rows = initReview([
+      move('w1', 'g1', 'OUT_OF', 1500, 2),
+      move('d1', 'g1', 'INTO', 500, 1),
+      move('w2', 'g1', 'OUT_OF', 5000, 3),
+      move('d2', 'g2', 'INTO', 300, 0),
+      move('w3', 'g2', 'OUT_OF', 1000, 4),
+    ])
+    expect(goalBalances(rows, goals)).toEqual({ d2: 0, d1: 2000, w1: 2500, w2: 1000, w3: 300 })
+  })
+
+  it('skips excluded and already imported moves, and rows without a goal', () => {
+    const rows = setInclude(
+      initReview([
+        move('a', 'g1', 'OUT_OF', 1500, 0, { status: 'ALREADY_IMPORTED' }),
+        move('b', 'g1', 'OUT_OF', 1500, 1),
+        move('c', 'g1', 'OUT_OF', 1500, 2),
+        move('d', null, 'OUT_OF', 1500, 3),
+        row({ rowId: 'e' }),
+      ]),
+      'b',
+      false,
+    )
+    expect(goalBalances(rows, goals)).toEqual({ b: 2000, c: 2000 })
+  })
+
+  it('a goal missing from the list counts from zero', () => {
+    expect(goalBalances(initReview([move('x', 'gone', 'OUT_OF', 100, 0)]), goals)).toEqual({ x: 0 })
   })
 })

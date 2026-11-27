@@ -22,6 +22,8 @@ const props = defineProps<{
   categories: { id: string; label: string }[]
   /** Active goals, offered to a pocket move. */
   goals: GoalResponse[]
+  /** Pocket rows with a goal: what the goal holds just before this row, after the earlier moves. */
+  heldCents?: number
   accountName: (id: string | null) => string
   /** Set when the category just changed and other rows share the description. */
   applyCount?: number
@@ -54,12 +56,14 @@ const categoryInvalid = computed(
 
 const pocket = computed(() => props.row.pocket)
 const goal = computed(() => props.goals.find((g) => g.id === props.row.goalId))
-/** A withdrawal can take out at most what the goal holds; the backend caps it there. */
+/**
+ * A withdrawal can take out at most what the goal holds by then; the backend caps it there, and
+ * records nothing when nothing is left.
+ */
+const held = computed(() => props.heldCents ?? goal.value?.savedCents ?? 0)
 const cappedAt = computed(() =>
-  pocket.value?.direction === 'OUT_OF' &&
-  goal.value &&
-  props.row.amountCents > goal.value.savedCents
-    ? goal.value.savedCents
+  pocket.value?.direction === 'OUT_OF' && goal.value && props.row.amountCents > held.value
+    ? held.value
     : null,
 )
 </script>
@@ -106,8 +110,11 @@ const cappedAt = computed(() =>
           <p v-else-if="!row.goalId" class="text-sm text-warning">
             {{ t('imports.pocket.noGoal') }}
           </p>
+          <p v-if="cappedAt === 0" class="text-sm text-warning">
+            {{ t('imports.pocket.nothingLeft') }}
+          </p>
           <i18n-t
-            v-if="cappedAt !== null"
+            v-else-if="cappedAt !== null"
             keypath="imports.pocket.aboveSaved"
             tag="p"
             class="text-sm text-warning"

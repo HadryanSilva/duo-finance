@@ -4,6 +4,7 @@ import br.dev.duofinance.imports.dto.PocketInfo;
 import br.dev.duofinance.transaction.model.TransactionKind;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
@@ -24,4 +25,9 @@ public record PlannedRow(
         RowStatus status,
         @Nullable PocketInfo pocket,
         LocalDateTime startedAt,
-        int lineNumber) {}
+        int lineNumber) {
+
+    /** The order the commit applies rows in: the statement's sequence. */
+    public static final Comparator<PlannedRow> APPLY_ORDER =
+            Comparator.comparing(PlannedRow::startedAt).thenComparingInt(PlannedRow::lineNumber);
+}

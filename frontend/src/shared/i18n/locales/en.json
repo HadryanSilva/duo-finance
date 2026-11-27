@@ -494,7 +494,8 @@
       "into": "→ contribution to {goal}",
       "outOf": "← withdrawal from {goal}",
       "noGoal": "No goal: this amount stays in the free balance",
-      "aboveSaved": "Only {saved} is saved in this goal; the withdrawal is capped at {saved}"
+      "aboveSaved": "Only {saved} is saved in this goal; the withdrawal is capped at {saved}",
+      "nothingLeft": "Nothing is left in this goal by this withdrawal; it will not be recorded against the goal"
     },
     "result": {
       "title": "Import finished",
