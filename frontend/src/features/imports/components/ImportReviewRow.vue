@@ -66,10 +66,10 @@ const cappedAt = computed(() =>
 
 <template>
   <li
-    class="grid gap-3 rounded-lg border border-border bg-card p-3"
+    class="grid min-w-0 gap-3 rounded-lg border border-border bg-card p-3"
     :class="{ 'opacity-60': locked || !row.include }"
   >
-    <div class="flex flex-wrap items-center gap-3">
+    <div class="flex min-w-0 flex-wrap items-center gap-3">
       <Checkbox
         :model-value="row.include"
         :disabled="locked"
@@ -130,7 +130,7 @@ const cappedAt = computed(() =>
       />
       <NativeSelect
         v-else-if="!isTransfer"
-        class="sm:w-56"
+        class="w-full min-w-0 sm:w-56"
         :model-value="row.categoryId ?? ''"
         :disabled="locked"
         :aria-label="t('imports.review.category', { description: row.description })"

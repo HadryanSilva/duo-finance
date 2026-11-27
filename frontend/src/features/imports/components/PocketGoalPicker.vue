@@ -54,7 +54,7 @@ function onCreated(goal: GoalResponse) {
 
 <template>
   <NativeSelect
-    class="sm:w-56"
+    class="w-full min-w-0 sm:w-56"
     :model-value="choice"
     :disabled="disabled"
     :aria-label="t('imports.pocket.goal', { description })"
