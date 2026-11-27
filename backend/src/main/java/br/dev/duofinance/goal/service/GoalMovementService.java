@@ -16,7 +16,6 @@ import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.error.ErrorCode;
 import br.dev.duofinance.shared.time.RunningMonths;
 import br.dev.duofinance.transaction.dto.TransactionResponse.AuthorRef;
-import br.dev.duofinance.transaction.model.TransactionKind;
 import br.dev.duofinance.user.model.User;
 import br.dev.duofinance.user.repository.UserRepository;
 import java.time.Clock;
@@ -82,7 +81,7 @@ public class GoalMovementService {
                         m.getAmountCents(),
                         m.getMonth() == null ? null : YearMonth.from(m.getMonth()),
                         m.getOccurredOn(),
-                        m.getTransactionId() != null,
+                        m.getImportBatchId() != null,
                         m.getNote(),
                         m.getCreatedBy() == null ? null : authorRef(userById.get(m.getCreatedBy())),
                         m.getCreatedAt()))
@@ -101,7 +100,7 @@ public class GoalMovementService {
         requireMonthNotBeforeFirst(goal, month);
         long amount = request.amountCents();
         requireAmount(amount, remainingOf(goal, savedOf(goal)));
-        GoalMovement movement = contribution(goal, amount, month, date, null, request.note(), userId);
+        GoalMovement movement = contribution(goal, amount, month, date, request.note(), userId);
         movements.saveAndFlush(movement);
         return GoalResponse.of(goal, savedOf(goal), null);
     }
@@ -133,17 +132,25 @@ public class GoalMovementService {
     }
 
     /**
-     * Records a movement that mirrors an imported transaction. The amount and date come from the file, so there is no
-     * month, first-month or cap check; the caller passes the goal it loaded for the account it is importing into.
+     * Records a movement imported from a statement row: a pocket move. The amount and date come from the file, so there
+     * is no month, first-month or cap check; the caller passes the goal it loaded for the account it is importing into.
+     * The movement keeps the row's fingerprint, so a later import knows the row, and the batch, so undoing it removes
+     * the movement.
      */
     @Transactional
     public void recordImported(
-            Goal goal, UUID userId, GoalMovementType type, long amountCents, LocalDate date, UUID transactionId) {
+            Goal goal,
+            UUID userId,
+            GoalMovementType type,
+            long amountCents,
+            LocalDate date,
+            String importFingerprint,
+            UUID importBatchId) {
         if (goal.isCompleted()) {
             throw new ApiException(ErrorCode.GOAL_COMPLETED);
         }
         GoalMovement movement = type == GoalMovementType.CONTRIBUTION
-                ? contribution(goal, amountCents, YearMonth.from(date), date, transactionId, null, userId)
+                ? contribution(goal, amountCents, YearMonth.from(date), date, null, userId)
                 : new GoalMovement(
                         goal.getId(),
                         goal.getAccountId(),
@@ -151,22 +158,16 @@ public class GoalMovementService {
                         amountCents,
                         null,
                         date,
-                        transactionId,
                         null,
                         userId,
                         Instant.now(clock));
+        movement.importedFrom(importFingerprint, importBatchId);
         movements.saveAndFlush(movement);
     }
 
     /** A new contribution supersedes its month's skip, and remembers it did so the skip can come back. */
     private GoalMovement contribution(
-            Goal goal,
-            long amountCents,
-            YearMonth month,
-            LocalDate date,
-            @Nullable UUID transactionId,
-            @Nullable String note,
-            UUID userId) {
+            Goal goal, long amountCents, YearMonth month, LocalDate date, @Nullable String note, UUID userId) {
         GoalMovement movement = new GoalMovement(
                 goal.getId(),
                 goal.getAccountId(),
@@ -174,7 +175,6 @@ public class GoalMovementService {
                 amountCents,
                 month.atDay(1),
                 date,
-                transactionId,
                 note == null || note.isBlank() ? null : note.strip(),
                 userId,
                 Instant.now(clock));
@@ -183,72 +183,22 @@ public class GoalMovementService {
     }
 
     /**
-     * The transaction a movement mirrors was edited: drop the movement unless the transaction is still a transfer, in
-     * which case it takes the transaction's amount and date. A contribution that lands in a skipped month supersedes
-     * the skip; a withdrawal is clamped so the goal's saved amount never goes below zero, and an edit that would take
-     * the saved amount below zero (a contribution lowered or dropped after later withdrawals) is refused.
-     */
-    @Transactional
-    public void followTransaction(
-            UUID accountId, UUID transactionId, TransactionKind kind, long amountCents, LocalDate date) {
-        if (movements.findByTransactionId(transactionId).isEmpty()) {
-            return;
-        }
-        // Lock order: the account row first, then re-read the movement under the lock.
-        accounts.findByIdForUpdate(accountId).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
-        movements.findByTransactionId(transactionId).ifPresent(movement -> {
-            long before = saved.savedOf(movement.getGoalId());
-            long withoutIt = before - effectOf(movement);
-            boolean isWithdrawal = movement.getType() == GoalMovementType.WITHDRAWAL;
-            // A withdrawal is capped by what the goal holds without it; a contribution follows the new amount.
-            long newAmount = isWithdrawal ? Math.min(amountCents, withoutIt) : amountCents;
-            if (kind != TransactionKind.TRANSFER || newAmount <= 0) {
-                requireNotNegative(withoutIt);
-                restoreSkips(List.of(movement));
-                movements.delete(movement);
-            } else {
-                requireNotNegative(isWithdrawal ? withoutIt - newAmount : withoutIt + newAmount);
-                boolean monthMoves = !isWithdrawal && !date.withDayOfMonth(1).equals(movement.getMonth());
-                if (monthMoves) {
-                    restoreSkips(List.of(movement));
-                }
-                movement.followTransaction(newAmount, date);
-                if (monthMoves) {
-                    movement.setReplacedSkip(removeSkip(movement.getGoalId(), movement.getMonth()));
-                }
-            }
-            movements.flush();
-        });
-    }
-
-    /**
-     * A transaction is about to be deleted (its linked movement goes with it, by cascade): refuse if that movement is
-     * a contribution the goal has spent, else put back the skip it replaced.
-     */
-    @Transactional
-    public void beforeTransactionRemoved(UUID accountId, UUID transactionId) {
-        if (movements.findByTransactionId(transactionId).isEmpty()) {
-            return;
-        }
-        accounts.findByIdForUpdate(accountId).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
-        beforeRemoved(movements.findByTransactionId(transactionId).stream().toList());
-    }
-
-    /**
-     * An import batch is about to be undone: refuse if any goal would end below zero without its linked movements,
-     * else put back the skips they replaced. Takes the account lock, so the caller locks the batch after it.
+     * An import batch is being undone: refuse if any goal would end below zero without the batch's movements, else put
+     * back the skips they replaced and delete them. Takes the account lock, so the caller locks the batch after it.
      */
     @Transactional
     public void beforeBatchRemoved(UUID accountId, UUID batchId) {
         accounts.findByIdForUpdate(accountId).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
-        beforeRemoved(movements.findByImportBatch(accountId, batchId));
-    }
-
-    private void beforeRemoved(List<GoalMovement> removed) {
+        List<GoalMovement> removed = movements.findByAccountIdAndImportBatchId(accountId, batchId);
+        if (removed.isEmpty()) {
+            return;
+        }
         Map<UUID, Long> effectByGoal = removed.stream()
                 .collect(Collectors.groupingBy(GoalMovement::getGoalId, Collectors.summingLong(m -> effectOf(m))));
         effectByGoal.forEach((goalId, effect) -> requireNotNegative(saved.savedOf(goalId) - effect));
         restoreSkips(removed);
+        movements.deleteAll(removed);
+        movements.flush();
     }
 
     /**
@@ -277,7 +227,6 @@ public class GoalMovementService {
                         month,
                         month,
                         null,
-                        null,
                         gone.getCreatedBy(),
                         Instant.now(clock)));
             }
@@ -305,7 +254,7 @@ public class GoalMovementService {
         GoalMovement movement = movements
                 .findByIdAndGoalId(movementId, goalId)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND));
-        if (movement.getTransactionId() != null) {
+        if (movement.getImportBatchId() != null) {
             throw new ApiException(ErrorCode.GOAL_MOVEMENT_IMPORTED);
         }
         long effect = movement.getType() == GoalMovementType.WITHDRAWAL
@@ -378,7 +327,6 @@ public class GoalMovementService {
                 amount,
                 month == null ? null : month.atDay(1),
                 occurredOn,
-                null,
                 note == null || note.isBlank() ? null : note.strip(),
                 userId,
                 Instant.now(clock)));

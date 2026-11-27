@@ -197,7 +197,7 @@ public class ImportCommitService {
                 .toList();
         for (PlannedRow row : goalRows) {
             Goal goal = goalsById.get(chosen.get(row.rowId()).goalId());
-            recordGoalMovement(goal, userId, row, inserted.get(row.rowId()));
+            recordGoalMovement(goal, userId, row, batch.getId());
             linkPocket(goal, row.pocket().name(), goalsById.values(), now);
         }
         remembered.forEach((t, category) -> memory.upsert(accountId, t.key(), t.kind(), category, now));
@@ -228,15 +228,16 @@ public class ImportCommitService {
     }
 
     /** Money into the pocket is a contribution of any size; money out is a withdrawal of at most what is saved. */
-    private void recordGoalMovement(Goal goal, UUID userId, PlannedRow row, UUID transactionId) {
+    private void recordGoalMovement(Goal goal, UUID userId, PlannedRow row, UUID batchId) {
         if (row.pocket().direction() == PocketInfo.Direction.INTO) {
             goalMovements.recordImported(
-                    goal, userId, GoalMovementType.CONTRIBUTION, row.amountCents(), row.date(), transactionId);
+                    goal, userId, GoalMovementType.CONTRIBUTION, row.amountCents(), row.date(), row.rowId(), batchId);
             return;
         }
         long amount = Math.min(row.amountCents(), saved.savedOf(goal.getId()));
         if (amount > 0) {
-            goalMovements.recordImported(goal, userId, GoalMovementType.WITHDRAWAL, amount, row.date(), transactionId);
+            goalMovements.recordImported(
+                    goal, userId, GoalMovementType.WITHDRAWAL, amount, row.date(), row.rowId(), batchId);
         }
     }
 
