@@ -146,6 +146,27 @@ describe('GoalsCard', () => {
     ).toBeTruthy()
   })
 
+  // Like the Goals page: a month without a target stays open until a contribution or a skip.
+  it('pending_countsTargetlessMonthsUntilAContributionOrSkip', async () => {
+    const none = { targetCents: 0 }
+    const data = withGoals({
+      month: currentMonth(),
+      salaryCents: 0,
+      goals: [goal(), goal({ id: 'g2', name: 'Viagem' }), goal({ id: 'g3', name: 'Casa' })],
+      monthTargets: [
+        target('g1', 'Videogame novo', currentMonth(), none),
+        target('g2', 'Viagem', currentMonth(), { ...none, contributedCents: 100 }),
+        target('g3', 'Casa', currentMonth(), { ...none, skipped: true }),
+      ],
+    })
+    await mountCard(data, currentMonth())
+    expect(
+      screen.getByRole('link', {
+        name: `1 meta do mês em aberto em ${formatMonth(currentMonth(), 'pt-BR')}`,
+      }),
+    ).toBeTruthy()
+  })
+
   it('noConfirmButtonsOnDashboard', async () => {
     await mountCard(twoPending(), currentMonth())
     expect(screen.queryByRole('button', { name: /Registrar|Pular/ })).toBeNull()

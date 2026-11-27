@@ -27,13 +27,16 @@ const needsSalaryCategory = computed(() => {
 })
 
 /**
- * Month targets still open: neither met nor skipped. Only for the running month: the Goals page,
+ * Month targets still open: neither met nor skipped. Without a target (no salary yet) any
+ * contribution settles the month, as on the Goals page. Only for the running month: the Goals page,
  * where they are handled, works on the current month.
  */
 const pending = computed(() => {
   if (props.month !== currentMonth()) return 0
   const open = (goals.value?.monthTargets ?? []).filter(
-    (x) => !x.skipped && x.contributedCents < x.targetCents,
+    (x) =>
+      !x.skipped &&
+      (x.targetCents > 0 ? x.contributedCents < x.targetCents : x.contributedCents === 0),
   )
   return open.length
 })
