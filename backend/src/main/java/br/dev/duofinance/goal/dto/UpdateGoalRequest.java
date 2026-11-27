@@ -18,4 +18,6 @@ public record UpdateGoalRequest(
         @Nullable LocalDate targetDate,
 
         @NotNull @Min(0) @Max(100)
-        Integer monthlyPercent) {}
+        Integer monthlyPercent,
+
+        @Nullable @Size(max = 100) String revolutPocket) {}

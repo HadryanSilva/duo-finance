@@ -6,11 +6,14 @@ import br.dev.duofinance.IntegrationTest;
 import br.dev.duofinance.category.model.CategoryKind;
 import br.dev.duofinance.imports.service.DescriptionKeys;
 import br.dev.duofinance.support.FinanceFixtures;
+import br.dev.duofinance.support.MutableClock;
 import br.dev.duofinance.support.TestUsers;
 import br.dev.duofinance.support.TestUsers.TestSession;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
@@ -269,7 +273,7 @@ class ImportCommitTest {
     org.springframework.transaction.PlatformTransactionManager txManager;
 
     @Test
-    void writer_insertSameFingerprintTwice_returnsOneThenZero() {
+    void writer_insertSameFingerprintTwice_returnsIdThenNull() {
         TestSession s = testUsers.verified("ana@mail.com");
         UUID bank = fixtures.bankAccount(s, "Revolut", 0);
         UUID cat = fixtures.category(s, "Cafes", CategoryKind.EXPENSE);
@@ -283,19 +287,24 @@ class ImportCommitTest {
                 bank,
                 null,
                 null,
-                br.dev.duofinance.imports.service.RowStatus.NEW);
+                br.dev.duofinance.imports.service.RowStatus.NEW,
+                null,
+                java.time.LocalDateTime.of(2026, 10, 3, 12, 4, 51),
+                2);
         java.time.Instant now = java.time.Instant.parse("2026-11-10T10:00:00Z");
 
-        int[] results = new org.springframework.transaction.support.TransactionTemplate(txManager).execute(status -> {
+        UUID[] results = new org.springframework.transaction.support.TransactionTemplate(txManager).execute(status -> {
             var batch = batchRepository.saveAndFlush(new br.dev.duofinance.imports.model.ImportBatch(
                     s.accountId(), br.dev.duofinance.imports.model.ImportSource.REVOLUT, bank, s.userId(), 0, now));
-            return new int[] {
+            return new UUID[] {
                 writer.insert(s.accountId(), s.userId(), batch.getId(), row, cat, now),
                 writer.insert(s.accountId(), s.userId(), batch.getId(), row, cat, now)
             };
         });
 
-        assertThat(results).containsExactly(1, 0);
+        assertThat(results[0]).isNotNull();
+        assertThat(results[1]).isNull();
+        assertThat(count("SELECT count(*) FROM transactions WHERE id = ?", results[0])).isEqualTo(1);
         assertThat(count("SELECT count(*) FROM transactions WHERE import_fingerprint = 'fp-writer-test'"))
                 .isEqualTo(1);
     }
@@ -545,5 +554,447 @@ class ImportCommitTest {
 
         assertThat(result).hasStatus(HttpStatus.CONFLICT);
         assertThat(result).bodyJson().extractingPath("$.code").isEqualTo("BANK_ACCOUNT_ARCHIVED");
+    }
+
+    // ---- Revolut pockets: transfers with goal movements ----
+
+    @Autowired
+    MutableClock clock;
+
+    private static final String PT_HEADER =
+            "Tipo,Produto,Data de início,Data de Conclusão,Descrição,Montante,Comissão,Moeda,Estado,Saldo\n";
+    private static final String RESERVA = "Carregamento de subconta EUR Reserva de Emergência de EUR";
+    private static final String SETUP = "Carregamento de subconta EUR Setup de EUR";
+
+    private static String leg(String product, String at, String description, String amount) {
+        return "Transferência,%s,%s,%s,%s,%s,0.00,EUR,CONCLUÍDA,0.00\n"
+                .formatted(product, at, at, description, amount);
+    }
+
+    private static byte[] pocketFile(String... legs) {
+        return (PT_HEADER + String.join("", legs)).getBytes(StandardCharsets.UTF_8);
+    }
+
+    /** A deposit into the pocket: both legs, as the statement carries them. */
+    private static byte[] deposit(String at, String description, String amount) {
+        return pocketFile(leg("Poupanças", at, description, amount), leg("Atual", at, description, "-" + amount));
+    }
+
+    private static byte[] withdrawal(String at, String description, String amount) {
+        return pocketFile(leg("Poupanças", at, description, "-" + amount), leg("Atual", at, description, amount));
+    }
+
+    private static String pocketsMapping(UUID pockets) {
+        return "{\"Poupanças\":\"" + pockets + "\"}";
+    }
+
+    private MvcTestResult send(
+            String uri, TestSession s, byte[] file, UUID bank, String mapping, UUID pocketsAccount, String decisions) {
+        var builder = mvc.post()
+                .uri(uri)
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                .multipart()
+                .file(new MockMultipartFile("file", "statement.csv", "text/csv", file))
+                .file(new MockMultipartFile("bankAccountId", "", "text/plain", bank.toString().getBytes()));
+        if (mapping != null) {
+            builder = builder.file(new MockMultipartFile(
+                    "productMapping", "", "application/json", mapping.getBytes(StandardCharsets.UTF_8)));
+        }
+        if (pocketsAccount != null) {
+            builder = builder.file(new MockMultipartFile(
+                    "pocketsBankAccountId", "", "text/plain", pocketsAccount.toString().getBytes()));
+        }
+        if (decisions != null) {
+            builder = builder.file(new MockMultipartFile("decisions", "", "application/json", decisions.getBytes()));
+        }
+        return builder.exchange();
+    }
+
+    private JsonNode pocketPreview(TestSession s, byte[] file, UUID bank, String mapping, UUID pocketsAccount)
+            throws Exception {
+        var result = send(PREVIEW, s, file, bank, mapping, pocketsAccount, null);
+        assertThat(result).hasStatus(HttpStatus.OK);
+        return body(result).path("rows");
+    }
+
+    private static JsonNode transfer(JsonNode rows) {
+        List<JsonNode> transfers = new ArrayList<>();
+        for (JsonNode r : rows) {
+            if (r.path("kind").asString().equals("TRANSFER")) {
+                transfers.add(r);
+            }
+        }
+        assertThat(transfers).hasSize(1);
+        return transfers.get(0);
+    }
+
+    private static Map<String, Object> goalDecision(JsonNode row, boolean include, UUID goal) {
+        Map<String, Object> m = decision(row, include, null);
+        m.put("goalId", goal);
+        return m;
+    }
+
+    /** Previews the file, includes its one pocket transfer with the goal and commits; returns the commit result. */
+    private MvcTestResult commitPocket(TestSession s, byte[] file, UUID bank, String mapping, UUID goal)
+            throws Exception {
+        JsonNode t = transfer(pocketPreview(s, file, bank, mapping, null));
+        return send(COMMIT, s, file, bank, mapping, null, decisions(List.of(goalDecision(t, true, goal))));
+    }
+
+    private UUID goal(TestSession s, String name, long target, int percent, String pocket) throws Exception {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("name", name);
+        m.put("targetCents", target);
+        m.put("monthlyPercent", percent);
+        m.put("revolutPocket", pocket);
+        var r = mvc.post()
+                .uri("/api/v1/goals")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(m))
+                .exchange();
+        assertThat(r).hasStatus(HttpStatus.CREATED);
+        return UUID.fromString(body(r).path("id").asString());
+    }
+
+    private long saved(UUID goal) {
+        return count(
+                "SELECT coalesce(sum(CASE type WHEN 'WITHDRAWAL' THEN -amount_cents WHEN 'SKIP' THEN 0"
+                        + " ELSE amount_cents END), 0) FROM goal_movements WHERE goal_id = ?",
+                goal);
+    }
+
+    private UUID rememberedPockets(TestSession s) {
+        return jdbc.queryForObject(
+                "SELECT pockets_bank_account_id FROM accounts WHERE id = ?", UUID.class, s.accountId());
+    }
+
+    @Test
+    void commit_pocketDeposit_createsLinkedContribution() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
+        UUID goal = goal(s, "Emergência", 500000, 0, "Reserva de Emergência");
+
+        var result = commitPocket(
+                s, deposit("2026-11-20 14:34:39", RESERVA, "250.00"), bank, pocketsMapping(pockets), goal);
+
+        assertThat(result).hasStatus(HttpStatus.CREATED);
+        assertThat(saved(goal)).isEqualTo(25000);
+        var transfer = jdbc.queryForMap(
+                "SELECT id, bank_account_id, destination_bank_account_id FROM transactions WHERE kind = 'TRANSFER'");
+        assertThat(transfer.get("bank_account_id")).isEqualTo(bank);
+        assertThat(transfer.get("destination_bank_account_id")).isEqualTo(pockets);
+        var movement = jdbc.queryForMap(
+                "SELECT type, amount_cents, transaction_id, occurred_on::text AS occurred_on FROM goal_movements"
+                        + " WHERE goal_id = ?",
+                goal);
+        assertThat(movement.get("type")).isEqualTo("CONTRIBUTION");
+        assertThat(movement.get("amount_cents")).isEqualTo(25000L);
+        assertThat(movement.get("transaction_id")).isEqualTo(transfer.get("id"));
+        assertThat(movement.get("occurred_on")).isEqualTo("2026-11-20");
+    }
+
+    @Test
+    void commit_depositAboveTarget_accepted() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
+        UUID goal = goal(s, "Emergência", 100000, 0, "Reserva de Emergência");
+
+        var result = commitPocket(
+                s, deposit("2026-11-20 14:55:30", RESERVA, "1250.00"), bank, pocketsMapping(pockets), goal);
+
+        assertThat(result).hasStatus(HttpStatus.CREATED);
+        assertThat(saved(goal)).isEqualTo(125000);
+    }
+
+    @Test
+    void commit_withdrawalAboveSaved_clampedToSaved() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
+        UUID goal = goal(s, "Emergência", 500000, 0, "Reserva de Emergência");
+        var contribution = mvc.post()
+                .uri("/api/v1/goals/" + goal + "/contributions")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"amountCents\":10000}")
+                .exchange();
+        assertThat(contribution).hasStatus(HttpStatus.CREATED);
+
+        var result = commitPocket(
+                s, withdrawal("2026-11-21 09:00:00", RESERVA, "300.00"), bank, pocketsMapping(pockets), goal);
+
+        assertThat(result).hasStatus(HttpStatus.CREATED);
+        var transfer = jdbc.queryForMap("SELECT amount_cents, bank_account_id, destination_bank_account_id"
+                + " FROM transactions WHERE kind = 'TRANSFER'");
+        assertThat(transfer.get("amount_cents")).isEqualTo(30000L);
+        assertThat(transfer.get("bank_account_id")).isEqualTo(pockets);
+        assertThat(transfer.get("destination_bank_account_id")).isEqualTo(bank);
+        assertThat(count("SELECT amount_cents FROM goal_movements WHERE goal_id = ? AND type = 'WITHDRAWAL'", goal))
+                .isEqualTo(10000);
+        assertThat(saved(goal)).isZero();
+    }
+
+    @Test
+    void commit_withdrawal_goalAtZero_noMovement() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
+        UUID goal = goal(s, "Emergência", 500000, 0, "Reserva de Emergência");
+
+        var result = commitPocket(
+                s, withdrawal("2026-11-21 09:00:00", RESERVA, "300.00"), bank, pocketsMapping(pockets), goal);
+
+        assertThat(result).hasStatus(HttpStatus.CREATED);
+        assertThat(count("SELECT count(*) FROM transactions WHERE kind = 'TRANSFER'")).isEqualTo(1);
+        assertThat(count("SELECT count(*) FROM goal_movements WHERE goal_id = ?", goal)).isZero();
+    }
+
+    @Test
+    void commit_nameMatch_savesPocketOnGoal() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
+        UUID goal = goal(s, "setup", 150000, 0, null);
+        byte[] file = deposit("2026-11-20 14:54:41", SETUP, "100.00");
+        JsonNode t = transfer(pocketPreview(s, file, bank, pocketsMapping(pockets), null));
+        assertThat(t.path("pocket").path("match").asString()).isEqualTo("NAME_MATCH");
+        assertThat(t.path("pocket").path("goalId").asString()).isEqualTo(goal.toString());
+
+        var result = send(
+                COMMIT, s, file, bank, pocketsMapping(pockets), null, decisions(List.of(goalDecision(t, true, goal))));
+
+        assertThat(result).hasStatus(HttpStatus.CREATED);
+        assertThat(jdbc.queryForObject("SELECT revolut_pocket FROM goals WHERE id = ?", String.class, goal))
+                .isEqualTo("Setup");
+        assertThat(saved(goal)).isEqualTo(10000);
+    }
+
+    @Test
+    void commit_pocketNameTakenByAnotherGoal_notSaved() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
+        goal(s, "Computador", 150000, 0, "Setup");
+        UUID chosen = goal(s, "Outro", 150000, 0, null);
+        byte[] file = deposit("2026-11-20 14:54:41", SETUP, "100.00");
+
+        var result = commitPocket(s, file, bank, pocketsMapping(pockets), chosen);
+
+        assertThat(result).hasStatus(HttpStatus.CREATED);
+        assertThat(jdbc.queryForObject("SELECT revolut_pocket FROM goals WHERE id = ?", String.class, chosen))
+                .isNull();
+        assertThat(saved(chosen)).isEqualTo(10000);
+    }
+
+    @Test
+    void commit_savingsMapping_remembered() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
+        byte[] file = deposit("2026-11-20 14:54:41", SETUP, "100.00");
+        JsonNode t = transfer(pocketPreview(s, file, bank, pocketsMapping(pockets), null));
+
+        var result = send(
+                COMMIT, s, file, bank, pocketsMapping(pockets), null, decisions(List.of(decision(t, true, null))));
+
+        assertThat(result).hasStatus(HttpStatus.CREATED);
+        assertThat(rememberedPockets(s)).isEqualTo(pockets);
+        assertThat(count("SELECT count(*) FROM goal_movements")).isZero();
+    }
+
+    @Test
+    void commit_pocketsAccountParam_usedAndRemembered() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
+        byte[] file = pocketFile(leg("Atual", "2026-11-20 14:54:41", SETUP, "-100.00"));
+        JsonNode t = transfer(pocketPreview(s, file, bank, null, pockets));
+        assertThat(t.path("destinationBankAccountId").asString()).isEqualTo(pockets.toString());
+
+        var result = send(COMMIT, s, file, bank, null, pockets, decisions(List.of(decision(t, true, null))));
+
+        assertThat(result).hasStatus(HttpStatus.CREATED);
+        var stored = jdbc.queryForMap(
+                "SELECT bank_account_id, destination_bank_account_id FROM transactions WHERE kind = 'TRANSFER'");
+        assertThat(stored.get("bank_account_id")).isEqualTo(bank);
+        assertThat(stored.get("destination_bank_account_id")).isEqualTo(pockets);
+        assertThat(rememberedPockets(s)).isEqualTo(pockets);
+    }
+
+    @Test
+    void commit_pocketsAccountParam_foreign_returns404() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        TestSession other = testUsers.verified("rui@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID theirs = fixtures.bankAccount(other, "Theirs", 0);
+        byte[] file = pocketFile(leg("Atual", "2026-11-20 14:54:41", SETUP, "-100.00"));
+
+        var result = send(COMMIT, s, file, bank, null, theirs, decisions(List.of()));
+
+        assertThat(result).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(rememberedPockets(s)).isNull();
+    }
+
+    @Test
+    void commit_goalOnNonPocketRow_rejected() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID cafes = fixtures.category(s, "Cafes", CategoryKind.EXPENSE);
+        UUID goal = goal(s, "Emergência", 500000, 0, "Reserva de Emergência");
+        JsonNode cafe = row(previewRows(s, bank, null), "Cafe Aurora");
+        Map<String, Object> d = decision(cafe, true, cafes);
+        d.put("goalId", goal);
+
+        var result = commit(s, bank, List.of(d));
+
+        assertSingleError(result, "decisions[" + cafe.path("rowId").asString() + "]", "GOAL_NOT_ALLOWED");
+        assertThat(count("SELECT count(*) FROM transactions")).isZero();
+    }
+
+    @Test
+    void commit_completedGoal_rejected() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
+        UUID goal = goal(s, "Emergência", 500000, 0, "Reserva de Emergência");
+        var complete = mvc.post()
+                .uri("/api/v1/goals/" + goal + "/complete")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                .exchange();
+        assertThat(complete).hasStatus(HttpStatus.OK);
+        byte[] file = deposit("2026-11-20 14:34:39", RESERVA, "250.00");
+        JsonNode t = transfer(pocketPreview(s, file, bank, pocketsMapping(pockets), null));
+        assertThat(t.path("pocket").path("goalId").isNull()).isTrue();
+
+        var result = send(
+                COMMIT, s, file, bank, pocketsMapping(pockets), null, decisions(List.of(goalDecision(t, true, goal))));
+
+        assertSingleError(result, "decisions[" + t.path("rowId").asString() + "]", "GOAL_INVALID");
+        assertThat(count("SELECT count(*) FROM transactions")).isZero();
+        assertThat(count("SELECT count(*) FROM goal_movements")).isZero();
+    }
+
+    @Test
+    void commit_foreignOrUnknownGoal_rejected() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        TestSession other = testUsers.verified("rui@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
+        UUID theirs = goal(other, "Emergência", 500000, 0, "Reserva de Emergência");
+        byte[] file = deposit("2026-11-20 14:34:39", RESERVA, "250.00");
+        JsonNode t = transfer(pocketPreview(s, file, bank, pocketsMapping(pockets), null));
+
+        for (UUID bad : List.of(theirs, UUID.randomUUID())) {
+            var result = send(
+                    COMMIT, s, file, bank, pocketsMapping(pockets), null, decisions(List.of(goalDecision(t, true, bad))));
+            assertSingleError(result, "decisions[" + t.path("rowId").asString() + "]", "GOAL_INVALID");
+        }
+        assertThat(count("SELECT count(*) FROM goal_movements")).isZero();
+    }
+
+    @Test
+    void commit_reimport_noSecondMovement() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
+        UUID goal = goal(s, "Emergência", 500000, 0, "Reserva de Emergência");
+        byte[] file = deposit("2026-11-20 14:34:39", RESERVA, "250.00");
+        assertThat(commitPocket(s, file, bank, pocketsMapping(pockets), goal)).hasStatus(HttpStatus.CREATED);
+
+        JsonNode again = transfer(pocketPreview(s, file, bank, pocketsMapping(pockets), null));
+        assertThat(again.path("status").asString()).isEqualTo("ALREADY_IMPORTED");
+        var second = send(
+                COMMIT, s, file, bank, pocketsMapping(pockets), null, decisions(List.of(goalDecision(again, false, goal))));
+
+        assertThat(second).hasStatus(HttpStatus.CREATED);
+        assertThat(body(second).path("created").asInt()).isZero();
+        assertThat(count("SELECT count(*) FROM goal_movements WHERE goal_id = ?", goal)).isEqualTo(1);
+        assertThat(saved(goal)).isEqualTo(25000);
+    }
+
+    @Test
+    void commit_sameDayDepositThenWithdrawal_endsAtZero() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
+        UUID goal = goal(s, "Emergência", 500000, 0, "Reserva de Emergência");
+        // newest first, as Revolut exports list them
+        byte[] file = pocketFile(
+                leg("Poupanças", "2026-11-20 18:00:00", RESERVA, "-100.00"),
+                leg("Atual", "2026-11-20 18:00:00", RESERVA, "100.00"),
+                leg("Poupanças", "2026-11-20 09:00:00", RESERVA, "100.00"),
+                leg("Atual", "2026-11-20 09:00:00", RESERVA, "-100.00"));
+        JsonNode rows = pocketPreview(s, file, bank, pocketsMapping(pockets), null);
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (JsonNode r : rows) {
+            assertThat(r.path("kind").asString()).isEqualTo("TRANSFER");
+            list.add(goalDecision(r, true, goal));
+        }
+        assertThat(list).hasSize(2);
+
+        var result = send(COMMIT, s, file, bank, pocketsMapping(pockets), null, decisions(list));
+
+        assertThat(result).hasStatus(HttpStatus.CREATED);
+        assertThat(count("SELECT count(*) FROM goal_movements WHERE goal_id = ?", goal)).isEqualTo(2);
+        assertThat(saved(goal)).isZero();
+    }
+
+    @Test
+    void commit_partnerLegArrivesLater_noSecondMovement() throws Exception {
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
+        UUID cafes = fixtures.category(s, "Cafes", CategoryKind.EXPENSE);
+        UUID goal = goal(s, "Emergência", 500000, 0, "Reserva de Emergência");
+        String at = "2026-11-20 14:55:30";
+        byte[] first = pocketFile(leg("Poupanças", at, RESERVA, "1000.00"));
+        assertThat(commitPocket(s, first, bank, pocketsMapping(pockets), goal)).hasStatus(HttpStatus.CREATED);
+        assertThat(count("SELECT count(*) FROM transactions WHERE kind = 'TRANSFER'")).isEqualTo(1);
+        assertThat(count("SELECT count(*) FROM goal_movements WHERE goal_id = ?", goal)).isEqualTo(1);
+
+        byte[] later = pocketFile(
+                leg("Atual", at, RESERVA, "-1000.00"),
+                leg("Poupanças", at, RESERVA, "1000.00"),
+                "CARD_PAYMENT,Atual,2026-11-21 10:00:00,2026-11-21 10:00:01,Cafe Aurora,-3.50,0.00,EUR,CONCLUÍDA,0.00\n");
+        JsonNode rows = pocketPreview(s, later, bank, pocketsMapping(pockets), null);
+        JsonNode t = transfer(rows);
+        assertThat(t.path("status").asString()).isEqualTo("ALREADY_IMPORTED");
+        var result = send(COMMIT, s, later, bank, pocketsMapping(pockets), null,
+                decisions(List.of(decision(row(rows, "Cafe Aurora"), true, cafes))));
+
+        assertThat(result).hasStatus(HttpStatus.CREATED);
+        assertThat(body(result).path("created").asInt()).isEqualTo(1);
+        assertThat(count("SELECT count(*) FROM transactions WHERE kind = 'TRANSFER'")).isEqualTo(1);
+        assertThat(count("SELECT count(*) FROM goal_movements WHERE goal_id = ?", goal)).isEqualTo(1);
+        assertThat(saved(goal)).isEqualTo(100000);
+    }
+
+    @Test
+    void commit_goalCreatedToday_acceptsEarlierMonths() throws Exception {
+        clock.setInstant(Instant.parse("2026-11-26T12:00:00Z"));
+        TestSession s = testUsers.verified("ana@mail.com");
+        UUID bank = fixtures.bankAccount(s, "Revolut", 0);
+        UUID pockets = fixtures.bankAccount(s, "Pockets", 0);
+        UUID goal = goal(s, "Emergência", 500000, 10, "Reserva de Emergência");
+
+        var result = commitPocket(
+                s, deposit("2026-10-20 09:00:00", RESERVA, "50.00"), bank, pocketsMapping(pockets), goal);
+
+        assertThat(result).hasStatus(HttpStatus.CREATED);
+        var movement = jdbc.queryForMap("SELECT type, month::text AS month FROM goal_movements WHERE goal_id = ?", goal);
+        assertThat(movement.get("type")).isEqualTo("CONTRIBUTION");
+        assertThat(movement.get("month")).isEqualTo("2026-10-01");
+        var overview = mvc.get()
+                .uri("/api/v1/goals?month=2026-10")
+                .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))
+                .exchange();
+        assertThat(overview).hasStatus(HttpStatus.OK);
+        JsonNode targets = body(overview).path("monthTargets");
+        assertThat(targets.size()).isEqualTo(1);
+        assertThat(targets.get(0).path("goalId").asString()).isEqualTo(goal.toString());
+        assertThat(targets.get(0).path("contributedCents").asLong()).isEqualTo(5000);
     }
 }

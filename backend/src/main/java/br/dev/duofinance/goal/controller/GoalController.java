@@ -43,8 +43,8 @@ public class GoalController {
     /** Partial unique index on goals (account_id, lower(name)) where not completed. */
     private static final String ACTIVE_NAME_UNIQUE_INDEX = "uq_goals_active_name";
 
-    /** Partial unique index on goal_movements (goal_id, month) for CONTRIBUTION and SKIP rows. */
-    private static final String MONTH_UNIQUE_INDEX = "uq_goal_movements_month";
+    /** Partial unique index on goal_movements (goal_id, month) for SKIP rows. */
+    private static final String SKIP_MONTH_UNIQUE_INDEX = "uq_goal_movements_skip_month";
 
     private final GoalSettingsService settings;
     private final GoalService service;
@@ -119,13 +119,6 @@ public class GoalController {
         return mapConflict(() -> movements.skip(current.accountId(), current.userId(), id, request));
     }
 
-    @PostMapping("/{id}/deposits")
-    @ResponseStatus(HttpStatus.CREATED)
-    public GoalResponse deposit(
-            CurrentUser current, @PathVariable UUID id, @Valid @RequestBody GoalAmountRequest request) {
-        return movements.deposit(current.accountId(), current.userId(), id, request);
-    }
-
     @PostMapping("/{id}/withdrawals")
     @ResponseStatus(HttpStatus.CREATED)
     public GoalResponse withdraw(
@@ -146,7 +139,7 @@ public class GoalController {
             if (violates(e, ACTIVE_NAME_UNIQUE_INDEX)) {
                 throw new ApiException(ErrorCode.GOAL_NAME_TAKEN);
             }
-            if (violates(e, MONTH_UNIQUE_INDEX)) {
+            if (violates(e, SKIP_MONTH_UNIQUE_INDEX)) {
                 throw new ApiException(ErrorCode.GOAL_MONTH_TAKEN);
             }
             throw e;

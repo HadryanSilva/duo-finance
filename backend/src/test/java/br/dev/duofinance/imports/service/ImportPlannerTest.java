@@ -2,6 +2,7 @@ package br.dev.duofinance.imports.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import br.dev.duofinance.imports.dto.PocketInfo;
 import br.dev.duofinance.imports.service.PlanContext.DuplicateKey;
 import br.dev.duofinance.imports.service.PlanContext.MemoryKey;
 import br.dev.duofinance.transaction.model.TransactionKind;
@@ -25,7 +26,7 @@ class ImportPlannerTest {
     private static Map<String, UUID> mapping() {
         Map<String, UUID> m = new HashMap<>();
         m.put("Current", CURRENT);
-        m.put("Savings", SAVINGS);
+        m.put("Vault", SAVINGS);
         m.put("Ignored", null);
         return m;
     }
@@ -37,7 +38,7 @@ class ImportPlannerTest {
     private static PlanContext ctx(Map<String, TransactionKind> known, Map<MemoryKey, UUID> memory, Set<DuplicateKey> manual) {
         return new PlanContext("BRL", mapping(), known, memory,
                 Map.of(TransactionKind.EXPENSE, CAT_EXPENSE, TransactionKind.INCOME, CAT_INCOME), manual,
-                "Revolut fee");
+                "Revolut fee", null, List.of());
     }
 
     private static RevolutRow row(String product, String started, String completed, String desc, String amount,
@@ -145,7 +146,7 @@ class ImportPlannerTest {
     @Test
     void plan_oppositeAmountsSameStartedAcrossMappedProducts_becomeOneTransfer() {
         RevolutRow out = with("Current", "2026-01-10 10:00:00", "To savings", -5000);
-        RevolutRow in = with("Savings", "2026-01-10 10:00:00", "From current", 5000);
+        RevolutRow in = with("Vault", "2026-01-10 10:00:00", "From current", 5000);
         ImportPlan plan = ImportPlanner.plan(List.of(in, out), ctx());
         assertThat(plan.rows()).hasSize(1);
         PlannedRow t = plan.rows().get(0);
@@ -161,7 +162,7 @@ class ImportPlannerTest {
     @Test
     void plan_transferWithoutPair_staysExpense() {
         RevolutRow out = with("Current", "2026-01-10 10:00:00", "To savings", -5000);
-        RevolutRow other = with("Savings", "2026-01-10 10:00:01", "From current", 5000);
+        RevolutRow other = with("Vault", "2026-01-10 10:00:01", "From current", 5000);
         assertThat(ImportPlanner.plan(List.of(out, other), ctx()).rows()).extracting(PlannedRow::kind)
                 .containsExactly(TransactionKind.EXPENSE, TransactionKind.INCOME);
     }
@@ -223,7 +224,7 @@ class ImportPlannerTest {
                 .suggestedCategoryId()).isEqualTo(remembered);
         assertThat(ImportPlanner.plan(List.of(card(-100)), ctx()).rows().get(0).suggestedCategoryId())
                 .isEqualTo(CAT_EXPENSE);
-        PlanContext bare = new PlanContext("BRL", mapping(), Map.of(), Map.of(), Map.of(), Set.of(), "Revolut fee");
+        PlanContext bare = new PlanContext("BRL", mapping(), Map.of(), Map.of(), Map.of(), Set.of(), "Revolut fee", null, List.of());
         assertThat(ImportPlanner.plan(List.of(card(-100)), bare).rows().get(0).suggestedCategoryId()).isNull();
     }
 
@@ -246,15 +247,15 @@ class ImportPlannerTest {
 
     @Test
     void plan_listsDistinctProductsInFileOrder() {
-        RevolutRow a = with("Savings", "2026-01-10 10:00:00", "A", -100);
+        RevolutRow a = with("Vault", "2026-01-10 10:00:00", "A", -100);
         RevolutRow b = with("Current", "2026-01-10 10:00:01", "B", -100);
-        RevolutRow c = with("Savings", "2026-01-10 10:00:02", "C", -100);
-        assertThat(ImportPlanner.plan(List.of(a, b, c), ctx()).products()).containsExactly("Savings", "Current");
+        RevolutRow c = with("Vault", "2026-01-10 10:00:02", "C", -100);
+        assertThat(ImportPlanner.plan(List.of(a, b, c), ctx()).products()).containsExactly("Vault", "Current");
     }
 
     private void assertLegsSeparate(boolean positiveKnown) {
         RevolutRow out = with("Current", "2026-01-10 10:00:00", "To savings", -5000);
-        RevolutRow in = with("Savings", "2026-01-10 10:00:00", "From current", 5000);
+        RevolutRow in = with("Vault", "2026-01-10 10:00:00", "From current", 5000);
         List<String> fps = RowFingerprints.of(List.of(out, in));
         String known = positiveKnown ? fps.get(1) : fps.get(0);
         List<PlannedRow> rows =
@@ -281,7 +282,7 @@ class ImportPlannerTest {
     @Test
     void plan_transferWithNegativeLegStoredAsTransfer_isOneAlreadyImportedTransfer() {
         RevolutRow out = with("Current", "2026-01-10 10:00:00", "To savings", -5000);
-        RevolutRow in = with("Savings", "2026-01-10 10:00:00", "From current", 5000);
+        RevolutRow in = with("Vault", "2026-01-10 10:00:00", "From current", 5000);
         List<String> fps = RowFingerprints.of(List.of(in, out));
         List<PlannedRow> rows = ImportPlanner.plan(
                         List.of(in, out), ctx(Map.of(fps.get(1), TransactionKind.TRANSFER), Map.of(), Set.of()))
@@ -309,7 +310,7 @@ class ImportPlannerTest {
     void plan_pairedTransferFees_createExpensePerSide() {
         RevolutRow out = row("Current", "2026-01-10 10:00:00", "2026-01-11 12:00:00", "Out", "-50.00", -5000, 30,
                 "BRL", "COMPLETED", "TRANSFER");
-        RevolutRow in = row("Savings", "2026-01-10 10:00:00", "2026-01-11 12:00:00", "In", "50.00", 5000, 20, "BRL",
+        RevolutRow in = row("Vault", "2026-01-10 10:00:00", "2026-01-11 12:00:00", "In", "50.00", 5000, 20, "BRL",
                 "COMPLETED", "TRANSFER");
         List<String> fps = RowFingerprints.of(List.of(out, in));
         List<PlannedRow> rows = ImportPlanner.plan(List.of(out, in), ctx()).rows();
@@ -337,7 +338,7 @@ class ImportPlannerTest {
     @Test
     void plan_transferCounterpartSkipped_staysExpense() {
         RevolutRow out = with("Current", "2026-01-10 10:00:00", "To savings", -5000);
-        RevolutRow pending = row("Savings", "2026-01-10 10:00:00", null, "From current", "50.00", 5000, 0, "BRL",
+        RevolutRow pending = row("Vault", "2026-01-10 10:00:00", null, "From current", "50.00", 5000, 0, "BRL",
                 "PENDING", "TRANSFER");
         ImportPlan plan = ImportPlanner.plan(List.of(out, pending), ctx());
         assertThat(plan.rows()).singleElement().satisfies(p -> {
@@ -350,8 +351,8 @@ class ImportPlannerTest {
     @Test
     void plan_threeWayTie_pairsFirstMatchInFileOrder() {
         RevolutRow out = with("Current", "2026-01-10 10:00:00", "Out", -5000);
-        RevolutRow in1 = with("Savings", "2026-01-10 10:00:00", "In one", 5000);
-        RevolutRow in2 = with("Savings", "2026-01-10 10:00:00", "In two", 5000);
+        RevolutRow in1 = with("Vault", "2026-01-10 10:00:00", "In one", 5000);
+        RevolutRow in2 = with("Vault", "2026-01-10 10:00:00", "In two", 5000);
         List<String> fps = RowFingerprints.of(List.of(out, in1, in2));
         List<PlannedRow> rows = ImportPlanner.plan(List.of(out, in1, in2), ctx()).rows();
         assertThat(rows).extracting(PlannedRow::kind).containsExactly(TransactionKind.TRANSFER,
@@ -372,5 +373,252 @@ class ImportPlannerTest {
         List<PlannedRow> rows = ImportPlanner.plan(List.of(r), ctx(Map.of(), memory, Set.of())).rows();
         assertThat(rows.get(1).suggestedCategoryId()).isEqualTo(feeCat);
         assertThat(rows.get(0).suggestedCategoryId()).isEqualTo(CAT_EXPENSE);
+    }
+
+    // --- Revolut pockets (anonymised pt-PT sample) ---
+
+    private static final UUID POCKETS = UUID.randomUUID();
+    private static final String RESERVA = "Carregamento de subconta EUR Reserva de Emergência de EUR";
+    private static final String SETUP = "Carregamento de subconta EUR Setup de EUR";
+
+    private static Map<String, UUID> pocketMapping() {
+        return Map.of("Current", CURRENT, "Poupanças", POCKETS);
+    }
+
+    private static PlanContext pocketCtx(Map<String, UUID> mapping, Map<String, TransactionKind> known,
+            UUID pocketsBankAccountId, List<PlanContext.GoalRef> goals) {
+        return new PlanContext("EUR", mapping, known, Map.of(),
+                Map.of(TransactionKind.EXPENSE, CAT_EXPENSE, TransactionKind.INCOME, CAT_INCOME), Set.of(),
+                "Revolut fee", pocketsBankAccountId, goals);
+    }
+
+    private static PlanContext pocketCtx() {
+        return pocketCtx(pocketMapping(), Map.of(), null, List.of());
+    }
+
+    private static RevolutRow leg(String product, String started, String desc, String amount) {
+        long cents = Math.round(Double.parseDouble(amount) * 100);
+        return row(product, started, started, desc, amount, cents, 0, "EUR", "COMPLETED", "Transferência");
+    }
+
+    @Test
+    void pocketDeposit_bothLegs_oneTransferIntoPockets() {
+        RevolutRow in = leg("Poupanças", "2026-11-26 14:34:39", RESERVA, "250.00");
+        RevolutRow out = leg("Current", "2026-11-26 14:34:39", RESERVA, "-250.00");
+        ImportPlan plan = ImportPlanner.plan(List.of(in, out), pocketCtx());
+        assertThat(plan.skipped()).isEmpty();
+        assertThat(plan.rows()).singleElement().satisfies(t -> {
+            assertThat(t.kind()).isEqualTo(TransactionKind.TRANSFER);
+            assertThat(t.bankAccountId()).isEqualTo(CURRENT);
+            assertThat(t.destinationBankAccountId()).isEqualTo(POCKETS);
+            assertThat(t.amountCents()).isEqualTo(25000);
+            assertThat(t.rowId()).isEqualTo(RowFingerprints.of(List.of(in, out)).get(1));
+            assertThat(t.pocket().direction()).isEqualTo(PocketInfo.Direction.INTO);
+            assertThat(t.pocket().name()).isEqualTo("Reserva de Emergência");
+        });
+    }
+
+    @Test
+    void pocketDeposit_onlySavingsLeg_transferWithCurrentLegFingerprint() {
+        RevolutRow in = leg("Poupanças", "2026-11-26 14:55:30", RESERVA, "1000.00");
+        RevolutRow currentLeg = leg("Current", "2026-11-26 14:55:30", RESERVA, "-1000.00");
+        ImportPlan plan = ImportPlanner.plan(List.of(in), pocketCtx());
+        assertThat(plan.rows()).singleElement().satisfies(t -> {
+            assertThat(t.kind()).isEqualTo(TransactionKind.TRANSFER);
+            assertThat(t.bankAccountId()).isEqualTo(CURRENT);
+            assertThat(t.destinationBankAccountId()).isEqualTo(POCKETS);
+            assertThat(t.amountCents()).isEqualTo(100000);
+            assertThat(t.rowId()).isEqualTo(RowFingerprints.of(List.of(currentLeg)).get(0));
+            assertThat(t.status()).isEqualTo(RowStatus.NEW);
+            assertThat(t.pocket().direction()).isEqualTo(PocketInfo.Direction.INTO);
+        });
+    }
+
+    @Test
+    void pocketDeposit_partnerArrivesLater_alreadyImported() {
+        RevolutRow in = leg("Poupanças", "2026-11-26 14:55:30", RESERVA, "1000.00");
+        RevolutRow currentLeg = leg("Current", "2026-11-26 14:55:30", RESERVA, "-1000.00");
+        String stored = RowFingerprints.of(List.of(currentLeg)).get(0);
+        PlanContext ctx = pocketCtx(pocketMapping(), Map.of(stored, TransactionKind.TRANSFER), null, List.of());
+        assertThat(ImportPlanner.plan(List.of(in, currentLeg), ctx).rows()).singleElement().satisfies(t -> {
+            assertThat(t.kind()).isEqualTo(TransactionKind.TRANSFER);
+            assertThat(t.rowId()).isEqualTo(stored);
+            assertThat(t.status()).isEqualTo(RowStatus.ALREADY_IMPORTED);
+        });
+    }
+
+    @Test
+    void pocketDeposit_bothLegsImported_onlySavingsLegLater_alreadyImported() {
+        RevolutRow in = leg("Poupanças", "2026-11-26 14:34:39", RESERVA, "250.00");
+        RevolutRow out = leg("Current", "2026-11-26 14:34:39", RESERVA, "-250.00");
+        String stored = ImportPlanner.plan(List.of(in, out), pocketCtx()).rows().get(0).rowId();
+        PlanContext ctx = pocketCtx(pocketMapping(), Map.of(stored, TransactionKind.TRANSFER), null, List.of());
+        assertThat(ImportPlanner.plan(List.of(in), ctx).rows()).singleElement()
+                .satisfies(t -> assertThat(t.status()).isEqualTo(RowStatus.ALREADY_IMPORTED));
+    }
+
+    @Test
+    void pocketDeposit_currentLegStoredAsExpense_oneAlreadyImportedRow() {
+        RevolutRow in = leg("Poupanças", "2026-11-26 14:34:39", RESERVA, "250.00");
+        RevolutRow out = leg("Current", "2026-11-26 14:34:39", RESERVA, "-250.00");
+        String stored = RowFingerprints.of(List.of(out)).get(0);
+        PlanContext ctx = pocketCtx(pocketMapping(), Map.of(stored, TransactionKind.EXPENSE), null, List.of());
+        assertThat(ImportPlanner.plan(List.of(in, out), ctx).rows()).singleElement().satisfies(t -> {
+            assertThat(t.rowId()).isEqualTo(stored);
+            assertThat(t.status()).isEqualTo(RowStatus.ALREADY_IMPORTED);
+        });
+    }
+
+    @Test
+    void pocketDeposit_onlyCurrentLeg_usesRememberedPocketsAccount() {
+        UUID remembered = UUID.randomUUID();
+        RevolutRow out = leg("Current", "2026-11-26 14:34:39", RESERVA, "-250.00");
+        PlanContext ctx = pocketCtx(Map.of("Current", CURRENT), Map.of(), remembered, List.of());
+        assertThat(ImportPlanner.plan(List.of(out), ctx).rows()).singleElement().satisfies(t -> {
+            assertThat(t.kind()).isEqualTo(TransactionKind.TRANSFER);
+            assertThat(t.bankAccountId()).isEqualTo(CURRENT);
+            assertThat(t.destinationBankAccountId()).isEqualTo(remembered);
+            assertThat(t.rowId()).isEqualTo(RowFingerprints.of(List.of(out)).get(0));
+            assertThat(t.pocket().direction()).isEqualTo(PocketInfo.Direction.INTO);
+        });
+    }
+
+    @Test
+    void pocketRow_noPocketsAccount_skipped() {
+        RevolutRow out = leg("Current", "2026-11-26 14:34:39", RESERVA, "-250.00");
+        ImportPlan noPockets =
+                ImportPlanner.plan(List.of(out), pocketCtx(Map.of("Current", CURRENT), Map.of(), null, List.of()));
+        assertThat(noPockets.rows()).isEmpty();
+        assertThat(noPockets.skipped()).extracting(SkippedRow::reason)
+                .containsExactly(SkipReason.POCKET_NO_ACCOUNT);
+
+        RevolutRow in = leg("Poupanças", "2026-11-26 14:34:39", RESERVA, "250.00");
+        ImportPlan noCurrent =
+                ImportPlanner.plan(List.of(in), pocketCtx(Map.of("Poupanças", POCKETS), Map.of(), null, List.of()));
+        assertThat(noCurrent.rows()).isEmpty();
+        assertThat(noCurrent.skipped()).extracting(SkippedRow::reason)
+                .containsExactly(SkipReason.POCKET_NO_ACCOUNT);
+    }
+
+    @Test
+    void pocketRow_pocketsAccountIsCurrent_skipped() {
+        RevolutRow in = leg("Poupanças", "2026-11-26 14:34:39", RESERVA, "250.00");
+        RevolutRow out = leg("Current", "2026-11-26 14:34:39", RESERVA, "-250.00");
+        RevolutRow lone = leg("Poupanças", "2026-11-26 14:55:30", RESERVA, "1000.00");
+        PlanContext mappedToCurrent =
+                pocketCtx(Map.of("Current", CURRENT, "Poupanças", CURRENT), Map.of(), null, List.of());
+        ImportPlan viaMapping = ImportPlanner.plan(List.of(in, out, lone), mappedToCurrent);
+        assertThat(viaMapping.rows()).isEmpty();
+        assertThat(viaMapping.skipped()).extracting(SkippedRow::reason).containsExactly(
+                SkipReason.POCKET_SAME_ACCOUNT, SkipReason.POCKET_SAME_ACCOUNT, SkipReason.POCKET_SAME_ACCOUNT);
+
+        // Savings product unmapped: the remembered pockets account is the Current account.
+        RevolutRow loneCurrent = leg("Current", "2026-11-26 14:54:41", SETUP, "-100.00");
+        PlanContext rememberedCurrent = pocketCtx(Map.of("Current", CURRENT), Map.of(), CURRENT, List.of());
+        ImportPlan viaRemembered = ImportPlanner.plan(List.of(in, out, loneCurrent), rememberedCurrent);
+        assertThat(viaRemembered.rows()).isEmpty();
+        assertThat(viaRemembered.skipped()).extracting(SkippedRow::reason).containsExactly(
+                SkipReason.POCKET_SAME_ACCOUNT, SkipReason.POCKET_SAME_ACCOUNT, SkipReason.POCKET_SAME_ACCOUNT);
+    }
+
+    @Test
+    void pocketMatch_linked_nameMatch_none() {
+        UUID linked = UUID.randomUUID();
+        UUID sameName = UUID.randomUUID();
+        UUID setup = UUID.randomUUID();
+        List<PlanContext.GoalRef> goals = List.of(
+                new PlanContext.GoalRef(sameName, "Reserva de Emergência", null),
+                new PlanContext.GoalRef(linked, "Fundo", " reserva de EMERGENCIA "),
+                new PlanContext.GoalRef(setup, "setup", null));
+        RevolutRow reserva = leg("Poupanças", "2026-11-26 14:34:39", RESERVA, "250.00");
+        RevolutRow setupRow = leg("Poupanças", "2026-11-26 14:54:41", SETUP, "100.00");
+        RevolutRow other =
+                leg("Poupanças", "2026-11-26 14:58:00", "Carregamento de subconta EUR Carro de EUR", "40.00");
+        List<PlannedRow> rows = ImportPlanner.plan(
+                        List.of(reserva, setupRow, other), pocketCtx(pocketMapping(), Map.of(), null, goals))
+                .rows();
+        assertThat(rows).extracting(r -> r.pocket().match()).containsExactly(PocketInfo.Match.LINKED,
+                PocketInfo.Match.NAME_MATCH, PocketInfo.Match.NONE);
+        assertThat(rows).extracting(r -> r.pocket().goalId()).containsExactly(linked, setup, null);
+        assertThat(rows).extracting(r -> r.pocket().name()).containsExactly("Reserva de Emergência", "Setup",
+                "Carro");
+    }
+
+    @Test
+    void pocketDeposit_englishExport_matchesGoalByName() {
+        String wording = "To pocket EUR Setup from EUR";
+        RevolutRow in = row("Savings", "2026-11-26 14:54:41", "2026-11-26 14:54:41", wording, "100.00", 10000, 0,
+                "EUR", "COMPLETED", "TRANSFER");
+        RevolutRow out = row("Current", "2026-11-26 14:54:41", "2026-11-26 14:54:41", wording, "-100.00", -10000,
+                0, "EUR", "COMPLETED", "TRANSFER");
+        UUID setup = UUID.randomUUID();
+        PlanContext ctx = pocketCtx(Map.of("Current", CURRENT, "Savings", POCKETS), Map.of(), null,
+                List.of(new PlanContext.GoalRef(setup, "Setup", null)));
+        assertThat(ImportPlanner.plan(List.of(in, out), ctx).rows()).singleElement().satisfies(t -> {
+            assertThat(t.kind()).isEqualTo(TransactionKind.TRANSFER);
+            assertThat(t.bankAccountId()).isEqualTo(CURRENT);
+            assertThat(t.destinationBankAccountId()).isEqualTo(POCKETS);
+            assertThat(t.pocket().direction()).isEqualTo(PocketInfo.Direction.INTO);
+            assertThat(t.pocket().goalId()).isEqualTo(setup);
+        });
+    }
+
+    @Test
+    void pocketWithdrawal_englishCurrentLegOnly_transferOutOfPockets() {
+        RevolutRow in = row("Current", "2026-11-27 09:00:00", "2026-11-27 09:00:00", "Pocket Withdrawal", "40.00",
+                4000, 0, "EUR", "COMPLETED", "TRANSFER");
+        PlanContext ctx = pocketCtx(Map.of("Current", CURRENT), Map.of(), POCKETS, List.of());
+        assertThat(ImportPlanner.plan(List.of(in), ctx).rows()).singleElement().satisfies(t -> {
+            assertThat(t.kind()).isEqualTo(TransactionKind.TRANSFER);
+            assertThat(t.bankAccountId()).isEqualTo(POCKETS);
+            assertThat(t.destinationBankAccountId()).isEqualTo(CURRENT);
+            assertThat(t.pocket().direction()).isEqualTo(PocketInfo.Direction.OUT_OF);
+            assertThat(t.pocket().name()).isNull();
+        });
+    }
+
+    @Test
+    void pocketWithdrawal_unknownWording_asksForGoal() {
+        RevolutRow out = leg("Poupanças", "2026-11-27 09:00:00", "Pocket withdrawal", "-300.00");
+        PlanContext ctx = pocketCtx(pocketMapping(), Map.of(), null,
+                List.of(new PlanContext.GoalRef(UUID.randomUUID(), "Pocket withdrawal", null)));
+        assertThat(ImportPlanner.plan(List.of(out), ctx).rows()).singleElement().satisfies(t -> {
+            assertThat(t.kind()).isEqualTo(TransactionKind.TRANSFER);
+            assertThat(t.bankAccountId()).isEqualTo(POCKETS);
+            assertThat(t.destinationBankAccountId()).isEqualTo(CURRENT);
+            assertThat(t.rowId()).isEqualTo(RowFingerprints.of(List.of(out)).get(0));
+            assertThat(t.pocket().direction()).isEqualTo(PocketInfo.Direction.OUT_OF);
+            assertThat(t.pocket().name()).isNull();
+            assertThat(t.pocket().match()).isEqualTo(PocketInfo.Match.NONE);
+            assertThat(t.pocket().goalId()).isNull();
+        });
+    }
+
+    @Test
+    void pocketWithdrawal_onlyCurrentLeg_usesSavingsLegFingerprint() {
+        RevolutRow back = leg("Current", "2026-11-27 09:00:00", SETUP, "100.00");
+        RevolutRow savingsLeg = leg("Poupanças", "2026-11-27 09:00:00", SETUP, "-100.00");
+        String expected = RowFingerprints.of(List.of(savingsLeg)).get(0);
+        PlanContext first = pocketCtx(Map.of("Current", CURRENT), Map.of(), POCKETS, List.of());
+        assertThat(ImportPlanner.plan(List.of(back), first).rows()).singleElement().satisfies(t -> {
+            assertThat(t.bankAccountId()).isEqualTo(POCKETS);
+            assertThat(t.destinationBankAccountId()).isEqualTo(CURRENT);
+            assertThat(t.rowId()).isEqualTo(expected);
+            assertThat(t.pocket().direction()).isEqualTo(PocketInfo.Direction.OUT_OF);
+        });
+        PlanContext later = pocketCtx(pocketMapping(), Map.of(expected, TransactionKind.TRANSFER), null, List.of());
+        assertThat(ImportPlanner.plan(List.of(savingsLeg, back), later).rows()).singleElement()
+                .satisfies(t -> assertThat(t.status()).isEqualTo(RowStatus.ALREADY_IMPORTED));
+    }
+
+    @Test
+    void pocketRows_savingsInterest_plannedAsToday() {
+        RevolutRow interest = row("Poupanças", "2026-11-30 03:00:00", "2026-11-30 03:00:00", "Juros brutos", "0.12",
+                12, 0, "EUR", "COMPLETED", "Juros");
+        assertThat(ImportPlanner.plan(List.of(interest), pocketCtx()).rows()).singleElement().satisfies(r -> {
+            assertThat(r.kind()).isEqualTo(TransactionKind.INCOME);
+            assertThat(r.bankAccountId()).isEqualTo(POCKETS);
+            assertThat(r.pocket()).isNull();
+        });
     }
 }

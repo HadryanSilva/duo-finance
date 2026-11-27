@@ -13,7 +13,7 @@ import { goalPercent, projectionText } from '../lib/goal-copy'
 
 const props = defineProps<{ goal: GoalResponse }>()
 const emit = defineEmits<{
-  deposit: []
+  contribute: []
   withdraw: []
   history: []
   edit: []
@@ -28,12 +28,12 @@ const isCompleted = computed(() => props.goal.status === 'COMPLETED')
 const percent = computed(() => goalPercent(props.goal.savedCents, props.goal.targetCents))
 const projection = computed(() => projectionText(props.goal, locale.value as Locale))
 
-type ActionKey = 'deposit' | 'withdraw' | 'history' | 'edit' | 'complete' | 'remove' | 'reopen'
+type ActionKey = 'contribute' | 'withdraw' | 'history' | 'edit' | 'complete' | 'remove' | 'reopen'
 interface Action extends ActionItem {
   key: ActionKey
 }
 const ICONS: Record<ActionKey, Component> = {
-  deposit: PiggyBank,
+  contribute: PiggyBank,
   withdraw: Wallet,
   history: History,
   edit: Pencil,
@@ -41,7 +41,7 @@ const ICONS: Record<ActionKey, Component> = {
   remove: Trash,
   reopen: Undo2,
 }
-const ACTIVE_KEYS: ActionKey[] = ['deposit', 'withdraw', 'history', 'edit', 'complete', 'remove']
+const ACTIVE_KEYS: ActionKey[] = ['contribute', 'withdraw', 'history', 'edit', 'complete', 'remove']
 const COMPLETED_KEYS: ActionKey[] = ['reopen', 'history', 'remove']
 
 const actions = computed<Action[]>(() =>
@@ -56,7 +56,7 @@ const actions = computed<Action[]>(() =>
 // Below md the icon buttons fold into a "⋯" menu.
 const isDesktop = useIsDesktop()
 const EMITS: Record<ActionKey, () => void> = {
-  deposit: () => emit('deposit'),
+  contribute: () => emit('contribute'),
   withdraw: () => emit('withdraw'),
   history: () => emit('history'),
   edit: () => emit('edit'),

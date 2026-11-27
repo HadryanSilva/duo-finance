@@ -15,8 +15,8 @@ async function rowAction(page: Page, goal: string, menuLabel: string, desktopLab
   }
 }
 
-// Goals: salary income → monthly suggestion → confirm → withdraw → conclude.
-test('goals: suggest, confirm, withdraw, conclude', async ({ page, request }) => {
+// Goals: salary income → monthly target → register → withdraw → conclude.
+test('goals: monthly target, register, withdraw, conclude', async ({ page, request }) => {
   test.setTimeout(90_000) // long flow; the full suite runs workers in parallel
   const email = uniqueEmail('gal')
   await registerViaUi(page, { email, name: 'Gal Dias', locale: 'pt-BR' })
@@ -62,21 +62,22 @@ test('goals: suggest, confirm, withdraw, conclude', async ({ page, request }) =>
     page.getByRole('list', { name: 'Objetivos', exact: true }).getByText('Reserva'),
   ).toBeVisible()
 
-  // The dashboard reminds that this month's contribution is pending.
+  // The dashboard reminds that this month's target is open.
   await page.goto('/dashboard')
-  await page.getByRole('link', { name: /^1 contribuição para confirmar em/ }).click()
+  await page.getByRole('link', { name: /^1 meta do mês em aberto em/ }).click()
   await expect(page).toHaveURL(/\/goals$/)
 
-  // The Goals page suggests 10% of the salary.
-  const suggestions = page.getByRole('list', { name: 'Sugestões do mês', exact: true })
-  await expect(suggestions.getByText(euro('200,00'))).toBeVisible()
-  await page.getByRole('button', { name: 'Confirmar Reserva' }).click()
-  // Confirmed: the month's suggestion is gone.
-  await expect(page.getByRole('button', { name: 'Confirmar Reserva' })).toHaveCount(0)
-  await expect(page.getByText(/^Tudo decidido em/)).toBeVisible()
+  // The Goals page sets a target of 10% of the salary; Registrar opens the form pre-filled with it.
+  const targets = page.getByRole('list', { name: 'Metas do mês', exact: true })
+  await expect(targets.getByText(euro('200,00'))).toBeVisible()
+  await page.getByRole('button', { name: 'Registrar Reserva' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Registrar', exact: true }).click()
+  // Met: the month's target is done and offers no more actions.
+  await expect(targets.getByText('Meta do mês atingida')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Registrar Reserva' })).toHaveCount(0)
 
   await page.goto('/dashboard')
-  await expect(page.getByRole('link', { name: /contribuição para confirmar/ })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: /meta do mês em aberto/ })).toHaveCount(0)
   const goalsList = page.getByRole('list', { name: 'Andamento dos objetivos', exact: true })
   await expect(goalsList).toContainText(/€\s200,00\s*\/\s*€\s5\.000,00/)
   await expect(page.getByText('Saldo livre', { exact: true })).toBeVisible()

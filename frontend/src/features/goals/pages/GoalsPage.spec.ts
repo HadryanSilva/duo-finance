@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/dom'
 import { http, HttpResponse, type RequestHandler } from 'msw'
 import { afterEach, describe, expect, it } from 'vitest'
 import App from '@/app/App.vue'
-import { currentMonth } from '@/shared/lib/dates'
+import { currentMonth, todayIso } from '@/shared/lib/dates'
 import type { Locale } from '@/shared/lib/money'
 import { render, renderRoute, testUser } from '@/test/render'
 
@@ -55,25 +55,40 @@ const movements = [
     type: 'CONTRIBUTION',
     amountCents: 5000,
     month: '2026-10',
+    occurredOn: '2026-10-05',
+    imported: false,
     note: null,
     createdBy: { id: ANA, displayName: 'Ana Souza' },
     createdAt: '2026-10-05T10:00:00Z',
   },
   {
     id: 'm2',
-    type: 'DEPOSIT',
+    type: 'CONTRIBUTION',
     amountCents: 35000,
     month: null,
+    occurredOn: '2026-10-07',
+    imported: false,
     note: 'Bônus',
     createdBy: { id: ANA, displayName: 'Ana Souza' },
     createdAt: '2026-10-07T10:00:00Z',
+  },
+  {
+    id: 'm3',
+    type: 'CONTRIBUTION',
+    amountCents: 12000,
+    month: null,
+    occurredOn: '2026-10-09',
+    imported: true,
+    note: null,
+    createdBy: null,
+    createdAt: '2026-10-09T10:00:00Z',
   },
 ]
 
 interface Opts {
   goals?: object[]
   completed?: object[]
-  suggestions?: object[]
+  monthTargets?: object[]
   settingsCategory?: ReturnType<typeof ref> | null
   extra?: RequestHandler[]
 }
@@ -81,7 +96,7 @@ interface Opts {
 function setup({
   goals = [goal],
   completed = [],
-  suggestions = [],
+  monthTargets = [],
   settingsCategory = null,
   extra = [],
 }: Opts = {}) {
@@ -112,7 +127,7 @@ function setup({
         totalSavedCents: 40000,
         goals: isDone ? [] : goals,
         completed: isDone ? [{ ...goal, status: 'COMPLETED' }] : completed,
-        suggestions,
+        monthTargets,
       })
     }),
     http.post(`${api}/goals`, async ({ request }) => {
@@ -140,8 +155,8 @@ function setup({
       calls.deleted = params.id
       return new HttpResponse(null, { status: 204 })
     }),
-    http.post(`${api}/goals/g1/deposits`, async ({ request }) => {
-      calls.deposit = await request.json()
+    http.post(`${api}/goals/g1/contributions`, async ({ request }) => {
+      calls.contribute = await request.json()
       return HttpResponse.json(goal, { status: 201 })
     }),
     http.get(`${api}/goals/:id/movements`, () => HttpResponse.json(movements)),
@@ -189,18 +204,20 @@ describe('GoalsPage', () => {
     expect(norm(document.body.textContent)).not.toContain('guardados em')
   })
 
-  it('suggestions_areShownAboveTheList', async () => {
-    const suggestion = {
+  it('monthTargets_areShownAboveTheList', async () => {
+    const target = {
       goalId: 'g1',
       goalName: 'Videogame novo',
       month: currentMonth(),
       monthlyPercent: 5,
-      suggestedCents: 15000,
+      targetCents: 15000,
+      contributedCents: 0,
+      skipped: false,
     }
-    await setup({ suggestions: [suggestion] }).render()
-    const confirm = await screen.findByRole('button', { name: 'Confirmar Videogame novo' })
+    await setup({ monthTargets: [target] }).render()
+    const register = await screen.findByRole('button', { name: 'Registrar Videogame novo' })
     const list = screen.getByRole('list', { name: 'Objetivos' })
-    expect(confirm.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(register.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('goals_listShowsProgressAndProjection', async () => {
@@ -364,11 +381,11 @@ describe('GoalsPage', () => {
     const names = (await within(dialog).findAllByRole('button', { name: /^Undo / })).map((b) =>
       norm(b.getAttribute('aria-label')),
     )
-    expect(names[0]).toMatch(/^Undo monthly contribution of €50\.00 in October 2026$/)
-    expect(names[1]).toMatch(/^Undo deposit of €350\.00 on /)
+    expect(names[0]).toMatch(/^Undo contribution of €50\.00 on October 5, 2026$/)
+    expect(names[1]).toMatch(/^Undo contribution of €350\.00 on October 7, 2026$/)
     await user.click(within(dialog).getAllByRole('button', { name: /^Undo / })[0] as HTMLElement)
     const confirm = await screen.findByRole('dialog', { name: 'Undo movement?' })
-    expect(norm(confirm.textContent)).toContain('of €50.00 in October 2026?')
+    expect(norm(confirm.textContent)).toContain('of €50.00 on October 5, 2026?')
   })
 
   it('goals_salaryCategory_archivedShowsWarning', async () => {
@@ -392,12 +409,12 @@ describe('GoalsPage', () => {
     )
   })
 
-  it('goals_deposit_showsRemaining', async () => {
+  it('goals_contribute_showsRemaining', async () => {
     const { user } = await setup().render()
     await user.click(
-      await screen.findByRole('button', { name: 'Adicionar valor a Videogame novo' }),
+      await screen.findByRole('button', { name: 'Registrar contribuição em Videogame novo' }),
     )
-    const dialog = await screen.findByRole('dialog', { name: 'Adicionar valor' })
+    const dialog = await screen.findByRole('dialog', { name: 'Registrar contribuição' })
     expect(norm(dialog.textContent)).toContain('Faltam: € 600,00')
   })
 
@@ -407,16 +424,16 @@ describe('GoalsPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Histórico de Videogame novo' }))
     const dialog = await screen.findByRole('dialog', { name: 'Histórico' })
     const items = await within(dialog).findAllByRole('listitem')
-    expect(items).toHaveLength(2)
+    expect(items).toHaveLength(3)
     expect(within(items[0] as HTMLElement).getByRole('img', { name: 'Ana Souza' })).toBeTruthy()
     expect(norm(items[1]?.textContent ?? '')).toContain('Bônus')
     await user.click(
       within(dialog).getByRole('button', {
-        name: /^Desfazer contribuição mensal de €\s50,00 em outubro de 2026$/,
+        name: /^Desfazer contribuição de €\s50,00 em 5 de outubro de 2026$/,
       }),
     )
     const confirm = await screen.findByRole('dialog', { name: 'Desfazer movimentação?' })
-    expect(norm(confirm.textContent)).toContain('contribuição mensal de € 50,00')
+    expect(norm(confirm.textContent)).toContain('contribuição de € 50,00')
     await user.click(within(confirm).getByRole('button', { name: 'Desfazer' }))
     await waitFor(() => expect(s.calls.undone).toBe('g1/m1'))
   })
@@ -442,7 +459,7 @@ describe('GoalsPage', () => {
       norm(b.getAttribute('aria-label')),
     )
     expect(new Set(names).size).toBe(2)
-    expect(names[1]).toContain('depósito de € 350,00')
+    expect(names[1]).toContain('contribuição de € 350,00 em 7 de outubro de 2026')
   })
 
   it('goals_delete_activeGoalSaysAmountIsReleased', async () => {
@@ -479,6 +496,38 @@ describe('GoalsPage', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Salvar' }))
     expect(await within(dialog).findByText('Escolha hoje ou uma data futura.')).toBeTruthy()
     expect(s.calls.post).toBeUndefined()
+  })
+
+  it('goals_form_sendsPocket', async () => {
+    const s = setup()
+    const { user } = await s.render()
+    await user.click(await screen.findByRole('button', { name: 'Novo objetivo' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Novo objetivo' })
+    await user.type(within(dialog).getByLabelText('Nome'), 'Reserva')
+    await user.type(within(dialog).getByLabelText('Valor alvo'), '500')
+    await user.type(within(dialog).getByLabelText('Pocket da Revolut'), '  Reserva de Emergência ')
+    expect(
+      within(dialog).getByText('Nome do pocket no app da Revolut, para ligar as importações'),
+    ).toBeTruthy()
+    await user.click(within(dialog).getByRole('button', { name: 'Salvar' }))
+    await waitFor(() =>
+      expect(s.calls.post).toEqual({
+        name: 'Reserva',
+        targetCents: 50000,
+        monthlyPercent: 0,
+        revolutPocket: 'Reserva de Emergência',
+      }),
+    )
+  })
+
+  it('goals_form_editShowsStoredPocket', async () => {
+    const s = setup({ goals: [{ ...goal, revolutPocket: 'Viagem' }] })
+    const { user } = await s.render()
+    await user.click(await screen.findByRole('button', { name: 'Editar Videogame novo' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Editar objetivo' })
+    expect((within(dialog).getByLabelText('Pocket da Revolut') as HTMLInputElement).value).toBe(
+      'Viagem',
+    )
   })
 
   it('goals_create_withoutDate_omitsIt', async () => {
@@ -541,17 +590,70 @@ describe('GoalsPage', () => {
     await waitFor(() => expect(s.calls.deleted).toBe('g1'))
   })
 
-  it('goals_deposit_sendsAmountAndNote', async () => {
+  it('goals_contribute_postsDate', async () => {
     const s = setup()
     const { user } = await s.render()
     await user.click(
-      await screen.findByRole('button', { name: 'Adicionar valor a Videogame novo' }),
+      await screen.findByRole('button', { name: 'Registrar contribuição em Videogame novo' }),
     )
-    const dialog = await screen.findByRole('dialog', { name: 'Adicionar valor' })
+    const dialog = await screen.findByRole('dialog', { name: 'Registrar contribuição' })
+    const date = within(dialog).getByLabelText('Data') as HTMLInputElement
+    expect(date.value).toBe(todayIso())
+    expect(date.max).toBe(todayIso())
     await user.type(within(dialog).getByLabelText('Valor'), '200')
     await user.type(within(dialog).getByLabelText('Observação (opcional)'), '13º')
-    await user.click(within(dialog).getByRole('button', { name: 'Adicionar' }))
-    await waitFor(() => expect(s.calls.deposit).toEqual({ amountCents: 20000, note: '13º' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Registrar' }))
+    await waitFor(() =>
+      expect(s.calls.contribute).toEqual({ amountCents: 20000, date: todayIso(), note: '13º' }),
+    )
+  })
+
+  it('goals_contribute_pastDate_isSent', async () => {
+    const s = setup()
+    const { user } = await s.render()
+    await user.click(
+      await screen.findByRole('button', { name: 'Registrar contribuição em Videogame novo' }),
+    )
+    const dialog = await screen.findByRole('dialog', { name: 'Registrar contribuição' })
+    setDate(within(dialog).getByLabelText('Data'), yesterday())
+    await user.type(within(dialog).getByLabelText('Valor'), '50')
+    await user.click(within(dialog).getByRole('button', { name: 'Registrar' }))
+    await waitFor(() =>
+      expect(s.calls.contribute).toEqual({ amountCents: 5000, date: yesterday() }),
+    )
+  })
+
+  it('goals_contribute_futureDate_rejectedBeforeSending', async () => {
+    const s = setup()
+    const { user } = await s.render()
+    await user.click(
+      await screen.findByRole('button', { name: 'Registrar contribuição em Videogame novo' }),
+    )
+    const dialog = await screen.findByRole('dialog', { name: 'Registrar contribuição' })
+    setDate(within(dialog).getByLabelText('Data'), '2999-01-01')
+    await user.type(within(dialog).getByLabelText('Valor'), '50')
+    await user.click(within(dialog).getByRole('button', { name: 'Registrar' }))
+    expect(await within(dialog).findByText('Escolha hoje ou uma data passada.')).toBeTruthy()
+    expect(s.calls.contribute).toBeUndefined()
+  })
+
+  it('goals_importedMovement_hasNoUndo', async () => {
+    const { user } = await setup().render()
+    await user.click(await screen.findByRole('button', { name: 'Histórico de Videogame novo' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Histórico' })
+    const items = await within(dialog).findAllByRole('listitem')
+    const imported = items[2] as HTMLElement
+    expect(within(imported).getByText('Importado')).toBeTruthy()
+    expect(norm(imported.textContent)).toContain('9 de outubro de 2026')
+    expect(within(imported).queryByRole('button', { name: /Desfazer/ })).toBeNull()
+    expect(
+      within(imported).getByText(
+        'Veio da importação: exclua a transferência ou desfaça a importação para remover',
+      ),
+    ).toBeTruthy()
+    expect(within(items[0] as HTMLElement).getByRole('button', { name: /Desfazer/ })).toBeTruthy()
+    expect(within(items[0] as HTMLElement).queryByText('Importado')).toBeNull()
+    expect(within(items[0] as HTMLElement).queryByText(/Veio da importação/)).toBeNull()
   })
 })
 
@@ -567,7 +669,14 @@ describe('GoalsPage on a phone', () => {
     await waitFor(() =>
       expect(
         [...document.querySelectorAll('[role="menuitem"]')].map((el) => el.textContent?.trim()),
-      ).toEqual(['Adicionar valor', 'Resgatar', 'Histórico', 'Editar', 'Concluir', 'Excluir']),
+      ).toEqual([
+        'Registrar contribuição',
+        'Resgatar',
+        'Histórico',
+        'Editar',
+        'Concluir',
+        'Excluir',
+      ]),
     )
   })
 })

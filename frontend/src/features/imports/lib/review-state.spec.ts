@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import type { PlannedRow } from '@/shared/api/types'
 import {
   canSubmit,
+  goalBalances,
   initReview,
   rowErrorsFrom,
   sameGroup,
   setCategory,
+  setGoal,
   setInclude,
   toDecisions,
   totals,
@@ -22,6 +24,8 @@ function row(over: Partial<PlannedRow> & { rowId: string }): PlannedRow {
     destinationBankAccountId: null,
     suggestedCategoryId: null,
     status: 'NEW',
+    pocket: null,
+    applyOrder: 0,
     ...over,
   }
 }
@@ -38,6 +42,91 @@ describe('initReview', () => {
       [false, 'cat-2'],
       [false, null],
     ])
+  })
+})
+
+describe('pockets', () => {
+  const pocket = (
+    name: string | null,
+    goalId: string | null = null,
+    direction: 'INTO' | 'OUT_OF' = 'INTO',
+  ): PlannedRow['pocket'] => ({
+    name,
+    direction,
+    goalId,
+    match: goalId ? 'LINKED' : 'NONE',
+  })
+  const transfer = (rowId: string, p: PlannedRow['pocket'], over: Partial<PlannedRow> = {}) =>
+    row({ rowId, kind: 'TRANSFER', destinationBankAccountId: 'acc-2', pocket: p, ...over })
+
+  it('initReview_takesPocketGoal', () => {
+    const rows = initReview([
+      transfer('a', pocket('Setup', 'g1')),
+      transfer('b', pocket('Viagem')),
+      row({ rowId: 'c' }),
+    ])
+    expect(rows.map((r) => r.goalId)).toEqual(['g1', null, null])
+  })
+
+  it('setGoal_appliesToSamePocket', () => {
+    const rows = initReview([
+      transfer('a', pocket('Fundo de emergência')),
+      transfer('b', pocket('  fundo de EMERGENCIA ', null, 'OUT_OF')),
+      transfer('c', pocket('Fundo de emergência'), { status: 'ALREADY_IMPORTED' }),
+      transfer('d', pocket('Setup')),
+      transfer('e', pocket(null)),
+      transfer('f', pocket(null)),
+      row({ rowId: 'g' }),
+    ])
+    expect(setGoal(rows, 'a', 'g1').map((r) => r.goalId)).toEqual([
+      'g1',
+      'g1',
+      null,
+      null,
+      null,
+      null,
+      null,
+    ])
+    // a pocket without a name only sets its own row
+    expect(setGoal(rows, 'e', 'g2').map((r) => r.goalId)).toEqual([
+      null,
+      null,
+      null,
+      null,
+      'g2',
+      null,
+      null,
+    ])
+    // not a pocket row, or locked: nothing changes
+    expect(setGoal(rows, 'g', 'g1')).toBe(rows)
+    expect(setGoal(rows, 'c', 'g1')).toBe(rows)
+    expect(rows[0]?.goalId).toBeNull()
+  })
+
+  it('setGoal_samePocketIgnoresInnerSpacing', () => {
+    const rows = initReview([
+      transfer('a', pocket('Fundo de emergência')),
+      transfer('b', pocket('Fundo  de\temergencia')),
+    ])
+    expect(setGoal(rows, 'a', 'g1').map((r) => r.goalId)).toEqual(['g1', 'g1'])
+  })
+
+  it('toDecisions_sendsGoalOnlyForPocketRows', () => {
+    const rows = initReview([
+      transfer('a', pocket('Setup', 'g1')),
+      transfer('b', pocket('Viagem')),
+      row({ rowId: 't', kind: 'TRANSFER', destinationBankAccountId: 'acc-2' }),
+      row({ rowId: 'x', suggestedCategoryId: 'c' }),
+    ])
+    const decisions = toDecisions(rows)
+    expect(decisions).toEqual([
+      { rowId: 'a', include: true, categoryId: null, goalId: 'g1' },
+      { rowId: 'b', include: true, categoryId: null, goalId: null },
+      { rowId: 't', include: true, categoryId: null },
+      { rowId: 'x', include: true, categoryId: 'c' },
+    ])
+    expect('goalId' in decisions[2]!).toBe(false)
+    expect('goalId' in decisions[3]!).toBe(false)
   })
 })
 
@@ -164,5 +253,58 @@ describe('rowErrorsFrom', () => {
         { field: 'decisions[r1]', code: 'CATEGORY_REQUIRED' },
       ]),
     ).toEqual({ r1: 'CATEGORY_ARCHIVED' })
+  })
+})
+
+describe('goalBalances', () => {
+  const goals = [
+    { id: 'g1', savedCents: 2000 },
+    { id: 'g2', savedCents: 0 },
+  ]
+  const move = (
+    rowId: string,
+    goalId: string | null,
+    direction: 'INTO' | 'OUT_OF',
+    amountCents: number,
+    applyOrder: number,
+    over: Partial<PlannedRow> = {},
+  ): PlannedRow =>
+    row({
+      rowId,
+      kind: 'TRANSFER',
+      amountCents,
+      applyOrder,
+      pocket: { name: 'Setup', direction, goalId, match: goalId ? 'LINKED' : 'NONE' },
+      ...over,
+    })
+
+  it('walks included moves in statement order, per goal', () => {
+    const rows = initReview([
+      move('w1', 'g1', 'OUT_OF', 1500, 2),
+      move('d1', 'g1', 'INTO', 500, 1),
+      move('w2', 'g1', 'OUT_OF', 5000, 3),
+      move('d2', 'g2', 'INTO', 300, 0),
+      move('w3', 'g2', 'OUT_OF', 1000, 4),
+    ])
+    expect(goalBalances(rows, goals)).toEqual({ d2: 0, d1: 2000, w1: 2500, w2: 1000, w3: 300 })
+  })
+
+  it('skips excluded and already imported moves, and rows without a goal', () => {
+    const rows = setInclude(
+      initReview([
+        move('a', 'g1', 'OUT_OF', 1500, 0, { status: 'ALREADY_IMPORTED' }),
+        move('b', 'g1', 'OUT_OF', 1500, 1),
+        move('c', 'g1', 'OUT_OF', 1500, 2),
+        move('d', null, 'OUT_OF', 1500, 3),
+        row({ rowId: 'e' }),
+      ]),
+      'b',
+      false,
+    )
+    expect(goalBalances(rows, goals)).toEqual({ b: 2000, c: 2000 })
+  })
+
+  it('a goal missing from the list counts from zero', () => {
+    expect(goalBalances(initReview([move('x', 'gone', 'OUT_OF', 100, 0)]), goals)).toEqual({ x: 0 })
   })
 })

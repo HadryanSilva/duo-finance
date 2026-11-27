@@ -17,7 +17,8 @@ public record GoalResponse(
         long remainingCents,
         @Nullable Instant completedAt,
         Instant createdAt,
-        @Nullable GoalProjection projection) {
+        @Nullable GoalProjection projection,
+        @Nullable String revolutPocket) {
 
     public static GoalResponse of(Goal goal, long savedCents, @Nullable GoalProjection projection) {
         GoalStatus status = goal.isCompleted()
@@ -34,6 +35,7 @@ public record GoalResponse(
                 Math.max(goal.getTargetCents() - savedCents, 0),
                 goal.getCompletedAt(),
                 goal.getCreatedAt(),
-                projection);
+                projection,
+                goal.getRevolutPocket());
     }
 }

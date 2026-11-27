@@ -14,8 +14,13 @@ import { applyFieldErrors } from '@/shared/ui/FormErrors'
 import MoneyInput from '@/shared/ui/MoneyInput.vue'
 import TextField from '@/shared/ui/TextField.vue'
 
-const props = defineProps<{ goal?: GoalResponse }>()
-const emit = defineEmits<{ done: [] }>()
+const props = defineProps<{
+  goal?: GoalResponse
+  /** Prefill for a new goal, such as one created for a pocket from the import review. */
+  initial?: { name: string; revolutPocket: string | null }
+}>()
+/** Hands back the saved goal, so a caller that created it can select it. */
+const emit = defineEmits<{ done: [goal: GoalResponse] }>()
 
 const { t } = useI18n()
 const create = useCreateGoal()
@@ -43,6 +48,7 @@ const schema = computed(() =>
         .trim()
         .regex(/^\d{1,3}$/, t('goals.form.percentRange'))
         .refine((v) => Number(v) <= 100, { message: t('goals.form.percentRange') }),
+      revolutPocket: z.string().trim().max(100, t('goals.form.pocketMax')),
     }),
   ),
 )
@@ -51,38 +57,47 @@ const goal = props.goal
 const { defineField, handleSubmit, errors, isSubmitting, setFieldError } = useForm({
   validationSchema: schema,
   initialValues: {
-    name: goal?.name ?? '',
+    name: goal?.name ?? props.initial?.name ?? '',
     targetCents: (goal?.targetCents ?? null) as number | null,
     targetDate: goal?.targetDate ?? '',
     monthlyPercent: String(goal?.monthlyPercent ?? 0),
+    revolutPocket: goal?.revolutPocket ?? props.initial?.revolutPocket ?? '',
   },
 })
 const [name] = defineField('name')
 const [target] = defineField('targetCents')
 const [targetDate] = defineField('targetDate')
 const [percent] = defineField('monthlyPercent')
+const [pocket] = defineField('revolutPocket')
 const formError = ref<string | null>(null)
 
-const FIELD_CODES: Record<string, 'name' | 'monthlyPercent'> = {
+const FIELD_CODES: Record<string, 'name' | 'monthlyPercent' | 'revolutPocket'> = {
   GOAL_NAME_TAKEN: 'name',
   GOAL_PERCENT_CAP: 'monthlyPercent',
+  GOAL_POCKET_TAKEN: 'revolutPocket',
 }
 
 const submit = handleSubmit(async (values) => {
   formError.value = null
-  // No date is sent as a missing field, which the API reads as null (also clearing it on edit).
+  // No date or pocket is sent as a missing field, which the API reads as null (also clearing it on edit).
   const body: CreateGoalRequest = {
     name: values.name.trim(),
     targetCents: values.targetCents as number,
     targetDate: values.targetDate || undefined,
     monthlyPercent: Number(values.monthlyPercent),
+    revolutPocket: values.revolutPocket || undefined,
   }
+  let saved: GoalResponse
   try {
-    if (goal) await update.mutateAsync({ id: goal.id, body })
-    else await create.mutateAsync(body)
+    saved = goal ? await update.mutateAsync({ id: goal.id, body }) : await create.mutateAsync(body)
   } catch (e) {
     const shown = applyFieldErrors(e, (field, message) => {
-      if (field === 'name' || field === 'targetCents' || field === 'monthlyPercent') {
+      if (
+        field === 'name' ||
+        field === 'targetCents' ||
+        field === 'monthlyPercent' ||
+        field === 'revolutPocket'
+      ) {
         setFieldError(field, message)
       } else {
         formError.value = message
@@ -94,7 +109,7 @@ const submit = handleSubmit(async (values) => {
     else formError.value = errorMessage(e)
     return
   }
-  emit('done')
+  emit('done', saved)
 })
 </script>
 
@@ -117,6 +132,12 @@ const submit = handleSubmit(async (values) => {
       :label="t('goals.form.percent')"
       :hint="t('goals.form.percentHint')"
       :error="errors.monthlyPercent"
+    />
+    <TextField
+      v-model="pocket"
+      :label="t('goals.form.pocket')"
+      :hint="t('goals.form.pocketHint')"
+      :error="errors.revolutPocket"
     />
     <div class="flex justify-end pt-2">
       <Button type="submit" :disabled="isSubmitting">{{ t('common.save') }}</Button>

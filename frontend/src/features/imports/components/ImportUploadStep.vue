@@ -1,17 +1,24 @@
 <script setup lang="ts">
 import { ChevronRight } from '@lucide/vue'
+import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
 import FileInput from '@/shared/ui/FileInput.vue'
 import SelectField from '@/shared/ui/SelectField.vue'
 
-/** Step 1: destination account and CSV file; after a preview, the other products' mapping. */
+/**
+ * Step 1: destination account and CSV file; after a preview, the other products' mapping and, when
+ * pocket moves were skipped for want of it, the pockets account.
+ */
 const props = defineProps<{
   /** Active bank accounts. */
   accounts: { id: string; label: string }[]
   /** Products besides the default one, with the account they map to (null = ignored). */
   products: { product: string; bankAccountId: string | null }[]
+  /** Ask for the pockets account: shown while it is missing, and once chosen. */
+  askPockets: boolean
+  pocketsBankAccountId: string | null
   /** A preview is running. */
   pending: boolean
   /** A commit is running: nothing here may change until it settles. */
@@ -22,9 +29,16 @@ const props = defineProps<{
 }>()
 const bankAccountId = defineModel<string>('bankAccountId', { required: true })
 const file = defineModel<File | null>('file', { required: true })
-const emit = defineEmits<{ submit: []; map: [product: string, bankAccountId: string | null] }>()
+const emit = defineEmits<{
+  submit: []
+  map: [product: string, bankAccountId: string | null]
+  pockets: [bankAccountId: string]
+}>()
 
 const { t } = useI18n()
+const pocketsHintId = useId()
+// The pockets account is never the statement's own account: moves within it change no balance.
+const pocketsOptions = computed(() => props.accounts.filter((a) => a.id !== bankAccountId.value))
 
 function onSubmit() {
   if (!props.reviewing && !props.locked) emit('submit')
@@ -82,6 +96,21 @@ function onSubmit() {
             @update:model-value="emit('map', p.product, $event || null)"
           />
         </fieldset>
+
+        <div v-if="askPockets" class="grid gap-2 rounded-md border border-border p-4">
+          <SelectField
+            :model-value="pocketsBankAccountId ?? ''"
+            :label="t('imports.upload.pocketsAccount')"
+            :options="pocketsOptions"
+            :placeholder="t('imports.upload.choose')"
+            :disabled="pending || locked"
+            :aria-describedby="pocketsHintId"
+            @update:model-value="$event && emit('pockets', $event)"
+          />
+          <p :id="pocketsHintId" class="text-sm text-muted-foreground">
+            {{ t('imports.upload.pocketsHint') }}
+          </p>
+        </div>
 
         <div v-if="!reviewing" class="flex justify-end">
           <Button type="submit" :disabled="!bankAccountId || !file || pending">

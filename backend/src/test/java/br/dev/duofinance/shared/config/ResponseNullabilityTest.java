@@ -69,19 +69,20 @@ class ResponseNullabilityTest {
             "DashboardResponse.upcoming",
             "GoalMovementResponse.createdAt",
             "GoalMovementResponse.id",
+            "GoalMovementResponse.occurredOn",
             "GoalMovementResponse.type",
             "GoalResponse.createdAt",
             "GoalResponse.id",
             "GoalResponse.name",
             "GoalResponse.status",
             "GoogleLoginResponse.status",
-            "GoalSuggestion.goalId",
-            "GoalSuggestion.goalName",
-            "GoalSuggestion.month",
+            "GoalMonthTarget.goalId",
+            "GoalMonthTarget.goalName",
+            "GoalMonthTarget.month",
             "GoalsOverview.completed",
             "GoalsOverview.goals",
             "GoalsOverview.month",
-            "GoalsOverview.suggestions",
+            "GoalsOverview.monthTargets",
             "InvitationPreviewResponse.accountName",
             "InvitationPreviewResponse.email",
             "InvitationSummary.email",
@@ -106,6 +107,8 @@ class ResponseNullabilityTest {
             "MonthReviewResponse.left",
             "MonthReviewResponse.month",
             "PageResponse.content",
+            "PocketInfo.direction",
+            "PocketInfo.match",
             "PreviewResponse.products",
             "PreviewResponse.rows",
             "PreviewResponse.skipped",
@@ -181,7 +184,7 @@ class ResponseNullabilityTest {
     @Test
     void responseRecordsAreDiscovered() {
         assertThat(ResponseRecords.all().stream().map(Class::getSimpleName))
-                .contains("TransactionResponse", "AuthorRef", "PageResponse", "AccountBalance")
+                .contains("TransactionResponse", "AuthorRef", "PageResponse", "AccountBalance", "PocketInfo")
                 .doesNotContain("TransactionRequest", "TransactionFilter");
     }
 }

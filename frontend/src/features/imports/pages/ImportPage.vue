@@ -34,6 +34,8 @@ const file = ref<File | null>(null)
 const uploadKey = ref(0)
 /** Product mapping the current preview was made with; the commit must send the same one. */
 const mapping = ref<ProductMapping | undefined>()
+/** Pockets account the current preview was made with (none: the account's remembered one, if any). */
+const pocketsAccount = ref<string | undefined>()
 const preview = ref<PreviewResponse | null>(null)
 const rows = ref<ReviewRow[]>([])
 /** Bumped on each preview: a new plan drops any pending review prompt. */
@@ -87,6 +89,19 @@ const accountName = (id: string | null) =>
 const otherProducts = computed(() =>
   (preview.value?.products ?? []).filter((p) => p.product !== DEFAULT_PRODUCT),
 )
+/**
+ * Pocket moves were skipped for want of a pockets account or because the remembered one is the
+ * statement's own account, or one was chosen for this file.
+ */
+const askPockets = computed(() => {
+  if (step.value !== 'review') return false
+  const counts = preview.value?.skipped.counts
+  return (
+    !!pocketsAccount.value ||
+    (counts?.POCKET_NO_ACCOUNT ?? 0) > 0 ||
+    (counts?.POCKET_SAME_ACCOUNT ?? 0) > 0
+  )
+})
 
 // A different file or account is a different import: any preview in flight is dropped and the
 // review starts over.
@@ -96,6 +111,7 @@ watch([file, bankAccountId], () => {
   step.value = 'upload'
   preview.value = null
   mapping.value = undefined
+  pocketsAccount.value = undefined
 })
 
 function importError(e: unknown): string {
@@ -105,14 +121,22 @@ function importError(e: unknown): string {
   return errorMessage(e)
 }
 
-function input(productMapping: ProductMapping | undefined): PreviewInput | null {
+function input(
+  productMapping: ProductMapping | undefined,
+  pocketsBankAccountId: string | undefined,
+): PreviewInput | null {
   if (!file.value || !bankAccountId.value) return null
-  return { file: file.value, bankAccountId: bankAccountId.value, productMapping }
+  return {
+    file: file.value,
+    bankAccountId: bankAccountId.value,
+    productMapping,
+    pocketsBankAccountId,
+  }
 }
 
-async function runPreview(productMapping = mapping.value) {
+async function runPreview(productMapping = mapping.value, pockets = pocketsAccount.value) {
   if (commitImport.isPending.value) return
-  const body = input(productMapping)
+  const body = input(productMapping, pockets)
   if (!body) return
   const seq = ++previewSeq
   // the file or account changed, or a newer preview was asked for, while this one was in flight
@@ -125,6 +149,7 @@ async function runPreview(productMapping = mapping.value) {
     if (stale()) return
     preview.value = response
     mapping.value = productMapping
+    pocketsAccount.value = pockets
     rows.value = initReview(response.rows)
     rowErrors.value = {}
     previewKey.value++
@@ -149,12 +174,13 @@ function backToUpload(message: string | null) {
   preview.value = null
   file.value = null
   mapping.value = undefined
+  pocketsAccount.value = undefined
   uploadKey.value++
   uploadError.value = message
 }
 
 async function runCommit() {
-  const body = input(mapping.value)
+  const body = input(mapping.value, pocketsAccount.value)
   if (!body) return
   reviewError.value = null
   rowErrors.value = {}
@@ -173,6 +199,9 @@ async function runCommit() {
       // A category was archived meanwhile: reload the lists so it is no longer offered.
       if (Object.values(byRow).includes('CATEGORY_ARCHIVED'))
         void queryClient.invalidateQueries({ queryKey: ['categories'] })
+      // A goal was completed or deleted meanwhile: reload the goals so it is no longer offered.
+      if (Object.values(byRow).includes('GOAL_INVALID'))
+        void queryClient.invalidateQueries({ queryKey: ['goals'] })
       reviewError.value = t('imports.errors.rowsNeedAttention', { n }, n)
     } else {
       reviewError.value = importError(e)
@@ -203,12 +232,15 @@ function restart() {
       v-model:file="file"
       :accounts="accountOptions"
       :products="step === 'review' ? otherProducts : []"
+      :ask-pockets="askPockets"
+      :pockets-bank-account-id="pocketsAccount ?? null"
       :pending="previewImport.isPending.value"
       :locked="commitImport.isPending.value"
       :reviewing="step === 'review'"
       :error="uploadError"
       @submit="runPreview()"
       @map="onMap"
+      @pockets="runPreview(mapping, $event)"
     />
     <ImportReviewStep
       v-if="step === 'review' && preview"

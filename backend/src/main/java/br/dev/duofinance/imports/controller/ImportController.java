@@ -6,8 +6,6 @@ import br.dev.duofinance.imports.dto.PreviewResponse;
 import br.dev.duofinance.imports.dto.RowDecision;
 import br.dev.duofinance.imports.service.ImportBatchService;
 import br.dev.duofinance.imports.service.ImportCommitService;
-import br.dev.duofinance.imports.service.ImportContextLoader;
-import br.dev.duofinance.imports.service.ImportPlan;
 import br.dev.duofinance.imports.service.ImportPreviewService;
 import br.dev.duofinance.shared.error.ApiException;
 import br.dev.duofinance.shared.security.CurrentUser;
@@ -57,12 +55,13 @@ public class ImportController {
             CurrentUser current,
             @RequestPart("file") MultipartFile file,
             @RequestPart("bankAccountId") String bankAccountId,
-            @RequestPart(name = "productMapping", required = false) String productMapping)
+            @RequestPart(name = "productMapping", required = false) String productMapping,
+            @RequestPart(name = "pocketsBankAccountId", required = false) String pocketsBankAccountId)
             throws IOException {
         UUID bank = parseUuid(bankAccountId);
         Map<String, UUID> mapping = parseMapping(productMapping);
-        ImportPlan plan = previews.preview(current.accountId(), current.userId(), file.getBytes(), bank, mapping);
-        return PreviewResponse.of(plan, ImportContextLoader.effectiveMapping(bank, mapping));
+        UUID pockets = parseOptionalUuid(pocketsBankAccountId, "pocketsBankAccountId");
+        return previews.preview(current.accountId(), current.userId(), file.getBytes(), bank, mapping, pockets);
     }
 
     @PostMapping(path = "/revolut/commit", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -72,12 +71,15 @@ public class ImportController {
             @RequestPart("file") MultipartFile file,
             @RequestPart("bankAccountId") String bankAccountId,
             @RequestPart(name = "productMapping", required = false) String productMapping,
+            @RequestPart(name = "pocketsBankAccountId", required = false) String pocketsBankAccountId,
             @RequestPart("decisions") String decisions)
             throws IOException {
         UUID bank = parseUuid(bankAccountId);
         Map<String, UUID> mapping = parseMapping(productMapping);
+        UUID pockets = parseOptionalUuid(pocketsBankAccountId, "pocketsBankAccountId");
         List<RowDecision> parsed = parseDecisions(decisions);
-        return commits.commit(current.accountId(), current.userId(), file.getBytes(), bank, mapping, parsed);
+        return commits.commit(
+                current.accountId(), current.userId(), file.getBytes(), bank, mapping, pockets, parsed);
     }
 
     @GetMapping
@@ -111,6 +113,17 @@ public class ImportController {
             return UUID.fromString(value.trim());
         } catch (IllegalArgumentException e) {
             throw ApiException.invalidField("bankAccountId", "Invalid");
+        }
+    }
+
+    private static UUID parseOptionalUuid(String value, String field) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return UUID.fromString(value.trim());
+        } catch (IllegalArgumentException e) {
+            throw ApiException.invalidField(field, "Invalid");
         }
     }
 

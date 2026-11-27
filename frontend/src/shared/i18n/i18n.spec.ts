@@ -15,9 +15,9 @@ function flatKeys(o: Tree, prefix = ''): string[] {
 }
 
 describe('error codes', () => {
-  it('ERROR_CODES has no duplicates and 51 entries', () => {
+  it('ERROR_CODES has no duplicates and 54 entries', () => {
     expect(new Set(ERROR_CODES).size).toBe(ERROR_CODES.length)
-    expect(ERROR_CODES).toHaveLength(51)
+    expect(ERROR_CODES).toHaveLength(54)
   })
 
   it('matches the backend ErrorCode enum exactly', () => {

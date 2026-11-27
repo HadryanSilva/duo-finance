@@ -4,20 +4,26 @@ import { useForm } from 'vee-validate'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { z } from 'zod'
-import { useDeposit, useWithdraw } from '@/shared/api/queries/goals'
+import { useContribute, useWithdraw } from '@/shared/api/queries/goals'
 import type { GoalResponse } from '@/shared/api/types'
 import { errorMessage } from '@/shared/i18n/error-codes'
+import { todayIso } from '@/shared/lib/dates'
 import { Button } from '@/shared/ui/button'
 import { applyFieldErrors } from '@/shared/ui/FormErrors'
 import MoneyInput from '@/shared/ui/MoneyInput.vue'
 import MoneyText from '@/shared/ui/MoneyText.vue'
 import TextField from '@/shared/ui/TextField.vue'
 
-const props = defineProps<{ goal: GoalResponse; mode: 'deposit' | 'withdraw' }>()
+const props = defineProps<{
+  goal: GoalResponse
+  mode: 'contribute' | 'withdraw'
+  /** Amount the field starts with, e.g. what is left of a month's target. */
+  initialAmountCents?: number
+}>()
 const emit = defineEmits<{ done: [] }>()
 
 const { t } = useI18n()
-const deposit = useDeposit()
+const contribute = useContribute()
 const withdraw = useWithdraw()
 
 const schema = computed(() =>
@@ -31,30 +37,44 @@ const schema = computed(() =>
           message: t('goals.amount.amountPositive'),
         }),
       note: z.string(),
+      // A contribution is dated, never in the future; withdrawals carry no date.
+      date: z.string().refine((v) => props.mode === 'withdraw' || (v !== '' && v <= todayIso()), {
+        message: t('goals.amount.dateFuture'),
+      }),
     }),
   ),
 )
 
 const { defineField, handleSubmit, errors, isSubmitting, setFieldError } = useForm({
   validationSchema: schema,
-  initialValues: { amountCents: null as number | null, note: '' },
+  initialValues: {
+    amountCents: (props.initialAmountCents ?? null) as number | null,
+    note: '',
+    date: todayIso(),
+  },
 })
 const [amount] = defineField('amountCents')
 const [note] = defineField('note')
+const [date] = defineField('date')
 const formError = ref<string | null>(null)
 
 const submit = handleSubmit(async (values) => {
   formError.value = null
-  const body = {
-    amountCents: values.amountCents as number,
-    note: values.note.trim() || undefined,
-  }
+  const amountCents = values.amountCents as number
+  const trimmedNote = values.note.trim() || undefined
   try {
-    const mutation = props.mode === 'deposit' ? deposit : withdraw
-    await mutation.mutateAsync({ id: props.goal.id, body })
+    if (props.mode === 'contribute') {
+      await contribute.mutateAsync({
+        id: props.goal.id,
+        body: { amountCents, date: values.date, note: trimmedNote },
+      })
+    } else {
+      await withdraw.mutateAsync({ id: props.goal.id, body: { amountCents, note: trimmedNote } })
+    }
   } catch (e) {
     const shown = applyFieldErrors(e, (field, message) => {
-      if (field === 'amountCents' || field === 'note') setFieldError(field, message)
+      if (field === 'amountCents' || field === 'note' || field === 'date')
+        setFieldError(field, message)
       else formError.value = message
     })
     if (!shown) formError.value = errorMessage(e)
@@ -82,6 +102,14 @@ const submit = handleSubmit(async (values) => {
       </i18n-t>
     </p>
     <MoneyInput v-model="amount" :label="t('goals.amount.amount')" :error="errors.amountCents" />
+    <TextField
+      v-if="mode === 'contribute'"
+      v-model="date"
+      type="date"
+      :max="todayIso()"
+      :label="t('goals.amount.date')"
+      :error="errors.date"
+    />
     <TextField v-model="note" :label="t('goals.amount.note')" :error="errors.note" />
     <div class="flex justify-end pt-2">
       <Button type="submit" :disabled="isSubmitting">{{ t(`goals.amount.${mode}`) }}</Button>

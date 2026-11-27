@@ -2,6 +2,7 @@
 import Checkbox from '@/shared/ui/Checkbox.vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { GoalResponse } from '@/shared/api/types'
 import { formatBusinessDate } from '@/shared/lib/dates'
 import type { Locale } from '@/shared/lib/money'
 import { Badge } from '@/shared/ui/badge'
@@ -9,24 +10,33 @@ import { Button } from '@/shared/ui/button'
 import MoneyText from '@/shared/ui/MoneyText.vue'
 import type { ReviewRow } from '../lib/review-state'
 import NativeSelect from '@/shared/ui/NativeSelect.vue'
+import PocketGoalPicker from './PocketGoalPicker.vue'
 
-/** One planned row of the review: include checkbox, amount and category (none for a transfer). */
+/**
+ * One planned row of the review: include checkbox, amount and category (none for a transfer). A
+ * pocket move picks its goal instead.
+ */
 const props = defineProps<{
   row: ReviewRow
   /** Active categories of the row's kind. */
   categories: { id: string; label: string }[]
+  /** Active goals, offered to a pocket move. */
+  goals: GoalResponse[]
+  /** Pocket rows with a goal: what the goal holds just before this row, after the earlier moves. */
+  heldCents?: number
   accountName: (id: string | null) => string
   /** Set when the category just changed and other rows share the description. */
   applyCount?: number
   /**
-   * The commit rejected this row: the translated message, and whether unticking is the fix (the
-   * checkbox is then the invalid control) rather than choosing another category.
+   * The commit rejected this row: the translated message, and the control that fixes it: the
+   * checkbox (unticking), the goal (another goal) or else the category.
    */
-  error?: { message: string; onInclude: boolean }
+  error?: { message: string; onInclude: boolean; onGoal?: boolean }
 }>()
 const emit = defineEmits<{
   include: [include: boolean]
   category: [categoryId: string]
+  goal: [goalId: string | null]
   apply: []
   dismiss: []
 }>()
@@ -36,18 +46,34 @@ const locked = computed(() => props.row.status === 'ALREADY_IMPORTED')
 const isTransfer = computed(() => props.row.kind === 'TRANSFER')
 const date = computed(() => formatBusinessDate(props.row.date, locale.value as Locale))
 const errorId = computed(() => `row-error-${props.row.rowId}`)
-const includeInvalid = computed(() => !!props.error && (props.error.onInclude || isTransfer.value))
+const goalInvalid = computed(() => !!props.error?.onGoal)
+const includeInvalid = computed(
+  () => !!props.error && (props.error.onInclude || (isTransfer.value && !goalInvalid.value)),
+)
 const categoryInvalid = computed(
   () => (!!props.error && !includeInvalid.value) || (props.row.include && !props.row.categoryId),
+)
+
+const pocket = computed(() => props.row.pocket)
+const goal = computed(() => props.goals.find((g) => g.id === props.row.goalId))
+/**
+ * A withdrawal can take out at most what the goal holds by then; the backend caps it there, and
+ * records nothing when nothing is left.
+ */
+const held = computed(() => props.heldCents ?? goal.value?.savedCents ?? 0)
+const cappedAt = computed(() =>
+  pocket.value?.direction === 'OUT_OF' && goal.value && props.row.amountCents > held.value
+    ? held.value
+    : null,
 )
 </script>
 
 <template>
   <li
-    class="grid gap-3 rounded-lg border border-border bg-card p-3"
+    class="grid min-w-0 gap-3 rounded-lg border border-border bg-card p-3"
     :class="{ 'opacity-60': locked || !row.include }"
   >
-    <div class="flex flex-wrap items-center gap-3">
+    <div class="flex min-w-0 flex-wrap items-center gap-3">
       <Checkbox
         :model-value="row.include"
         :disabled="locked"
@@ -73,11 +99,45 @@ const categoryInvalid = computed(
             }}</span>
           </template>
         </p>
+        <template v-if="pocket">
+          <p v-if="goal" class="text-sm text-muted-foreground">
+            {{
+              pocket.direction === 'INTO'
+                ? t('imports.pocket.into', { goal: goal.name })
+                : t('imports.pocket.outOf', { goal: goal.name })
+            }}
+          </p>
+          <p v-else-if="!row.goalId" class="text-sm text-warning">
+            {{ t('imports.pocket.noGoal') }}
+          </p>
+          <p v-if="cappedAt === 0" class="text-sm text-warning">
+            {{ t('imports.pocket.nothingLeft') }}
+          </p>
+          <i18n-t
+            v-else-if="cappedAt !== null"
+            keypath="imports.pocket.aboveSaved"
+            tag="p"
+            class="text-sm text-warning"
+          >
+            <template #saved><MoneyText :cents="cappedAt" /></template>
+          </i18n-t>
+        </template>
       </div>
       <MoneyText :cents="row.amountCents" :kind="row.kind" class="font-semibold" />
+      <PocketGoalPicker
+        v-if="pocket"
+        :goal-id="row.goalId"
+        :pocket="pocket.name"
+        :description="row.description"
+        :goals="goals"
+        :disabled="locked"
+        :invalid="goalInvalid"
+        :described-by="goalInvalid ? errorId : undefined"
+        @select="emit('goal', $event)"
+      />
       <NativeSelect
-        v-if="!isTransfer"
-        class="sm:w-56"
+        v-else-if="!isTransfer"
+        class="w-full min-w-0 sm:w-56"
         :model-value="row.categoryId ?? ''"
         :disabled="locked"
         :aria-label="t('imports.review.category', { description: row.description })"

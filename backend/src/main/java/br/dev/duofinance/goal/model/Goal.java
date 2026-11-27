@@ -39,6 +39,9 @@ public class Goal {
     @Column(name = "completed_at")
     private @Nullable Instant completedAt;
 
+    @Column(name = "revolut_pocket", length = 100)
+    private @Nullable String revolutPocket;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -113,6 +116,14 @@ public class Goal {
 
     public void setCompletedAt(@Nullable Instant completedAt) {
         this.completedAt = completedAt;
+    }
+
+    public @Nullable String getRevolutPocket() {
+        return revolutPocket;
+    }
+
+    public void setRevolutPocket(@Nullable String revolutPocket) {
+        this.revolutPocket = revolutPocket;
     }
 
     public Instant getCreatedAt() {
