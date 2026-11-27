@@ -89,7 +89,15 @@ const cappedAt = computed(() =>
         </div>
         <p class="text-sm text-muted-foreground">
           <span>{{ date }}</span>
-          <template v-if="isTransfer">
+          <template v-if="pocket">
+            <span aria-hidden="true"> · </span>
+            <span>{{
+              pocket.name === null
+                ? t('imports.pocket.routeUnnamed')
+                : t('imports.pocket.route', { name: pocket.name })
+            }}</span>
+          </template>
+          <template v-else-if="isTransfer">
             <span aria-hidden="true"> · </span>
             <span>{{
               t('imports.review.transferRoute', {

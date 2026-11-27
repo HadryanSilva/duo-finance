@@ -29,8 +29,6 @@ export interface PreviewInput {
   file: File
   bankAccountId: string
   productMapping?: ProductMapping
-  /** Bank account holding the Revolut pockets, when the account has none remembered yet. */
-  pocketsBankAccountId?: string
 }
 
 export interface CommitInput extends PreviewInput {
@@ -39,17 +37,11 @@ export interface CommitInput extends PreviewInput {
 
 const jsonPart = (value: unknown) => new Blob([JSON.stringify(value)], { type: 'application/json' })
 
-function toForm({
-  file,
-  bankAccountId,
-  productMapping,
-  pocketsBankAccountId,
-}: PreviewInput): FormData {
+function toForm({ file, bankAccountId, productMapping }: PreviewInput): FormData {
   const form = new FormData()
   form.append('file', file)
   form.append('bankAccountId', bankAccountId)
   if (productMapping) form.append('productMapping', jsonPart(productMapping))
-  if (pocketsBankAccountId) form.append('pocketsBankAccountId', pocketsBankAccountId)
   return form
 }
 

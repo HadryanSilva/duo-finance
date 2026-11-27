@@ -1251,7 +1251,7 @@ export interface components {
             amountRaw: string;
             currency: string;
             /** @enum {string} */
-            reason: "PENDING" | "REVERTED" | "OTHER_CURRENCY" | "EXCHANGE" | "PRODUCT_IGNORED" | "ZERO_AMOUNT" | "POCKET_NO_ACCOUNT" | "POCKET_SAME_ACCOUNT";
+            reason: "PENDING" | "REVERTED" | "OTHER_CURRENCY" | "EXCHANGE" | "PRODUCT_IGNORED" | "ZERO_AMOUNT";
         };
         ProductMapping: {
             product: string;
@@ -2310,7 +2310,6 @@ export interface operations {
                     file: string;
                     bankAccountId: string;
                     productMapping?: string;
-                    pocketsBankAccountId?: string;
                 };
             };
         };
@@ -2340,7 +2339,6 @@ export interface operations {
                     file: string;
                     bankAccountId: string;
                     productMapping?: string;
-                    pocketsBankAccountId?: string;
                     decisions: string;
                 };
             };
