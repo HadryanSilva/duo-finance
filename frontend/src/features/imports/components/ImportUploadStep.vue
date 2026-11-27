@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ChevronRight } from '@lucide/vue'
-import { useId } from 'vue'
+import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
@@ -37,6 +37,8 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const pocketsHintId = useId()
+// The pockets account is never the statement's own account: moves within it change no balance.
+const pocketsOptions = computed(() => props.accounts.filter((a) => a.id !== bankAccountId.value))
 
 function onSubmit() {
   if (!props.reviewing && !props.locked) emit('submit')
@@ -99,7 +101,7 @@ function onSubmit() {
           <SelectField
             :model-value="pocketsBankAccountId ?? ''"
             :label="t('imports.upload.pocketsAccount')"
-            :options="accounts"
+            :options="pocketsOptions"
             :placeholder="t('imports.upload.choose')"
             :disabled="pending || locked"
             :aria-describedby="pocketsHintId"

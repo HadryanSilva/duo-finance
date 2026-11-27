@@ -101,6 +101,14 @@ describe('pockets', () => {
     expect(rows[0]?.goalId).toBeNull()
   })
 
+  it('setGoal_samePocketIgnoresInnerSpacing', () => {
+    const rows = initReview([
+      transfer('a', pocket('Fundo de emergência')),
+      transfer('b', pocket('Fundo  de\temergencia')),
+    ])
+    expect(setGoal(rows, 'a', 'g1').map((r) => r.goalId)).toEqual(['g1', 'g1'])
+  })
+
   it('toDecisions_sendsGoalOnlyForPocketRows', () => {
     const rows = initReview([
       transfer('a', pocket('Setup', 'g1')),

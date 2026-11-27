@@ -1016,6 +1016,38 @@ describe('ImportPage pockets', () => {
     expect(s.commits[0]!.pocketsBankAccountId).toBe('b2')
   })
 
+  it('import_pocketsSameAccount_asksAgainWithoutStatementAccount', async () => {
+    const s = setup({
+      goals: [setupGoal],
+      preview: preview({
+        rows: [row({ rowId: 'r1', description: PINGO })],
+        skipped: {
+          counts: { POCKET_SAME_ACCOUNT: 1 },
+          rows: [
+            {
+              lineNumber: 3,
+              date: '2026-11-05',
+              description: 'Carregamento de subconta EUR Setup de EUR',
+              amountRaw: '-50.00',
+              currency: 'EUR',
+              reason: 'POCKET_SAME_ACCOUNT',
+            },
+          ],
+        },
+      }),
+    })
+    const { user } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+
+    const pockets = screen.getByLabelText('Conta dos pockets') as HTMLSelectElement
+    const values = Array.from(pockets.options).map((o) => o.value)
+    expect(values).toContain('b2')
+    expect(values).not.toContain('b1')
+    await user.selectOptions(pockets, 'b2')
+    await waitFor(() => expect(s.previews).toHaveLength(2))
+    expect(s.previews[1]).toMatchObject({ bankAccountId: 'b1', pocketsBankAccountId: 'b2' })
+  })
+
   it('import_pocketsAccountAbsent_withoutPocketSkips', async () => {
     const s = setup()
     await upload(s)

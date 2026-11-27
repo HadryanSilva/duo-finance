@@ -44,9 +44,9 @@ export function setCategory(
   return rows.map((r) => (ids.has(r.rowId) && !locked(r) ? { ...r, categoryId } : r))
 }
 
-/** Mirrors the backend's pocket matching: lower-cased, accents stripped, trimmed. */
+/** Mirrors the backend's PocketNames.normalise: lower-cased, accents stripped, spacing collapsed. */
 const normalisePocket = (name: string) =>
-  name.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim()
+  name.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim().replace(/\s+/g, ' ')
 
 /** Sets a pocket row's goal, and the other unlocked rows of the same (named) pocket. */
 export function setGoal(rows: ReviewRow[], rowId: string, goalId: string | null): ReviewRow[] {
