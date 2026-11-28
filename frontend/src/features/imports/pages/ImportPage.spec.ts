@@ -678,13 +678,39 @@ describe('ImportPage', () => {
     await user.click(screen.getByRole('button', { name: 'Desfazer importação' }))
     const dialog = await screen.findByRole('dialog', { name: 'Desfazer esta importação?' })
     expect(dialog.textContent).toContain(
-      'Os lançamentos dela serão excluídos, inclusive os que você editou depois.',
+      'Os lançamentos e as movimentações de objetivos dela serão excluídos, inclusive os que você editou depois.',
     )
     expect(s.undone).toEqual([])
     await user.click(within(dialog).getByRole('button', { name: 'Desfazer' }))
     await waitFor(() => expect(s.undone).toEqual(['batch1']))
     expect(await screen.findByText('Importação desfeita.')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Desfazer importação' })).toBeNull()
+  })
+
+  // Pocket moves change only goals: the Goals page must not keep amounts from before the import.
+  it('commitAndUndo_invalidateGoals', async () => {
+    const s = setup()
+    const { user, queryClient } = await upload(s)
+    await screen.findByRole('tab', { name: /Novas/ })
+    const goalQueries = () => queryClient.getQueryCache().findAll({ queryKey: ['goals'] })
+    await waitFor(() => expect(goalQueries().length).toBeGreaterThan(0))
+    // Invalidated: an active query is fetched again at once, an inactive one waits marked stale.
+    const updates = () => goalQueries().map((q) => q.state.dataUpdateCount)
+    const refreshedSince = (before: number[]) =>
+      goalQueries().every((q, i) => q.state.isInvalidated || q.state.dataUpdateCount > before[i]!)
+    await waitFor(() => expect(goalQueries().every((q) => q.state.dataUpdateCount > 0)).toBe(true))
+    const beforeCommit = updates()
+    await user.click(submitButton())
+    await screen.findByText('5 lançamentos importados, 2 já existiam')
+    await waitFor(() => expect(refreshedSince(beforeCommit)).toBe(true))
+
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0))
+    const beforeUndo = updates()
+    await user.click(screen.getByRole('button', { name: 'Desfazer importação' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Desfazer esta importação?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Desfazer' }))
+    await screen.findByText('Importação desfeita.')
+    await waitFor(() => expect(refreshedSince(beforeUndo)).toBe(true))
   })
 
   it('upload_changeFileWhilePreviewPending_discardsStalePreview', async () => {

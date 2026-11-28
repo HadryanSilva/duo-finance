@@ -693,6 +693,8 @@ class ImportCommitTest {
 
         assertThat(result).hasStatus(HttpStatus.CREATED);
         assertThat(body(result).path("created").asInt()).isZero();
+        // A pocket move without a goal is not a duplicate: it just records nothing.
+        assertThat(body(result).path("skippedDuplicates").asInt()).isZero();
         assertThat(body(result).path("batchId").isNull()).isTrue();
         assertThat(count("SELECT count(*) FROM import_batches WHERE account_id = ?", s.accountId()))
                 .isZero();
@@ -786,6 +788,7 @@ class ImportCommitTest {
         byte[] file = withdrawal("2026-11-21 09:00:00", RESERVA, "300.00");
         var first = commitPocket(s, file, bank, goal);
         assertThat(first).hasStatus(HttpStatus.CREATED);
+        assertThat(body(first).path("skippedDuplicates").asInt()).isZero();
         var funding = mvc.post()
                 .uri("/api/v1/goals/" + goal + "/contributions")
                 .header(HttpHeaders.AUTHORIZATION, TestUsers.bearer(s))

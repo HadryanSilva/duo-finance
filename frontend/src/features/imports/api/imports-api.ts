@@ -45,14 +45,20 @@ function toForm({ file, bankAccountId, productMapping }: PreviewInput): FormData
   return form
 }
 
-/** An import moves balances, the dashboard and budget spending, like any transaction. */
+/** An import moves balances, the dashboard and budget spending like any transaction; pocket moves change goals. */
 function useInvalidate() {
   const qc = useQueryClient()
   return () =>
     Promise.all(
-      [['transactions'], ['dashboard'], ['month-review'], ['bank-accounts'], ['budgets'], KEY].map(
-        (queryKey) => qc.invalidateQueries({ queryKey }),
-      ),
+      [
+        ['transactions'],
+        ['dashboard'],
+        ['month-review'],
+        ['bank-accounts'],
+        ['budgets'],
+        ['goals'],
+        KEY,
+      ].map((queryKey) => qc.invalidateQueries({ queryKey })),
     )
 }
 
