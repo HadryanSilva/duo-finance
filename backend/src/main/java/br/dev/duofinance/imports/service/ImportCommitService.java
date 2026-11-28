@@ -183,7 +183,6 @@ public class ImportCommitService {
         // Inserted in fingerprint order, so concurrent commits of overlapping files lock the unique-index entries in
         // the same order and cannot deadlock. The category memory keeps file order (the last choice wins).
         toInsert.sort(Comparator.comparing(PlannedRow::rowId));
-        int included = toInsert.size() + pocketMoves.size();
         int created = 0;
         int seen = 0;
         for (PlannedRow row : toInsert) {
@@ -191,6 +190,8 @@ public class ImportCommitService {
                 created++;
             }
         }
+        // Rows another import stored meanwhile; a pocket move that records nothing is not one of them.
+        int duplicates = toInsert.size() - created;
         // In statement order (started time, then file line): a withdrawal is clamped to what the goal held by then.
         // A move without a goal, or a withdrawal from an empty goal, records nothing.
         List<PlannedRow> goalRows = pocketMoves.stream()
@@ -213,11 +214,11 @@ public class ImportCommitService {
         if (created == 0 && seen == 0) {
             batches.delete(batch);
             batches.flush();
-            return new CommitResponse(null, 0, included);
+            return new CommitResponse(null, 0, duplicates);
         }
         batch.setRowCount(created);
         batches.flush();
-        return new CommitResponse(batch.getId(), created, included - created);
+        return new CommitResponse(batch.getId(), created, duplicates);
     }
 
     private record MemoryTarget(String key, TransactionKind kind) {}

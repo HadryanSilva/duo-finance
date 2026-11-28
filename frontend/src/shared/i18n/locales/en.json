@@ -507,7 +507,7 @@
     },
     "undo": {
       "title": "Undo this import?",
-      "message": "Its transactions will be deleted, including the ones you edited afterwards.",
+      "message": "Its transactions and goal movements will be deleted, including the ones you edited afterwards.",
       "confirm": "Undo"
     },
     "history": {

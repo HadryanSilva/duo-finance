@@ -5,7 +5,7 @@ import type { RowDecision } from '../api/imports-api'
 export type ReviewRow = PlannedRow & {
   include: boolean
   categoryId: string | null
-  /** Pocket rows: the goal the move goes to (null: none, the money stays in the free balance). */
+  /** Pocket rows: the goal the move contributes to or withdraws from (null: none, nothing is recorded). */
   goalId: string | null
 }
 
